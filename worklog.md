@@ -94,3 +94,74 @@ Stage Summary:
 - LocInsight v2.0 is production-ready
 - All 7 user improvement requests implemented + bonus: ML model registry, SHAP-style explanations, K-Means clustering
 - Best-practice references (Aug 2026): Placer.ai, GrowthFactor.ai, Felt.com, Targomo, MIT/Huff model, BPS Atlas Bali, OSM Nominatim/Overpass
+
+---
+Task ID: 11
+Agent: main
+Task: User's 4 additional improvement notes (Bali-only confirm, scraper review-flow, master-data city/country/source fields, Excel-like bulk edit + CSV/XLSX import/export with templates)
+
+Work Log:
+- Confirmed Phase 2 & 3 are already Bali-scoped (all data files use Bali bbox and Bali-only sources)
+- Installed `xlsx@0.18.5` + `papaparse@5.5.4` for spreadsheet/CSV handling
+- Updated Prisma schema — added 4 new fields across 7 models (Brand, Mall, Store, Poi, Kelurahan, Kabupaten, Kecamatan):
+  * `city` — Kota/kabupaten-level city (derived: Kota-type → name, Kabupaten-type → capital)
+  * `country` — defaults to "Indonesia"
+  * `source` — provenance string from each data file's documented source
+  * `province` — defaults to "Bali" (on Kabupaten + Kecamatan)
+- Pushed schema → SQLite via `prisma db push`
+- Rewrote `scripts/seed-db.ts` (v2) to populate all new fields from each data file's documented source-of-truth (BPS Bali 2024, map.co.id directory, nowbali.co.id, Google Maps POI, etc.)
+- Re-seeded: 80 stores, 20 malls, 27 brands, 172 kelurahan, 42 POIs, 9 kabupaten, 48 kecamatan — all with city/country/source populated
+- Created `src/lib/bulk-helpers.ts` — shared module with:
+  * `ENTITY_CONFIG` — field definitions for all 7 entities (key, label, type, required, default)
+  * `bulkUpsert()` — idempotent upsert by primary key
+  * `exportRows()` — dump all rows for export
+  * `rowsToCsv() / rowsToXlsx()` — convert to RFC 4180 CSV / SheetJS XLSX
+  * `buildTemplate()` — empty template with headers + 1 example row
+  * `parseCsv() / parseXlsx() / normalizeRowKeys()` — import parsers with label→key mapping
+- Created `src/app/api/locinsight/bulk/route.ts`:
+  * GET ?entity=X&format=csv|xlsx → download export
+  * GET ?entity=X&format=csv|xlsx&template=true → download template
+  * POST { entity, rows } → bulk upsert (JSON)
+  * PUT { entity, rows } → bulk update only (no create)
+- Created `src/app/api/locinsight/bulk/upload/route.ts` — multipart file upload (CSV/XLSX), 10 MB limit, 5000 row limit
+- Created `src/lib/scraper-types.ts` — shared `ScraperResultRow` + `GeocodedResult` interfaces
+- Refactored `src/app/api/locinsight/scrape/route.ts`:
+  * Removed auto-save behavior — `save` body param ignored
+  * Returns ALL results with `review_required: true` flag
+  * Exported `runScrape()` shared function + `ScraperResultRow` type
+  * Fixed Nominatim fallback: removed broken `OR` syntax (Nominatim doesn't support it), now issues 3 separate queries per kind with proper 1.1s rate-limit delays
+- Created `src/app/api/locinsight/scrape-save/route.ts` — accepts `{ run_id, query, geocoded, items[] }` from the UI, validates on-land per item, dedupes within 50m, creates a placeholder `BR_SCRAPER` brand on first run (FK target), persists selected items with proper source attribution
+- Rebuilt `src/components/locinsight/data-manager.tsx`:
+  * Added Tabs: "Table View" (read-only) vs "Spreadsheet (Bulk Edit)" (inline-editable)
+  * Spreadsheet mode: all fields visible as columns, inline cells (text/number/select/boolean), changed rows highlighted amber, "Save Changes" button calls PUT /bulk
+  * Added Import (file picker), CSV, XLSX, Template download buttons in the header
+  * Increased page_size to 100 for spreadsheet mode
+  * All field configs updated with city/country/source columns + required-field markers
+- Rebuilt `src/components/locinsight/scraper.tsx`:
+  * Removed "Auto-save" toggle (no longer relevant)
+  * Button label changed to "Scrape Now (review only — no auto-save)"
+  * Results panel: each row has a checkbox (disabled for in-sea items), filter pills (All/Stores/Malls/POIs/On-land/Sea), selection toolbar with "All on-land", "All visible", "Clear" buttons
+  * "Save Selected (N)" button calls POST /scrape-save with the selected items + geocoded context
+  * On-land items auto-selected by default for convenience
+  * Visual cues: in-sea rows highlighted amber with warning icon, selected rows highlighted red
+- All 4 improvements tested end-to-end:
+  * CSV export → 80 stores downloaded with city/country/source columns
+  * XLSX export → valid Excel file (31 KB)
+  * CSV template → headers + 1 example row
+  * CSV upload → "1 created, 0 updated, 0 errors" (test record)
+  * Scraper "Starbucks Kuta" → 14 results found (Nominatim fallback after Overpass timeout in sandbox env)
+  * Scraper-save → 2 selected Starbucks saved with proper source attribution
+  * Cleanup: deleted test records, verified counts back to original
+- TypeScript: 0 errors (tsc --noEmit passes clean)
+- Browser-verified: Data Manager shows Import/CSV/XLSX/Template buttons + Table/Spreadsheet tabs; Spreadsheet view shows all 20 columns for stores; Scraper page shows "review only — no auto-save" CTA
+- Screenshots saved: v3-data-manager-spreadsheet.png, v3-spreadsheet-view.png
+
+Stage Summary:
+- All 4 user notes implemented:
+  1. ✅ Bali-only scope confirmed (Phase 2 & 3)
+  2. ✅ Scraper now returns results for review; user selects + saves only approved items
+  3. ✅ All master data has city/country/source fields, populated from documented sources
+  4. ✅ Data Manager has Excel-like Spreadsheet mode for bulk editing + CSV/XLSX import/export with templates
+- New API surface: /api/locinsight/bulk (GET/POST/PUT), /api/locinsight/bulk/upload (POST), /api/locinsight/scrape-save (POST)
+- New shared modules: src/lib/bulk-helpers.ts, src/lib/scraper-types.ts
+- Best-practice references (Aug 2026): RFC 4180 CSV, SheetJS xlsx@0.18.5, Nominatim usage policy (1 req/sec), Prisma upsert idempotency, ODbL license attribution

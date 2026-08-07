@@ -28,6 +28,9 @@ model Brand {
   price_segment       String   // 'mass' | 'mid' | 'premium' | 'luxury'
   brand_strength      Float    // 0-1
   notes               String   @default("")
+  city                String   @default("") // HQ city (e.g., 'Jakarta' for MAP HQ)
+  country             String   @default("Indonesia") // HQ country
+  source              String   @default("map.co.id/brands") // provenance of this record
   stores              Store[]
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -40,6 +43,8 @@ model Mall {
   lng                 Float
   kec                 String
   kab                 String
+  city                String   @default("") // city/kota name (e.g., 'Denpasar', 'Kuta')
+  country             String   @default("Indonesia")
   gla_m2              Int
   opened_year         Int
   class               String   // 'super_regional' | 'regional' | 'community' | 'specialty'
@@ -49,6 +54,7 @@ model Mall {
   has_department_store Boolean @default(false)
   visitor_estimate_daily Int
   notes               String   @default("")
+  source              String   @default("nowbali.co.id") // provenance
   stores              Store[]
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -65,6 +71,8 @@ model Store {
   lng             Float
   kec             String
   kab             String
+  city            String   @default("") // city/kota
+  country         String   @default("Indonesia")
   is_in_mall      Boolean  @default(false)
   mall_id         String?
   mall_name       String?
@@ -72,6 +80,7 @@ model Store {
   opened_year     Int
   estimated_size_m2 Int    @default(0)
   confirmed       Boolean  @default(false)
+  source          String   @default("map.co.id directory") // provenance
   brand           Brand?   @relation(fields: [brand_id], references: [id])
   mall            Mall?    @relation(fields: [mall_id], references: [id])
   createdAt       DateTime @default(now())
@@ -86,8 +95,11 @@ model Poi {
   lng       Float
   kec       String
   kab       String
+  city      String   @default("") // city/kota
+  country   String   @default("Indonesia")
   magnitude Float
   notes     String   @default("")
+  source    String   @default("Google Maps POI") // provenance
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -100,6 +112,8 @@ model Kelurahan {
   kec_name            String
   kab_code            String
   kab_name            String
+  city                String   @default("") // city/kota (== kab_name when same, e.g., Denpasar)
+  country             String   @default("Indonesia")
   tier                Int      // 1 | 2 | 3
   lat                 Float
   lng                 Float
@@ -112,6 +126,7 @@ model Kelurahan {
   transport_index     Int
   poi_density_index   Int
   is_coastal          Boolean  @default(false)
+  source              String   @default("BPS Bali 2024") // provenance
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -123,6 +138,9 @@ model Kabupaten {
   capital             String
   lat                 Float
   lng                 Float
+  city                String   @default("") // For Kota-type, == name; for Kabupaten, == capital
+  country             String   @default("Indonesia")
+  province            String   @default("Bali")
   area_km2            Float
   population_2024     Int
   population_density  Int
@@ -131,6 +149,7 @@ model Kabupaten {
   hdmi_2024           Float
   tourist_hotels      Int
   notes               String   @default("")
+  source              String   @default("BPS Bali 2024") // provenance
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -139,6 +158,9 @@ model Kecamatan {
   code            String   @id
   name            String
   kabupaten_code  String
+  city            String   @default("") // city/kota
+  country         String   @default("Indonesia")
+  province        String   @default("Bali")
   lat             Float
   lng             Float
   population_2024 Int
@@ -146,6 +168,7 @@ model Kecamatan {
   tier            Int
   urban_score     Int
   is_capital      Boolean  @default(false)
+  source          String   @default("BPS Bali 2024") // provenance
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
