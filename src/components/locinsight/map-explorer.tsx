@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MapPin, Building2, Store, Compass, Filter, Crosshair } from 'lucide-react'
+import { MapPin, Building2, Compass, Filter, Crosshair } from 'lucide-react'
+import { Store as StoreIcon } from 'lucide-react'
 import type { OpportunityScore, Store, Mall, POI } from './types'
 
 interface MapExplorerProps {
@@ -38,6 +39,8 @@ export function MapExplorer({
   const [showMalls, setShowMalls] = useState(true)
   const [showPOIs, setShowPOIs] = useState(false)
   const [showHeat, setShowHeat] = useState(true)
+  const [heatMode, setHeatMode] = useState<'point' | 'region'>('region')
+  const [heatMetric, setHeatMetric] = useState<'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'>('avg_score')
   const [tierFilter, setTierFilter] = useState<1 | 2 | 3 | 'all'>('all')
   const [recFilter, setRecFilter] = useState<'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'>('all')
 
@@ -79,6 +82,8 @@ export function MapExplorer({
             showMalls={showMalls}
             showPOIs={showPOIs}
             showHeat={showHeat}
+            heatMode={heatMode}
+            heatMetric={heatMetric}
             tierFilter={tierFilter}
             recommendationFilter={recFilter}
             height="calc(100vh - 220px)"
@@ -134,16 +139,44 @@ export function MapExplorer({
             <CardContent className="space-y-3 pt-0">
               <LayerToggle
                 label="Opportunity Heat"
-                desc="Colored circles by score"
+                desc={heatMode === 'region' ? 'Regional choropleth (kabupaten)' : 'Point intensity (leaflet.heat)'}
                 icon={Crosshair}
                 checked={showHeat}
                 onCheckedChange={setShowHeat}
                 color="var(--brand-red)"
               />
+              {showHeat && (
+                <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Heat Mode</Label>
+                    <Select value={heatMode} onValueChange={(v) => setHeatMode(v as 'point' | 'region')}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="region">Regional (per Kabupaten)</SelectItem>
+                        <SelectItem value="point">Point (per Kelurahan)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {heatMode === 'region' && (
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Metric</Label>
+                      <Select value={heatMetric} onValueChange={(v) => setHeatMetric(v as any)}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="avg_score">Average composite score</SelectItem>
+                          <SelectItem value="max_score">Best score in region</SelectItem>
+                          <SelectItem value="high_priority_count"># high-priority sites</SelectItem>
+                          <SelectItem value="store_density"># kelurahan covered</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
               <LayerToggle
                 label="Existing MAP Stores"
                 desc={`${stores.length} stores (80 confirmed + estimates)`}
-                icon={Store}
+                icon={StoreIcon}
                 checked={showStores}
                 onCheckedChange={setShowStores}
                 color="var(--brand-red)"

@@ -14,6 +14,8 @@ import {
 } from 'react-leaflet'
 import L from 'leaflet'
 import type { OpportunityScore, Store, Mall, POI } from './types'
+import { HeatLayer } from './heat-layer'
+import { ChoroplethLayer } from './choropleth-layer'
 
 // Fix default icon path issue with Next.js + Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -97,6 +99,10 @@ export interface LocInsightMapProps {
   showMalls: boolean
   showPOIs: boolean
   showHeat: boolean
+  /** 'point' = leaflet.heat intensity; 'region' = kabupaten choropleth */
+  heatMode?: 'point' | 'region'
+  /** Choropleth metric (only used when heatMode='region') */
+  heatMetric?: 'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'
   tierFilter: 1 | 2 | 3 | 'all'
   recommendationFilter: 'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'
   height?: string
@@ -113,6 +119,8 @@ export function LocInsightMap({
   showMalls,
   showPOIs,
   showHeat,
+  heatMode = 'point',
+  heatMetric = 'avg_score',
   tierFilter,
   recommendationFilter,
   height = '600px',
@@ -163,6 +171,35 @@ export function LocInsightMap({
         <ZoomControl position="bottomright" />
 
         {selected && <FlyTo lat={selected.lat} lng={selected.lng} zoom={13} />}
+
+        {/* Regional choropleth heatmap (per kabupaten) */}
+        {showHeat && heatMode === 'region' && (
+          <ChoroplethLayer
+            opportunities={filteredOpps}
+            metric={heatMetric}
+            showLabels
+            activeTier={tierFilter}
+          />
+        )}
+
+        {/* Point-based heatmap (leaflet.heat) */}
+        {showHeat && heatMode === 'point' && (
+          <HeatLayer
+            points={filteredOpps.map(o => [o.lat, o.lng, o.composite_score / 100] as [number, number, number])}
+            radius={28}
+            blur={22}
+            maxZoom={13}
+            minOpacity={0.20}
+            gradient={{
+              0.0: '#F3D0C5',
+              0.3: '#E8917A',
+              0.5: '#D45F4A',
+              0.7: '#C8102E',
+              0.85: '#A30F23',
+              1.0: '#7A0A1A',
+            }}
+          />
+        )}
 
         {/* Opportunity markers */}
         <LayerGroup>

@@ -9,18 +9,27 @@ import { Analysis } from '@/components/locinsight/analysis'
 import { MallNetwork } from '@/components/locinsight/mall-network'
 import { BrandsCoverage } from '@/components/locinsight/brands-coverage'
 import { Methodology } from '@/components/locinsight/methodology'
+import { Reports } from '@/components/locinsight/reports'
+import { DataManager } from '@/components/locinsight/data-manager'
+import { Scraper } from '@/components/locinsight/scraper'
+import { MLAIEngine } from '@/components/locinsight/ml-ai-engine'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
+  FileText, Database, Search, Brain,
 } from 'lucide-react'
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & KPI' },
-  { id: 'map', label: 'Map Explorer', icon: Map, description: 'Peta interaktif' },
+  { id: 'map', label: 'Map Explorer', icon: Map, description: 'Peta interaktif + heatmap' },
   { id: 'opportunities', label: 'Opportunities', icon: Target, description: 'Top expansion sites' },
   { id: 'analysis', label: 'Deep Analysis', icon: Crosshair, description: 'Per-kelurahan detail' },
   { id: 'brands', label: 'Brand Coverage', icon: Store, description: 'MAP & MAA portfolio' },
   { id: 'malls', label: 'Mall Network', icon: Building2, description: 'Mall tenant coverage' },
+  { id: 'ml', label: 'ML / AI Engine', icon: Brain, description: 'Model registry & predictions' },
+  { id: 'reports', label: 'Reports', icon: FileText, description: 'Export PDF/CSV/JSON' },
+  { id: 'data', label: 'Data Manager', icon: Database, description: 'CRUD master data' },
+  { id: 'scraper', label: 'Data Scraper', icon: Search, description: 'Auto-scrape OSM data' },
   { id: 'methodology', label: 'Methodology', icon: BookOpen, description: 'Framework & data sources' },
 ]
 
@@ -168,6 +177,10 @@ export default function Home() {
               onSelectKelurahan={handleSelectKelurahan}
             />
           )}
+          {activeView === 'ml' && <MLAIEngine />}
+          {activeView === 'reports' && <Reports />}
+          {activeView === 'data' && <DataManager />}
+          {activeView === 'scraper' && <Scraper />}
           {activeView === 'methodology' && <Methodology />}
         </div>
 
@@ -176,10 +189,10 @@ export default function Home() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa ·
-              Phase 1 Bali Pilot · v1.0
+              Phase 1 Bali Pilot · v2.0
             </div>
             <div>
-              Built with Next.js 16 + React-Leaflet · Composite ML + Huff Gravity Model
+              Built with Next.js 16 + React-Leaflet + Prisma · Composite ML + Huff Gravity Model + OSM Scraper
             </div>
           </div>
         </footer>

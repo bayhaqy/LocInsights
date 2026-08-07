@@ -13,6 +13,7 @@
 
 import { KECAMATAN_LIST, type Kecamatan, getKabupaten } from './bali-admin'
 import { BALI_POIS } from './bali-poi'
+import { isOnBaliLand, snapToLand } from './bali-land'
 
 export interface Kelurahan {
   id: string
@@ -106,9 +107,19 @@ function generateKelurahan(): Kelurahan[] {
     for (let i = 0; i < kelCount; i++) {
       // Spread kelurahan around kecamatan centroid
       const angle = (i / kelCount) * Math.PI * 2 + rand() * 0.5
-      const radiusKm = 1.5 + rand() * (kec.area_km2 > 100 ? 6 : 3)
-      const lat = kec.lat + (radiusKm / 111) * Math.cos(angle) * (rand() > 0.5 ? 1 : -0.6)
-      const lng = kec.lng + (radiusKm / (111 * Math.cos((kec.lat * Math.PI) / 180))) * Math.sin(angle)
+      // Use a more conservative radius to avoid pushing points into the sea
+      const maxRadius = kec.area_km2 > 100 ? 4.5 : 2.0
+      const radiusKm = 0.8 + rand() * maxRadius
+      let lat = kec.lat + (radiusKm / 111) * Math.cos(angle)
+      let lng = kec.lng + (radiusKm / (111 * Math.cos((kec.lat * Math.PI) / 180))) * Math.sin(angle)
+
+      // Snap to land if the point ended up in the sea (Bali is a small island,
+      // so points near coastal kecamatan often land offshore).
+      if (!isOnBaliLand(lat, lng)) {
+        const snapped = snapToLand(lat, lng, kec.lat, kec.lng)
+        lat = snapped.lat
+        lng = snapped.lng
+      }
 
       // Population proportional to kec with variance
       const popShare = (0.15 + rand() * 0.20) // 15-35% of kecamatan pop

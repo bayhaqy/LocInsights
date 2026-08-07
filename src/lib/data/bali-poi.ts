@@ -69,7 +69,7 @@ export const BALI_POIS: POI[] = [
   // Transit hubs
   { id: 'POI301', name: 'Ngurah Rai International Airport (DPS)', type: 'transit_hub', lat: -8.7481, lng: 115.1672, kec: 'Kuta', kab: 'Badung', magnitude: 24_500_000, notes: '24.5M passengers/year (2024). #2 airport in Indonesia.' },
   { id: 'POI302', name: 'Padangbai Harbor', type: 'port', lat: -8.5311, lng: 115.5011, kec: 'Manggis', kab: 'Karangasem', magnitude: 1_800_000, notes: 'Ferry to Lombok & Nusa Penida.' },
-  { id: 'POI303', name: 'Gilimanuk Harbor', type: 'port', lat: -8.3711, lng: 114.6511, kec: 'Melaya', kab: 'Jembrana', magnitude: 2_400_000, notes: 'Java-Bali ferry crossing.' },
+  { id: 'POI303', name: 'Gilimanuk Harbor', type: 'port', lat: -8.0825, lng: 114.4380, kec: 'Melaya', kab: 'Jembrana', magnitude: 2_400_000, notes: 'Java-Bali ferry crossing. Westernmost Bali.' },
   { id: 'POI304', name: 'Sanur Port (Nusa Penida speedboat)', type: 'port', lat: -8.6747, lng: 115.2611, kec: 'Denpasar Timur', kab: 'Denpasar', magnitude: 2_100_000, notes: 'Speedboat to Nusa Penida & Lembongan.' },
 
   // Universities
@@ -80,7 +80,7 @@ export const BALI_POIS: POI[] = [
 
   // Hospitals (large only)
   { id: 'POI501', name: 'RSUP Sanglah Denpasar', type: 'hospital', lat: -8.6708, lng: 115.2169, kec: 'Denpasar Selatan', kab: 'Denpasar', magnitude: 1500, notes: 'Largest hospital in Bali (beds).' },
-  { id: 'POI502', name: 'RS Bali Mandara', type: 'hospital', lat: -8.6911, lng: 115.2711, kec: 'Denpasar Timur', kab: 'Denpasar', magnitude: 600, notes: 'Sanur hospital.' },
+  { id: 'POI502', name: 'RS Bali Mandara', type: 'hospital', lat: -8.6786, lng: 115.2589, kec: 'Denpasar Timur', kab: 'Denpasar', magnitude: 600, notes: 'Sanur hospital.' },
   { id: 'POI503', name: 'RSUP Buleleng Singaraja', type: 'hospital', lat: -8.1147, lng: 115.0917, kec: 'Singaraja', kab: 'Buleleng', magnitude: 400, notes: 'North Bali main hospital.' },
 
   // Office / commercial clusters

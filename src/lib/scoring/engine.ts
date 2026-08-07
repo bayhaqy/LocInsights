@@ -70,7 +70,7 @@ export interface OpportunityScore {
 
 export interface ScoringConfig {
   brand_id?: string // target brand; if absent, use generic F&B+Sports blend
-  trade_area_radius_km: number // default 3
+  trade_area_radius_km?: number // default 3
   weights?: Partial<{
     market_potential: number
     accessibility: number
@@ -261,7 +261,7 @@ export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): Oppo
   const numerator = newStoreAttractiveness / Math.pow(Math.max(distToNew, 0.3), lambda)
   const denominator = numerator + competingStores.reduce((sum, s) => {
     const d = Math.max(haversineKm(kel.lat, kel.lng, s.lat, s.lng), 0.3)
-    const attract = s.estimated_size_m2 * (BRANDS.find(b => b.id === s.brand_id)?.brand_strength ?? 0.7)
+    const attract = (s.estimated_size_m2 ?? 120) * (BRANDS.find(b => b.id === s.brand_id)?.brand_strength ?? 0.7)
     return sum + attract / Math.pow(d, lambda)
   }, 0)
   const marketShare = numerator / denominator

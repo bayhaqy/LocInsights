@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Store, Building2, Layers } from 'lucide-react'
+import { Store as StoreIcon, Building2, Layers } from 'lucide-react'
 import type { Brand, Store } from './types'
 
 interface BrandsCoverageProps {
@@ -53,9 +53,9 @@ export function BrandsCoverage({ brands, stores }: BrandsCoverageProps) {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard label="Total Brands" value={brands.length.toString()} icon={Store} accent="ink" />
-        <SummaryCard label="MAP Brands" value={brands.filter(b => b.parent === 'MAP').length.toString()} icon={Store} accent="red" />
-        <SummaryCard label="MAA Brands" value={brands.filter(b => b.parent === 'MAA').length.toString()} icon={Store} accent="ink" />
+        <SummaryCard label="Total Brands" value={brands.length.toString()} icon={StoreIcon} accent="ink" />
+        <SummaryCard label="MAP Brands" value={brands.filter(b => b.parent === 'MAP').length.toString()} icon={StoreIcon} accent="red" />
+        <SummaryCard label="MAA Brands" value={brands.filter(b => b.parent === 'MAA').length.toString()} icon={StoreIcon} accent="ink" />
         <SummaryCard label="In-Mall %" value={`${Math.round((stores.filter(s => s.is_in_mall).length / stores.length) * 100)}%`} icon={Building2} accent="red" />
       </div>
 

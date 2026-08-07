@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Store, AlertCircle, CheckCircle2, MapPin } from 'lucide-react'
+import { Building2, Store as StoreIcon, AlertCircle, CheckCircle2, MapPin } from 'lucide-react'
 import type { Mall, Store, Brand } from './types'
 
 interface MallNetworkProps {
@@ -132,7 +132,7 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
       <Card className="card-premium">
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
-            <Store className="w-4 h-4 text-[var(--brand-red)]" />
+            <StoreIcon className="w-4 h-4 text-[var(--brand-red)]" />
             Mall Tenant Map (sorted by GLA)
           </CardTitle>
         </CardHeader>

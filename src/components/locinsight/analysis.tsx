@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Crosshair, TrendingUp, Store, Building2, MapPin, AlertCircle,
+  Crosshair, TrendingUp, Store as StoreIcon, Building2, MapPin, AlertCircle,
   Activity, DollarSign, Users, Target, CheckCircle2, Info,
 } from 'lucide-react'
 import type { OpportunityScore, Brand, KelurahanLite, Store, Mall, POI } from './types'
@@ -253,7 +253,7 @@ function AnalysisView({ data }: { data: any }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <NearbyCard
           title="Nearby MAP Stores (5km)"
-          icon={Store}
+          icon={StoreIcon}
           accent="red"
           count={nearby_stores.length}
         >

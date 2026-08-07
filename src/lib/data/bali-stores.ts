@@ -28,7 +28,7 @@ export interface Store {
   mall_name?: string
   address: string
   opened_year: number
-  estimated_size_m2: number
+  estimated_size_m2?: number
   confirmed: boolean // verified via mall directory
 }
 

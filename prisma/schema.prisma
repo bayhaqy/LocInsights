@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// LocInsight Prisma schema
+// All master data is editable via the Data Manager UI.
+// The seed scripts import the original static .ts data files into these tables.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +11,209 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+// =============================================================
+// Master data — editable via Data Manager CRUD UI
+// =============================================================
+
+model Brand {
+  id                  String   @id
+  name                String
+  parent              String   // 'MAP' | 'MAA'
+  category            String   // 'food_beverage' | 'sports' | 'fashion' | 'department_store' | 'kids' | 'lifestyle' | 'beauty'
+  origin_country      String
+  format              String
+  location_preference String   // 'mall' | 'street' | 'both'
+  typical_size_m2     Int
+  target_audience     String
+  price_segment       String   // 'mass' | 'mid' | 'premium' | 'luxury'
+  brand_strength      Float    // 0-1
+  notes               String   @default("")
+  stores              Store[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Mall {
+  id                  String   @id
+  name                String
+  lat                 Float
+  lng                 Float
+  kec                 String
+  kab                 String
+  gla_m2              Int
+  opened_year         Int
+  class               String   // 'super_regional' | 'regional' | 'community' | 'specialty'
+  anchor_count        Int      @default(0)
+  has_cinema          Boolean  @default(false)
+  has_supermarket     Boolean  @default(false)
+  has_department_store Boolean @default(false)
+  visitor_estimate_daily Int
+  notes               String   @default("")
+  stores              Store[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Store {
+  id              String   @id
+  brand_id        String
+  brand_name      String
+  brand_category  String
+  parent          String   // 'MAP' | 'MAA'
+  name            String
+  lat             Float
+  lng             Float
+  kec             String
+  kab             String
+  is_in_mall      Boolean  @default(false)
+  mall_id         String?
+  mall_name       String?
+  address         String
+  opened_year     Int
+  estimated_size_m2 Int    @default(0)
+  confirmed       Boolean  @default(false)
+  brand           Brand?   @relation(fields: [brand_id], references: [id])
+  mall            Mall?    @relation(fields: [mall_id], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Poi {
+  id        String   @id
+  name      String
+  type      String   // 'tourist_attraction' | 'beach' | 'temple' | 'hotel_cluster' | 'transit_hub' | 'university' | 'hospital' | 'office_cluster' | 'port'
+  lat       Float
+  lng       Float
+  kec       String
+  kab       String
+  magnitude Float
+  notes     String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Kelurahan {
+  id                  String   @id
+  code                String
+  name                String
+  kec_code            String
+  kec_name            String
+  kab_code            String
+  kab_name            String
+  tier                Int      // 1 | 2 | 3
+  lat                 Float
+  lng                 Float
+  population          Int
+  area_km2            Float
+  density             Int
+  urban_index         Int
+  income_index        Int
+  tourist_index       Int
+  transport_index     Int
+  poi_density_index   Int
+  is_coastal          Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Kabupaten {
+  code                String   @id
+  name                String
+  type                String   // 'Kabupaten' | 'Kota'
+  capital             String
+  lat                 Float
+  lng                 Float
+  area_km2            Float
+  population_2024     Int
+  population_density  Int
+  gdrp_per_capita_juta Float
+  tier                Int
+  hdmi_2024           Float
+  tourist_hotels      Int
+  notes               String   @default("")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Kecamatan {
+  code            String   @id
+  name            String
+  kabupaten_code  String
+  lat             Float
+  lng             Float
+  population_2024 Int
+  area_km2        Float
+  tier            Int
+  urban_score     Int
+  is_capital      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// =============================================================
+// ML/AI — model metadata, training runs, predictions
+// =============================================================
+
+model MLModel {
+  id              String   @id
+  name            String
+  version         String
+  type            String   // 'site_scoring' | 'revenue_forecast' | 'cannibalization' | 'cluster'
+  algorithm       String   // 'huff_gravity' | 'xgboost' | 'random_forest' | 'kmeans' | 'dbscan'
+  description     String
+  features        String   // JSON array
+  hyperparameters String   // JSON
+  metrics         String   // JSON: { rmse, mae, r2, ... }
+  status          String   @default("active") // 'active' | 'archived' | 'experimental'
+  trained_at      DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  predictions     Prediction[]
+}
+
+model Prediction {
+  id           String   @id @default(cuid())
+  model_id     String
+  model        MLModel  @relation(fields: [model_id], references: [id])
+  target_type  String   // 'kelurahan' | 'store' | 'mall'
+  target_id    String
+  target_name  String
+  prediction   Float
+  confidence   Float    @default(0)
+  explanation  String   // JSON
+  createdAt    DateTime @default(now())
+}
+
+// =============================================================
+// Scraper runs — log of all OSM/external data scraping operations
+// =============================================================
+
+model ScraperRun {
+  id          String   @id @default(cuid())
+  query       String
+  source      String   // 'nominatim' | 'overpass' | 'manual' | 'bps'
+  status      String   // 'pending' | 'running' | 'success' | 'failed' | 'partial'
+  found_count Int      @default(0)
+  saved_count Int      @default(0)
+  error       String?
+  result_json String   @default("[]") // JSON of found items
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+}
+
+// =============================================================
+// Reports — generated report metadata
+// =============================================================
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // 'executive_summary' | 'site_analysis' | 'brand_expansion' | 'regional_comparison'
+  format      String   // 'pdf' | 'xlsx' | 'csv' | 'json'
+  filters     String   @default("{}") // JSON
+  status      String   @default("pending") // 'pending' | 'generated' | 'failed'
+  file_path   String?
+  file_size_kb Int?
+  generated_by String  @default("system")
+  createdAt   DateTime @default(now())
 }
