@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LocInsight — Location Intelligence for MAP Active",
   description:
-    "LocInsight (Location Insight) — data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali (Phase 1) using composite ML scoring and Huff gravity market-share modeling.",
+    "LocInsight (Location Insight) — data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali using composite ML scoring, Huff gravity modeling, competitor intel, GBR revenue prediction, and field-surveyor PWA.",
   keywords: [
     "LocInsight",
     "Location Intelligence",
@@ -29,19 +29,24 @@ export const metadata: Metadata = {
     "Retail Site Selection",
     "Geomarketing",
     "Huff Model",
+    "Gradient Boosting",
     "Bali",
     "Expansion Strategy",
   ],
   authors: [{ name: "MAP Active Data Team" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
+  manifest: "/manifest.json",
   openGraph: {
     title: "LocInsight — Location Intelligence",
     description: "Data-driven retail expansion decisioning for MAP Active",
     siteName: "LocInsight",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7A0A1A",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

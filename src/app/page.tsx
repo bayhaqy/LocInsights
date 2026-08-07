@@ -13,20 +13,28 @@ import { Reports } from '@/components/locinsight/reports'
 import { DataManager } from '@/components/locinsight/data-manager'
 import { Scraper } from '@/components/locinsight/scraper'
 import { MLAIEngine } from '@/components/locinsight/ml-ai-engine'
+import { CompetitorIntel } from '@/components/locinsight/competitor-intel'
+import { ABTestSimulator } from '@/components/locinsight/ab-test-simulator'
+import { FieldSurveys } from '@/components/locinsight/field-surveys'
+import { MallTenants } from '@/components/locinsight/mall-tenants'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
-  FileText, Database, Search, Brain,
+  FileText, Database, Search, Brain, Shield, GitCompareArrows, Smartphone, StoreIcon,
 } from 'lucide-react'
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & KPI' },
   { id: 'map', label: 'Map Explorer', icon: Map, description: 'Peta interaktif + heatmap' },
   { id: 'opportunities', label: 'Opportunities', icon: Target, description: 'Top expansion sites' },
-  { id: 'analysis', label: 'Deep Analysis', icon: Crosshair, description: 'Per-kelurahan detail' },
+  { id: 'analysis', label: 'Deep Analysis', icon: Crosshair, description: 'Per-kelurahan detail + isochrones' },
   { id: 'brands', label: 'Brand Coverage', icon: Store, description: 'MAP & MAA portfolio' },
   { id: 'malls', label: 'Mall Network', icon: Building2, description: 'Mall tenant coverage' },
-  { id: 'ml', label: 'ML / AI Engine', icon: Brain, description: 'Model registry & predictions' },
+  { id: 'competitors', label: 'Competitor Intel', icon: Shield, description: 'Phase 2 — competitor scraping' },
+  { id: 'ab', label: 'A/B Simulator', icon: GitCompareArrows, description: 'Phase 2 — weight comparison' },
+  { id: 'ml', label: 'ML / AI Engine', icon: Brain, description: 'GBR revenue predictor + training' },
+  { id: 'mall_tenants', label: 'Mall Tenants', icon: StoreIcon, description: 'Phase 3 — live tenant audit' },
+  { id: 'surveys', label: 'Field Surveys', icon: Smartphone, description: 'Phase 3 — PWA submissions' },
   { id: 'reports', label: 'Reports', icon: FileText, description: 'Export PDF/CSV/JSON' },
   { id: 'data', label: 'Data Manager', icon: Database, description: 'CRUD master data' },
   { id: 'scraper', label: 'Data Scraper', icon: Search, description: 'Auto-scrape OSM data' },
@@ -46,7 +54,6 @@ export default function Home() {
       .then(j => {
         if (j.success) {
           setData(j.data)
-          // Auto-select top opportunity for initial map focus
           if (j.data.top_opportunities?.[0]) {
             setSelectedKelurahanId(j.data.top_opportunities[0].kelurahan_id)
           }
@@ -60,8 +67,6 @@ export default function Home() {
 
   const handleSelectKelurahan = (id: string) => {
     setSelectedKelurahanId(id)
-    // Optional: auto-navigate to analysis view
-    // setActiveView('analysis')
   }
 
   if (loading) {
@@ -72,7 +77,7 @@ export default function Home() {
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-[var(--brand-red)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <div className="text-[14px] text-[var(--brand-ink)]/70 font-medium">Loading LocInsight…</div>
-            <div className="text-[11px] text-[var(--brand-ink)]/50 mt-1">Computing scores for 172 kelurahan…</div>
+            <div className="text-[11px] text-[var(--brand-ink)]/50 mt-1">Computing scores for 172 kelurahan + competitor data…</div>
           </div>
         </div>
       </div>
@@ -107,7 +112,6 @@ export default function Home() {
       />
 
       <main className="flex-1 overflow-x-hidden">
-        {/* Top bar */}
         <header className="bg-white border-b border-[var(--brand-border)] px-6 py-3 sticky top-0 z-30 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-[12px] text-[var(--brand-ink)]/60">
@@ -120,7 +124,7 @@ export default function Home() {
           <div className="flex items-center gap-3 text-[11px] text-[var(--brand-ink)]/60">
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 pulse-dot" />
-              <span>Live data · Bali Phase 1</span>
+              <span>Live · Bali · Phase 1+2+3</span>
             </div>
             <div className="text-[var(--brand-ink)]/40">·</div>
             <div>Updated: Aug 2026</div>
@@ -177,22 +181,25 @@ export default function Home() {
               onSelectKelurahan={handleSelectKelurahan}
             />
           )}
+          {activeView === 'competitors' && <CompetitorIntel />}
+          {activeView === 'ab' && <ABTestSimulator />}
           {activeView === 'ml' && <MLAIEngine />}
+          {activeView === 'mall_tenants' && <MallTenants malls={data.malls} />}
+          {activeView === 'surveys' && <FieldSurveys />}
           {activeView === 'reports' && <Reports />}
           {activeView === 'data' && <DataManager />}
           {activeView === 'scraper' && <Scraper />}
           {activeView === 'methodology' && <Methodology />}
         </div>
 
-        {/* Footer */}
         <footer className="bg-[var(--brand-ink)] text-white/60 text-[11px] px-6 py-4 mt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa ·
-              Phase 1 Bali Pilot · v2.0
+              Phase 1+2+3 Bali · v3.0
             </div>
             <div>
-              Built with Next.js 16 + React-Leaflet + Prisma · Composite ML + Huff Gravity Model + OSM Scraper
+              Next.js 16 + React-Leaflet + Prisma + GBR (Friedman 2001) + Huff Gravity + PWA
             </div>
           </div>
         </footer>

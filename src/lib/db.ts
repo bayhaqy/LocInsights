@@ -10,4 +10,7 @@ export const db =
     log: ['query'],
   })
 
+// Alias for code that uses the conventional `prisma` name
+export const prisma = db
+
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db

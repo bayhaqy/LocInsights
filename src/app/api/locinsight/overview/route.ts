@@ -5,6 +5,8 @@ import { BALI_MALLS } from '@/lib/data/bali-malls'
 import { BALI_KELURAHAN } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { BALI_POIS } from '@/lib/data/bali-poi'
+import { loadCompetitorStores } from '@/lib/scoring/db-engine'
+import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +19,17 @@ export async function GET(req: NextRequest) {
   const brandId = searchParams.get('brand_id') || undefined
   const tierFilter = searchParams.get('tier') ? Number(searchParams.get('tier')) as 1 | 2 | 3 : undefined
 
-  const stats = getDashboardStats()
-  const topOpps = getTopOpportunities(50, { brand_id: brandId }, tierFilter)
+  // Phase 2: load competitor stores from DB
+  const competitors = await loadCompetitorStores()
+  const stats = getDashboardStats(competitors)
+  const topOpps = getTopOpportunities(50, { brand_id: brandId, competitorStores: competitors, useTravelTime: true }, tierFilter)
+
+  // Phase 3: count of field surveys + training runs
+  const [pendingSurveys, latestTrainingRun, competitorBrands] = await Promise.all([
+    prisma.fieldSurvey.count({ where: { review_status: 'pending' } }),
+    prisma.trainingRun.findFirst({ orderBy: { startedAt: 'desc' } }),
+    prisma.competitorStore.groupBy({ by: ['brand_name'], _count: true, orderBy: { _count: { brand_name: 'desc' } } }),
+  ])
 
   return NextResponse.json({
     success: true,
@@ -26,6 +37,17 @@ export async function GET(req: NextRequest) {
     data: {
       stats,
       top_opportunities: topOpps,
+      phase_2_3: {
+        pending_field_surveys: pendingSurveys,
+        latest_training_run: latestTrainingRun ? {
+          id: latestTrainingRun.id,
+          model_name: latestTrainingRun.model_name,
+          status: latestTrainingRun.status,
+          started_at: latestTrainingRun.startedAt,
+          metrics: latestTrainingRun.metrics,
+        } : null,
+        competitor_brand_counts: competitorBrands.map((b: any) => ({ brand: b.brand_name, count: b._count?.brand_name ?? b._count ?? 0 })),
+      },
       stores: BALI_STORES.map(s => ({
         id: s.id,
         brand_id: s.brand_id,

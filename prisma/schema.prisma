@@ -240,3 +240,99 @@ model Report {
   generated_by String  @default("system")
   createdAt   DateTime @default(now())
 }
+
+// =============================================================
+// Phase 2: Competitor stores (Indomaret, Alfamart, McDonald's, KFC, etc.)
+// Populated via the scraper module (mode='competitor') + manual entry.
+// =============================================================
+
+model CompetitorStore {
+  id          String   @id @default(cuid())
+  brand_name  String   // 'Indomaret', 'Alfamart', 'McDonald''s', etc.
+  brand_category String // 'convenience_store' | 'fast_food' | 'coffee' | 'fashion' | 'beauty' | 'supermarket' | 'pharmacy' | 'other'
+  name        String   // specific outlet name (e.g., 'Indomaret Kuta Utara')
+  lat         Float
+  lng         Float
+  kec         String   @default("")
+  kab         String   @default("")
+  city        String   @default("")
+  country     String   @default("Indonesia")
+  address     String   @default("")
+  is_in_mall  Boolean  @default(false)
+  mall_id     String?
+  mall_name   String?
+  source      String   @default("osm_nominatim")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// =============================================================
+// Phase 3: ML training runs (auto-retrain pipeline)
+// =============================================================
+
+model TrainingRun {
+  id              String   @id @default(cuid())
+  model_id        String   // references MLModel.id
+  model_name      String
+  algorithm       String
+  status          String   // 'pending' | 'running' | 'completed' | 'failed'
+  dataset_size    Int      @default(0)
+  features        String   @default("[]") // JSON array of feature names
+  hyperparameters String   @default("{}") // JSON
+  metrics         String   @default("{}") // JSON: { rmse, mae, r2, mape }
+  feature_importance String @default("[]") // JSON: [{feature, importance}]
+  model_artifact  String?  // path to JSON model file under prisma/ml-models/
+  train_duration_ms Int?
+  error           String?
+  startedAt       DateTime @default(now())
+  finishedAt      DateTime?
+}
+
+// =============================================================
+// Phase 3: Field surveyor (offline PWA form submissions)
+// =============================================================
+
+model FieldSurvey {
+  id            String   @id @default(cuid())
+  kelurahan_id  String?
+  kelurahan_name String  @default("")
+  lat           Float
+  lng           Float
+  accuracy_m    Float?
+  surveyor_name String
+  survey_type   String   // 'site_visit' | 'competitor_audit' | 'mall_audit' | 'market_observations'
+  brand_name    String?  // brand observed (if any)
+  brand_category String? @default("")
+  outlet_name   String?  @default("")
+  address       String?  @default("")
+  is_in_mall    Boolean  @default(false)
+  mall_name     String?  @default("")
+  condition     String?  @default("") // 'excellent' | 'good' | 'fair' | 'poor' | 'under_construction'
+  estimated_size_m2 Int?
+  foot_traffic_observation String? @default("") // 'low' | 'medium' | 'high' | 'very_high'
+  notes         String   @default("")
+  photo_urls    String   @default("[]") // JSON array of relative URLs
+  review_status String   @default("pending") // 'pending' | 'approved' | 'rejected' | 'imported'
+  reviewer_notes String  @default("")
+  submittedAt   DateTime @default(now())
+  reviewedAt    DateTime?
+}
+
+// =============================================================
+// Phase 3: Mall tenant directory (live integration from scraper)
+// =============================================================
+
+model MallTenant {
+  id          String   @id @default(cuid())
+  mall_id     String?
+  mall_name   String
+  brand_name  String
+  brand_category String @default("")
+  is_map_brand Boolean @default(false) // true if brand is in MAP/MAA portfolio
+  is_competitor Boolean @default(false)
+  floor       String?  @default("")
+  category    String   @default("")
+  source      String   @default("osm_nominatim")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

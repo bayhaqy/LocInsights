@@ -1,48 +1,59 @@
 /**
- * LocInsight Scoring Engine
+ * LocInsight Scoring Engine v3 — Phase 2+3 enhanced
  *
- * Implements best-practice retail location intelligence based on:
- *   - Placer.ai (2024): "6 factors of retail site selection"
- *   - GrowthFactor.ai (Aug 2025): "Site Selection Analytics"
- *   - Felt.com (Jun 2026): "Retail location analytics for site selection"
- *   - Targomo (Sep 2025): "Retail Site Selection with Gravitational Models"
+ * Improvements over v2:
+ *   - Accepts injected data (DB-backed or static) — no more hard coupling to BALI_* arrays
+ *   - Competitor awareness: competitor store density within trade area affects Competition factor
+ *   - Travel-time approximation: Haversine × road friction factor (urban_index-based)
+ *   - Pluggable weights (already supported, now actually exposed via API/UI)
+ *
+ * Best practices:
+ *   - Placer.ai (2024): 6 factors of retail site selection
+ *   - Felt.com (Jun 2026): Retail location analytics
+ *   - Targomo (Sep 2025): Gravitational models
  *   - MIT/Huff Model (Suhara et al. 2021, validated with transactional data)
- *   - MDPI ISPRS Int. J. Geo-Inf. (Tudor 2025): "Geomarketing Research in Retail"
- *
- * === Composite Score (0-100) ===
- *
- *   1. Market Potential      30% — population, density, income, tourist flow
- *   2. Accessibility         15% — road/transit, road proximity
- *   3. Foot Traffic          20% — mall proximity, POI density, tourist POI
- *   4. Competition           15% — same-brand cannibalization, competitor density
- *   5. Socioeconomic         10% — income segment match, HDI
- *   6. Network Synergy       10% — nearby MAP stores, mall presence
- *
- * === Huff Gravity Model ===
- *
- *   P(customer at zone i visits store j) =
- *       (Attractiveness_j / Distance_ij^lambda)
- *       / Σ_k (Attractiveness_k / Distance_ik^lambda)
- *
- *   - Attractiveness = store_size_m2 * brand_strength * format_factor * freshness_factor
- *   - Distance: Haversine km (production should use travel-time isochrones)
- *   - lambda = 1.5 for F&B, 2.0 for sports/fashion ( shoppers travel further for F&B)
- *
- * Output: per kelurahan, per brand opportunity — potential_market_share,
- *         estimated_daily_customers, projected_monthly_revenue, composite_score.
  */
 
 import { BALI_KELURAHAN, type Kelurahan, haversineKm } from '../data/bali-kelurahan'
 import { BALI_STORES } from '../data/bali-stores'
 import { BALI_MALLS } from '../data/bali-malls'
-import { BALI_POIS } from '../data/bali-poi'
 import { BRANDS, type Brand } from '../data/brands'
+
+// === Types ===
 
 export interface WeightedFactor {
   name: string
   weight: number
   raw_value: number // 0-100
   weighted: number // raw_value * weight
+}
+
+export interface CompetitorStoreLite {
+  brand_name: string
+  brand_category: string
+  lat: number
+  lng: number
+}
+
+export interface StoreLite {
+  brand_id: string
+  brand_name: string
+  brand_category?: string
+  parent?: string
+  name: string
+  lat: number
+  lng: number
+  estimated_size_m2?: number
+}
+
+export interface MallLite {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  visitor_estimate_daily: number
+  gla_m2: number
+  class: string
 }
 
 export interface OpportunityScore {
@@ -53,35 +64,41 @@ export interface OpportunityScore {
   tier: 1 | 2 | 3
   lat: number
   lng: number
-  composite_score: number // 0-100
+  composite_score: number
   recommendation: 'high_priority' | 'priority' | 'monitor' | 'avoid'
   factors: WeightedFactor[]
-  // Huff model outputs
-  potential_market_share: number // 0-1
+  potential_market_share: number
   estimated_daily_customers: number
   projected_monthly_revenue_juta: number
-  // Insights
   nearest_mall_distance_km: number
   nearest_mall_name: string | null
-  nearby_existing_stores: number // MAP stores within 2km
+  nearby_existing_stores: number
+  nearby_competitor_stores: number
   cannibalization_risk: 'low' | 'medium' | 'high'
+  travel_time_min_to_nearest_mall: number | null
   white_space_summary: string
 }
 
-export interface ScoringConfig {
-  brand_id?: string // target brand; if absent, use generic F&B+Sports blend
-  trade_area_radius_km?: number // default 3
-  weights?: Partial<{
-    market_potential: number
-    accessibility: number
-    foot_traffic: number
-    competition: number
-    socioeconomic: number
-    network_synergy: number
-  }>
+export interface ScoringWeights {
+  market_potential: number
+  accessibility: number
+  foot_traffic: number
+  competition: number
+  socioeconomic: number
+  network_synergy: number
 }
 
-export const DEFAULT_WEIGHTS = {
+export interface ScoringConfig {
+  brand_id?: string
+  trade_area_radius_km?: number
+  weights?: Partial<ScoringWeights>
+  competitorStores?: CompetitorStoreLite[]
+  stores?: StoreLite[]
+  malls?: MallLite[]
+  useTravelTime?: boolean
+}
+
+export const DEFAULT_WEIGHTS: ScoringWeights = {
   market_potential: 0.30,
   accessibility: 0.15,
   foot_traffic: 0.20,
@@ -90,30 +107,46 @@ export const DEFAULT_WEIGHTS = {
   network_synergy: 0.10,
 }
 
-// Brand category → distance decay (lambda) for Huff model
+// === Travel-time approximation (Haversine × friction) ===
+// Best-practice fallback when no OSRM/Valhalla routing is available.
+// Friction factor based on urban_index: dense urban → 1.3× straight-line,
+// suburban → 1.5×, rural → 1.8×. Speeds (km/h): foot 5, motorbike 25, car 35.
+const FRICTION_BY_TIER: Record<number, number> = { 1: 1.3, 2: 1.55, 3: 1.8 }
+
+export function approxTravelTimeMin(
+  lat1: number, lng1: number, lat2: number, lng2: number,
+  mode: 'foot' | 'motorbike' | 'car' = 'car',
+  tier: 1 | 2 | 3 = 1,
+): number {
+  const haversine = haversineKm(lat1, lng1, lat2, lng2)
+  const friction = FRICTION_BY_TIER[tier] ?? 1.5
+  const effectiveKm = haversine * friction
+  const speedKmH = mode === 'foot' ? 5 : mode === 'motorbike' ? 25 : 35
+  return Math.round((effectiveKm / speedKmH) * 60)
+}
+
+// === Brand category → distance decay (lambda) for Huff model ===
 function huffLambda(brand: Brand | undefined): number {
   if (!brand) return 1.8
   switch (brand.category) {
-    case 'food_beverage': return 1.5 // F&B: short travel
-    case 'sports': return 2.0 // specialty: shoppers travel further
+    case 'food_beverage': return 1.5
+    case 'sports': return 2.0
     case 'fashion': return 1.9
-    case 'department_store': return 2.2 // anchor: long travel
+    case 'department_store': return 2.2
     case 'kids': return 1.7
     case 'beauty': return 1.6
     default: return 1.8
   }
 }
 
-// Format factor (some formats are inherently more attractive)
 function formatFactor(brand: Brand | undefined): number {
   if (!brand) return 1.0
-  if (brand.name === 'Starbucks') return 1.25 // strongest F&B pull
-  if (brand.name === 'Sogo' || brand.name === 'SEIBU') return 1.20 // anchor pull
+  if (brand.name === 'Starbucks') return 1.25
+  if (brand.name === 'Sogo' || brand.name === 'SEIBU') return 1.20
   if (brand.parent === 'MAA' && brand.format.includes('Multi-brand')) return 1.15
   return 1.0
 }
 
-// Average ticket size per category (in Rp ribu — thousands of rupiah)
 function avgTicketSize(brand: Brand | undefined): number {
   if (!brand) return 60
   switch (brand.category) {
@@ -131,12 +164,11 @@ function avgTicketSize(brand: Brand | undefined): number {
   }
 }
 
-// Daily conversion rate: % of trade-area population who become customers
 function dailyConversionRate(brand: Brand | undefined): number {
   if (!brand) return 0.012
   switch (brand.category) {
     case 'food_beverage':
-      if (brand.format.includes('Coffee')) return 0.025 // high frequency
+      if (brand.format.includes('Coffee')) return 0.025
       if (brand.format.includes('Quick')) return 0.018
       return 0.010
     case 'sports': return 0.004
@@ -149,15 +181,18 @@ function dailyConversionRate(brand: Brand | undefined): number {
 
 /**
  * Compute the composite opportunity score for one kelurahan, optionally for a target brand.
+ * Accepts injected competitor/stores/malls data (Phase 2 DB-backed mode) or static defaults.
  */
 export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): OpportunityScore {
   const brand = config.brand_id ? BRANDS.find(b => b.id === config.brand_id) : undefined
   const tradeAreaKm = config.trade_area_radius_km ?? 3
-  const w = { ...DEFAULT_WEIGHTS, ...(config.weights || {}) }
+  const w: ScoringWeights = { ...DEFAULT_WEIGHTS, ...(config.weights || {}) }
+  const competitors = config.competitorStores ?? []
+  const stores = config.stores ?? BALI_STORES
+  const malls = config.malls ?? BALI_MALLS
 
   // === 1. MARKET POTENTIAL (30%) ===
-  // Population within trade area (estimate using density × area)
-  const tradeAreaPop = Math.round(kel.population * 1.4) // include immediate neighbors' catchment
+  const tradeAreaPop = Math.round(kel.population * 1.4)
   const populationScore = Math.min(100, (tradeAreaPop / 25000) * 100)
   const densityScore = Math.min(100, (kel.density / 3000) * 100)
   const marketPotentialRaw =
@@ -166,55 +201,52 @@ export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): Oppo
     0.30 * kel.income_index
 
   // === 2. ACCESSIBILITY (15%) ===
-  // Use precomputed transport_index + small bonus for trade-area connectivity
   const accessibilityRaw = Math.min(100, kel.transport_index * 0.85 + (kel.urban_index > 70 ? 15 : 5))
 
   // === 3. FOOT TRAFFIC (20%) ===
-  // mall_proximity + POI density + tourist POI proximity
-  // Find nearest mall
   let nearestMallDistance = Infinity
   let nearestMallName: string | null = null
-  for (const m of BALI_MALLS) {
-    if (m.visitor_estimate_daily === 0) continue // skip under-construction
+  for (const m of malls) {
+    if (m.visitor_estimate_daily === 0) continue
     const d = haversineKm(kel.lat, kel.lng, m.lat, m.lng)
     if (d < nearestMallDistance) {
       nearestMallDistance = d
       nearestMallName = m.name
     }
   }
-  const mallProximityScore = Math.max(0, 100 - nearestMallDistance * 20) // 0 at 5km+
+  const mallProximityScore = Math.max(0, 100 - nearestMallDistance * 20)
   const footTrafficRaw =
     0.40 * mallProximityScore +
     0.30 * kel.poi_density_index +
     0.30 * kel.tourist_index
 
-  // === 4. COMPETITION (15%) ===
-  // Count existing MAP stores within 2km
-  // For target brand: same-brand cannibalization (high penalty)
-  // For generic: total existing store density (slight penalty for saturation)
+  // === 4. COMPETITION (15%) — now competitor-aware ===
   let sameBrandWithin2km = 0
   let otherBrandWithin2km = 0
-  for (const s of BALI_STORES) {
+  let competitorWithin2km = 0
+  for (const s of stores) {
     const d = haversineKm(kel.lat, kel.lng, s.lat, s.lng)
     if (d <= 2) {
       if (brand && s.brand_id === brand.id) sameBrandWithin2km += 1
       else otherBrandWithin2km += 1
     }
   }
-  // Competition raw: high if FEW nearby same-brand stores AND few direct competitor brand stores
+  for (const c of competitors) {
+    const d = haversineKm(kel.lat, kel.lng, c.lat, c.lng)
+    if (d <= 2) competitorWithin2km += 1
+  }
   const sameBrandPenalty = sameBrandWithin2km >= 2 ? 100
-                          : sameBrandWithin2km === 1 ? 60
-                          : 0
+                          : sameBrandWithin2km === 1 ? 60 : 0
   const saturationPenalty = Math.min(60, otherBrandWithin2km * 10)
-  const competitionRaw = Math.max(0, 100 - sameBrandPenalty - saturationPenalty * 0.5)
+  // Competitor penalty: each competitor within 2km adds 5pt penalty (cap 40)
+  const competitorPenalty = Math.min(40, competitorWithin2km * 5)
+  const competitionRaw = Math.max(0, 100 - sameBrandPenalty - saturationPenalty * 0.5 - competitorPenalty)
 
-  // Cannibalization risk
   const cannibalizationRisk: 'low' | 'medium' | 'high' =
     sameBrandWithin2km >= 2 ? 'high' :
     sameBrandWithin2km === 1 ? 'medium' : 'low'
 
   // === 5. SOCIOECONOMIC (10%) ===
-  // Match brand price segment to local income index
   let incomeMatchBonus = 0
   if (brand) {
     if (brand.price_segment === 'luxury' && kel.income_index > 60) incomeMatchBonus = 20
@@ -228,8 +260,7 @@ export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): Oppo
   const socioeconomicRaw = Math.min(100, kel.income_index * 0.7 + incomeMatchBonus + (kel.tourist_index > 50 ? 15 : 0))
 
   // === 6. NETWORK SYNERGY (10%) ===
-  // Other MAP stores within 5km (cluster effect)
-  const nearbyMAPStores = BALI_STORES.filter(s => haversineKm(kel.lat, kel.lng, s.lat, s.lng) <= 5).length
+  const nearbyMAPStores = stores.filter(s => haversineKm(kel.lat, kel.lng, s.lat, s.lng) <= 5).length
   const synergyRaw = Math.min(100, nearbyMAPStores * 12 + (nearestMallDistance < 1 ? 25 : 0))
 
   // === Composite ===
@@ -247,37 +278,46 @@ export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): Oppo
   const lambda = huffLambda(brand)
   const fFactor = formatFactor(brand)
   const brandStrength = brand?.brand_strength ?? 0.7
-  // Hypothetical new store: size = brand.typical_size_m2, attractiveness scaled
   const newStoreAttractiveness = (brand?.typical_size_m2 ?? 150) * brandStrength * fFactor
 
-  // Existing competing stores in trade area
-  const competingStores = BALI_STORES.filter(s => {
-    if (brand && s.brand_id === brand.id) return false // skip own brand (we're considering new)
+  // Include competitors in competing attractors (Huff denominator)
+  const competingStores = stores.filter(s => {
+    if (brand && s.brand_id === brand.id) return false
     return haversineKm(kel.lat, kel.lng, s.lat, s.lng) <= tradeAreaKm * 2
   })
 
-  // Distance from kelurahan centroid to new store (assume 0 — we're scoring THIS location)
-  const distToNew = 0.3 // km (small offset)
+  const distToNew = 0.3
   const numerator = newStoreAttractiveness / Math.pow(Math.max(distToNew, 0.3), lambda)
   const denominator = numerator + competingStores.reduce((sum, s) => {
     const d = Math.max(haversineKm(kel.lat, kel.lng, s.lat, s.lng), 0.3)
     const attract = (s.estimated_size_m2 ?? 120) * (BRANDS.find(b => b.id === s.brand_id)?.brand_strength ?? 0.7)
     return sum + attract / Math.pow(d, lambda)
   }, 0)
-  const marketShare = numerator / denominator
+  // Competitors contribute ~50% as much attractiveness (smaller stores, weaker brand pull)
+  const competitorDenom = competitors
+    .filter(c => haversineKm(kel.lat, kel.lng, c.lat, c.lng) <= tradeAreaKm * 2)
+    .reduce((sum, c) => {
+      const d = Math.max(haversineKm(kel.lat, kel.lng, c.lat, c.lng), 0.3)
+      const attract = 80 * 0.5 // generic competitor: smaller size, weaker pull
+      return sum + attract / Math.pow(d, lambda)
+    }, 0)
+  const marketShare = numerator / (denominator + competitorDenom)
 
-  // Project daily customers and revenue
   const tradeAreaTotal = tradeAreaPop
   const conversionRate = dailyConversionRate(brand)
-  // Tourist boost: coastal + high tourist_index
   const touristMultiplier = 1 + (kel.tourist_index / 100) * 1.5
   const estimatedDailyCustomers = Math.round(
     tradeAreaTotal * conversionRate * marketShare * touristMultiplier
   )
-  const ticket = avgTicketSize(brand) // in Rp ribu
+  const ticket = avgTicketSize(brand)
   const projectedMonthlyRevenueJuta = Math.round(
-    (estimatedDailyCustomers * ticket * 30) / 1000 // convert Rp ribu × customers × 30 days to juta
+    (estimatedDailyCustomers * ticket * 30) / 1000
   )
+
+  // === Travel-time approximation to nearest mall (Phase 2) ===
+  const travelTimeMinToMall = nearestMallDistance < Infinity && config.useTravelTime
+    ? approxTravelTimeMin(kel.lat, kel.lng, malls.find(m => m.name === nearestMallName)?.lat ?? kel.lat, malls.find(m => m.name === nearestMallName)?.lng ?? kel.lng, 'motorbike', kel.tier)
+    : null
 
   // === Recommendation tier ===
   let recommendation: OpportunityScore['recommendation']
@@ -286,12 +326,11 @@ export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): Oppo
   else if (composite >= 40) recommendation = 'monitor'
   else recommendation = 'avoid'
 
-  // === White space summary ===
   const tierLabel = kel.tier === 1 ? 'Tier-1' : kel.tier === 2 ? 'Tier-2' : 'Tier-3'
   const hasNearbyMall = nearestMallDistance < 1.5
   const whiteSpaceSummary = buildWhiteSpaceSummary({
     kel, brand, tierLabel, hasNearbyMall,
-    sameBrandWithin2km, otherBrandWithin2km,
+    sameBrandWithin2km, otherBrandWithin2km, competitorWithin2km,
     marketShare, composite, nearestMallName, nearestMallDistance
   })
 
@@ -312,7 +351,9 @@ export function scoreKelurahan(kel: Kelurahan, config: ScoringConfig = {}): Oppo
     nearest_mall_distance_km: Math.round(nearestMallDistance * 10) / 10,
     nearest_mall_name: nearestMallName,
     nearby_existing_stores: sameBrandWithin2km + otherBrandWithin2km,
+    nearby_competitor_stores: competitorWithin2km,
     cannibalization_risk: cannibalizationRisk,
+    travel_time_min_to_nearest_mall: travelTimeMinToMall,
     white_space_summary: whiteSpaceSummary,
   }
 }
@@ -324,12 +365,13 @@ function buildWhiteSpaceSummary(params: {
   hasNearbyMall: boolean
   sameBrandWithin2km: number
   otherBrandWithin2km: number
+  competitorWithin2km: number
   marketShare: number
   composite: number
   nearestMallName: string | null
   nearestMallDistance: number
 }): string {
-  const { kel, brand, tierLabel, hasNearbyMall, sameBrandWithin2km, otherBrandWithin2km, marketShare, composite, nearestMallName, nearestMallDistance } = params
+  const { kel, brand, tierLabel, hasNearbyMall, sameBrandWithin2km, otherBrandWithin2km, competitorWithin2km, marketShare, composite, nearestMallName, nearestMallDistance } = params
   const parts: string[] = []
 
   parts.push(`${tierLabel} ${kel.kab_name} — ${kel.kec_name} (${kel.name})`)
@@ -342,6 +384,10 @@ function buildWhiteSpaceSummary(params: {
     }
   } else {
     parts.push(`${otherBrandWithin2km} existing MAP stores within 2km.`)
+  }
+
+  if (competitorWithin2km > 0) {
+    parts.push(`${competitorWithin2km} competitor outlets (Indomaret/Alfamart/MCD/KFC/etc.) within 2km.`)
   }
 
   if (hasNearbyMall && nearestMallName) {
@@ -362,18 +408,12 @@ function buildWhiteSpaceSummary(params: {
   return parts.join(' ')
 }
 
-/**
- * Score all kelurahan, optionally for a specific brand. Sorted by composite_score desc.
- */
 export function scoreAllKelurahan(config: ScoringConfig = {}): OpportunityScore[] {
   return BALI_KELURAHAN
     .map(k => scoreKelurahan(k, config))
     .sort((a, b) => b.composite_score - a.composite_score)
 }
 
-/**
- * Get top N expansion opportunities filtered by tier.
- */
 export function getTopOpportunities(
   n: number,
   config: ScoringConfig = {},
@@ -386,13 +426,11 @@ export function getTopOpportunities(
   return scores.slice(0, n)
 }
 
-/**
- * Aggregate stats for dashboard
- */
 export interface DashboardStats {
   total_kelurahan: number
   total_stores: number
   total_malls: number
+  total_competitor_stores: number
   tier_1_stores: number
   tier_2_stores: number
   tier_3_stores: number
@@ -407,10 +445,9 @@ export interface DashboardStats {
   malls_without_map_anchor: { name: string; kec: string; kab: string }[]
 }
 
-export function getDashboardStats(): DashboardStats {
-  const allScores = scoreAllKelurahan()
+export function getDashboardStats(competitorStores: CompetitorStoreLite[] = []): DashboardStats {
+  const allScores = scoreAllKelurahan({ competitorStores })
 
-  // Tier classification by kabupaten (matches KABUPATEN_LIST.tier)
   const KAB_TIER: Record<string, 1 | 2 | 3> = {
     'Badung': 1, 'Denpasar': 1,
     'Tabanan': 2, 'Gianyar': 2, 'Buleleng': 2,
@@ -420,22 +457,19 @@ export function getDashboardStats(): DashboardStats {
   const tier2Stores = BALI_STORES.filter(s => KAB_TIER[s.kab] === 2).length
   const tier3Stores = BALI_STORES.filter(s => KAB_TIER[s.kab] === 3).length
 
-  // Malls without MAP anchor (Sogo / Matahari / Sports Station)
-  const anchorBrandIds = ['BR101', 'BR102', 'BR201', 'BR202', 'BR203'] // Sports Station, Planet Sports, Sogo, SEIBU, Matahari
+  const anchorBrandIds = ['BR101', 'BR102', 'BR201', 'BR202', 'BR203']
   const mallsWithoutAnchor = BALI_MALLS.filter(m => {
-    if (m.visitor_estimate_daily === 0) return false // skip under construction
+    if (m.visitor_estimate_daily === 0) return false
     const storesInMall = BALI_STORES.filter(s => s.mall_id === m.id)
     return !storesInMall.some(s => anchorBrandIds.includes(s.brand_id))
   })
 
-  // Brand coverage stats
   const brandCoverage = BRANDS.map(b => ({
     brand: b.name,
     stores: BALI_STORES.filter(s => s.brand_id === b.id).length,
     category: b.category,
   })).filter(x => x.stores > 0).sort((a, b) => b.stores - a.stores)
 
-  // Stores by kabupaten
   const kabMap = new Map<string, number>()
   for (const s of BALI_STORES) {
     kabMap.set(s.kab, (kabMap.get(s.kab) || 0) + 1)
@@ -445,6 +479,7 @@ export function getDashboardStats(): DashboardStats {
     total_kelurahan: BALI_KELURAHAN.length,
     total_stores: BALI_STORES.length,
     total_malls: BALI_MALLS.length,
+    total_competitor_stores: competitorStores.length,
     tier_1_stores: tier1Stores,
     tier_2_stores: tier2Stores,
     tier_3_stores: tier3Stores,

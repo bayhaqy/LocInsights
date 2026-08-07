@@ -37,7 +37,7 @@ export function Sidebar({ items, activeId, onSelect, stats }: SidebarProps) {
         </div>
         <div className="mt-3 text-[10px] text-white/40 leading-relaxed">
           Powered by <span className="text-white/70 font-medium">MAP Active Data Team</span>
-          <br />Phase 1 · Bali Pilot
+          <br />Phase 1+2+3 · Bali
         </div>
       </div>
 

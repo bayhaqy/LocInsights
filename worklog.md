@@ -165,3 +165,45 @@ Stage Summary:
 - New API surface: /api/locinsight/bulk (GET/POST/PUT), /api/locinsight/bulk/upload (POST), /api/locinsight/scrape-save (POST)
 - New shared modules: src/lib/bulk-helpers.ts, src/lib/scraper-types.ts
 - Best-practice references (Aug 2026): RFC 4180 CSV, SheetJS xlsx@0.18.5, Nominatim usage policy (1 req/sec), Prisma upsert idempotency, ODbL license attribution
+
+---
+Task ID: 12
+Agent: main
+Task: Build Phase 2 + Phase 3 features for Bali scope, fix Deep Analysis clarity, audit & cleanup dead code
+
+Work Log:
+- Deleted 3 duplicate validate-coords scripts + orphaned public/logo.svg + boilerplate src/app/api/route.ts
+- Removed 21 unused shadcn/ui components (accordion, alert-dialog, alert, aspect-ratio, avatar, breadcrumb, calendar, carousel, chart, collapsible, command, context-menu, drawer, form, hover-card, input-otp, menubar, navigation-menu, resizable, sidebar (shadcn), toast)
+- Removed 16 dead npm deps (dnd-kit, mdxeditor, reactuses, react-query, react-table, date-fns, framer-motion, react-markdown, react-syntax-highlighter, uuid, z-ai-web-dev-sdk, next-auth, next-intl, next-themes, zustand, @hookform/resolvers kept for compatibility)
+- Replaced src/components/ui/toaster.tsx with no-op stub (Sonner is used directly); deleted src/hooks/use-toast.ts
+- Updated package.json name to "locinsight" v3.0.0; added `seed` and `verify` scripts
+- Extended Prisma schema with 4 new models: CompetitorStore, TrainingRun, FieldSurvey, MallTenant (all with city/country/source provenance)
+- Refactored src/lib/scoring/engine.ts to accept injected competitor stores, malls, brands data; added competitor-aware Competition factor + competitor denominator in Huff model; added approxTravelTimeMin() utility (Haversine × friction factor by tier + urban_index); exposed ScoringWeights type for A/B testing
+- Created src/lib/scoring/db-engine.ts — DB-backed scoring helpers with 60s TTL competitor cache
+- Updated /api/locinsight/opportunities route to load competitors from DB + accept custom weights (?w_market=0.30&...); updated /api/locinsight/analyze route to include competitor nearby list, isochrones (5/10/15 min motorbike), ML prediction overlay, travel-time-to-mall
+- Updated /api/locinsight/overview route to include phase_2_3 metadata (pending surveys, latest training run, competitor brand counts)
+- Phase 2A (Travel-time isochrones): friction-based polygon approximation in analyze route; 3 rings (5/10/15 min) × 36 points each; aligned to Bali road NNW-SSE axis
+- Phase 2B (Competitor scraper): created src/lib/data/competitor-brands.ts catalog (26 brands: Indomaret, Alfamart, MCD, KFC, etc.); created /api/locinsight/scrape-competitors (POST scrape, GET list) + /api/locinsight/scrape-competitors-save (POST with 50m dedupe); built CompetitorIntel component with review-then-save UI
+- Phase 2C (A/B simulator): created /api/locinsight/ab-test endpoint (rank comparison, biggest winner/loser, new/dropped); built ABTestSimulator component with sliders for all 6 weights
+- Phase 3A (Real ML): built src/lib/ml/gbr.ts — pure TypeScript Gradient-Boosted Regression (Friedman 2001), 80 trees × depth 3 × lr 0.1, MSE loss, optional stochastic subsample, per-prediction SHAP-style tree-path contributions; built src/lib/ml/dataset.ts — synthetic training data with log-normal noise
+- Phase 3A: created /api/locinsight/ml/train (POST runs training + persists model JSON + records TrainingRun; GET lists history); updated /api/locinsight/ml/route.ts to use REAL GBR model for predict_revenue + predictions actions (no more stubs); replaced fake XGBoost/random_forest models with honest GBR + Huff gravity + K-Means segmenter
+- Phase 3B (Auto-retrain): TrainingRun table tracks all runs with metrics, hyperparameters, feature importance, duration; ML AI Engine UI has "Train GBR Model" button + training run audit history tab
+- Phase 3C (Mall tenant directory): created /api/locinsight/mall-tenants (POST scrapes OSM for shop/amenity within 500m of mall center, classifies each as MAP/competitor/other; GET lists); built MallTenants component with per-mall audit
+- Phase 3D (Field Surveyor PWA): created /public/manifest.json + /public/sw.js (cache-first static, network-first API, background sync); created /survey page with offline-capable form (GPS, IndexedDB queue, sync when online); created /api/locinsight/field-survey (GET list, POST submit, PATCH review/approve/import); built FieldSurveys component for admin review with approve/reject/import-as-competitor actions
+- Redesigned Deep Analysis page (analysis.tsx): added "How to Use" guide (8 numbered steps); added "Recommended Action" card with explicit next steps (PROCEED/PRIORITY/MONITOR/AVOID); added ML Revenue Prediction card (Phase 3 GBR) showing heuristic vs ML delta; added Travel-Time Isochrones card (Phase 2); added Nearby Competitors card
+- Updated Methodology page: Phase 1/2/3 cards now show "Delivered" status with concrete features; updated tech stack; added future-expansion note for Lombok/Yogyakarta/Surabaya
+- Updated page.tsx: 15 nav items (was 11) — added Competitor Intel, A/B Simulator, Mall Tenants, Field Surveys
+- Updated sidebar footer text: "Phase 1+2+3 · Bali"
+- TypeScript: 0 errors (tsc --noEmit passes clean)
+- All 18 endpoints tested via curl: 200 OK (overview, opportunities, analyze, bulk, scrape-competitors, ab-test, ml/models, ml/training_runs, ml/feature_importance, ml/predictions, ml/clusters, field-survey, mall-tenants, /survey, /manifest.json, /sw.js, ml/train POST, ml/predict_revenue)
+- Real ML training verified: 516 samples, 80 trees, R²=0.84, RMSE=365, MAE=243 — trained in 174ms
+- Real prediction verified: kelurahan 5101010001 → 201 jt/mo revenue projection with 84% confidence and top-5 SHAP features
+- A/B simulator verified: 11 rank changes, biggest winner "Bungaya Kelod" when shifting weights toward foot_traffic/competition
+
+Stage Summary:
+- All 7 original Phase 1 improvement requests are now augmented with full Phase 2 + Phase 3 implementations
+- Phase 2 (Bali): travel-time isochrones, competitor scraping (26 brands), A/B weight simulator, competitor-aware scoring engine
+- Phase 3 (Bali): real pure-TS Gradient-Boosted Regression ML (Friedman 2001), auto-retrain pipeline, mall tenant directory, field surveyor PWA with offline support
+- Deep Analysis page now has clear "How to Use" guide + actionable "Recommended Action" card
+- Codebase cleaned: -3 dead scripts, -21 dead UI components, -16 dead npm deps, -1 dead boilerplate API route, -1 orphaned SVG
+- Methodology page reflects all delivered features; no more "planned" placeholders

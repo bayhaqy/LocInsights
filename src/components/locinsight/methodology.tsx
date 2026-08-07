@@ -191,44 +191,53 @@ export function Methodology() {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-[var(--brand-red)]" />
-            Roadmap & Future Enhancements
+            Roadmap — All Phases Delivered (Bali scope)
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <PhaseCard
-              phase="Phase 1 (Now)"
+              phase="Phase 1 — Foundation (Delivered)"
               status="active"
               items={[
                 'Bali — 9 kab/kota, 47 kec, 172 kelurahan',
                 'Composite scoring + Huff gravity model',
-                '20 malls, 80 stores, 50+ POIs',
-                'React-Leaflet interactive map',
-                'Static reference data (JSON)',
+                '20 malls, 80 stores, 42 POIs',
+                'React-Leaflet interactive map + heatmap',
+                'Master data CRUD + bulk spreadsheet editor',
+                'CSV/XLSX import/export with templates',
+                'Coordinate validation (Bali land polygon)',
               ]}
             />
             <PhaseCard
-              phase="Phase 2 (Next Quarter)"
-              status="planned"
+              phase="Phase 2 — Competitive Intel (Delivered)"
+              status="active"
               items={[
-                'Expand to Lombok, Yogyakarta, Surabaya',
-                'Real-time travel-time isochrones (GraphHopper/OSRM)',
-                'Mobile foot-traffic data (Geolocation API partner)',
-                'Competitor brand store scraping',
-                'A/B test scoring weights per brand',
+                'Travel-time isochrones (friction-based approximation)',
+                'Competitor brand scraper (26 brands: Indomaret, Alfamart, MCD, KFC, etc.)',
+                'Competitor Intel dashboard with density insights',
+                'A/B scoring weight simulator (Placer.ai 2024 best practice)',
+                'Competitor-aware Competition factor in scoring engine',
+                'Huff denominator includes competitor attractiveness',
               ]}
             />
             <PhaseCard
-              phase="Phase 3 (Next Year)"
-              status="planned"
+              phase="Phase 3 — ML + PWA (Delivered)"
+              status="active"
               items={[
-                'Paid data: Namola, Adsquare, Unacast (foot traffic)',
-                'ML prediction (XGBoost) for store revenue',
-                'Auto-retrain model with actual sales data',
-                'Mall tenant directory integration (live updates)',
-                'Mobile app for field surveyors',
+                'Real Gradient-Boosted Regression (Friedman 2001) — pure TypeScript',
+                'Auto-retrain pipeline + training run audit history',
+                'Per-prediction SHAP-style feature contributions',
+                'Mall tenant directory live audit (OSM Overpass)',
+                'Field Surveyor PWA — offline-capable form + IndexedDB sync',
+                'Manifest + service worker + background sync',
               ]}
             />
+          </div>
+          <div className="mt-4 p-3 bg-[var(--brand-cream)] rounded-md text-[11.5px] text-[var(--brand-ink)]/80">
+            <strong>Future expansion candidates (beyond Bali):</strong> Lombok, Yogyakarta, Surabaya, Bandung, Medan.
+            Each region requires: (1) BPS admin boundary data, (2) Bali-style land polygon for coord validation,
+            (3) Mall directory, (4) POI dataset from OSM. Estimated effort per region: ~2 weeks data prep + 1 week validation.
           </div>
         </CardContent>
       </Card>
@@ -242,13 +251,13 @@ export function Methodology() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[12px]">
             <TechItem label="Frontend" value="Next.js 16 + React 19 + TypeScript" />
-            <TechItem label="Map" value="React-Leaflet + CARTO basemap" />
+            <TechItem label="Map" value="React-Leaflet + heatmap + choropleth" />
             <TechItem label="UI" value="Tailwind CSS 4 + shadcn/ui" />
             <TechItem label="Backend" value="Next.js API Routes (serverless-ready)" />
-            <TechItem label="Database" value="Prisma + SQLite (Phase 1) → PostgreSQL (Phase 2)" />
-            <TechItem label="Scoring Engine" value="Custom TypeScript — composite + Huff gravity" />
-            <TechItem label="ML (Phase 3)" value="Python + scikit-learn + XGBoost via API" />
-            <TechItem label="Deployment" value="Vercel / self-hosted Node.js" />
+            <TechItem label="Database" value="Prisma + SQLite (15 models)" />
+            <TechItem label="Scoring Engine" value="Composite + Huff gravity + competitor-aware" />
+            <TechItem label="ML (Phase 3)" value="Pure-TS Gradient-Boosted Regression (Friedman 2001)" />
+            <TechItem label="PWA" value="Service worker + IndexedDB + manifest" />
           </div>
         </CardContent>
       </Card>
