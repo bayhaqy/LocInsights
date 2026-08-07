@@ -1,0 +1,189 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Sidebar, type NavItem } from '@/components/locinsight/sidebar'
+import { Dashboard } from '@/components/locinsight/dashboard'
+import { MapExplorer } from '@/components/locinsight/map-explorer'
+import { Opportunities } from '@/components/locinsight/opportunities'
+import { Analysis } from '@/components/locinsight/analysis'
+import { MallNetwork } from '@/components/locinsight/mall-network'
+import { BrandsCoverage } from '@/components/locinsight/brands-coverage'
+import { Methodology } from '@/components/locinsight/methodology'
+import type { OverviewData } from '@/components/locinsight/types'
+import {
+  LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
+} from 'lucide-react'
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & KPI' },
+  { id: 'map', label: 'Map Explorer', icon: Map, description: 'Peta interaktif' },
+  { id: 'opportunities', label: 'Opportunities', icon: Target, description: 'Top expansion sites' },
+  { id: 'analysis', label: 'Deep Analysis', icon: Crosshair, description: 'Per-kelurahan detail' },
+  { id: 'brands', label: 'Brand Coverage', icon: Store, description: 'MAP & MAA portfolio' },
+  { id: 'malls', label: 'Mall Network', icon: Building2, description: 'Mall tenant coverage' },
+  { id: 'methodology', label: 'Methodology', icon: BookOpen, description: 'Framework & data sources' },
+]
+
+export default function Home() {
+  const [activeView, setActiveView] = useState('dashboard')
+  const [data, setData] = useState<OverviewData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedKelurahanId, setSelectedKelurahanId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/locinsight/overview')
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) {
+          setData(j.data)
+          // Auto-select top opportunity for initial map focus
+          if (j.data.top_opportunities?.[0]) {
+            setSelectedKelurahanId(j.data.top_opportunities[0].kelurahan_id)
+          }
+        } else {
+          setError(j.error || 'Failed to load')
+        }
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSelectKelurahan = (id: string) => {
+    setSelectedKelurahanId(id)
+    // Optional: auto-navigate to analysis view
+    // setActiveView('analysis')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-[var(--brand-cream)]">
+        <div className="w-64 bg-[var(--brand-ink)]" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[var(--brand-red)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <div className="text-[14px] text-[var(--brand-ink)]/70 font-medium">Loading LocInsight…</div>
+            <div className="text-[11px] text-[var(--brand-ink)]/50 mt-1">Computing scores for 172 kelurahan…</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex min-h-screen bg-[var(--brand-cream)]">
+        <div className="w-64 bg-[var(--brand-ink)]" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <div className="text-[var(--brand-red)] text-[14px] font-medium mb-2">Failed to load data</div>
+            <div className="text-[12px] text-[var(--brand-ink)]/60">{error}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-screen bg-[var(--brand-cream)]">
+      <Sidebar
+        items={NAV_ITEMS}
+        activeId={activeView}
+        onSelect={setActiveView}
+        stats={{
+          total_kelurahan: data.stats.total_kelurahan,
+          total_stores: data.stats.total_stores,
+          total_malls: data.stats.total_malls,
+        }}
+      />
+
+      <main className="flex-1 overflow-x-hidden">
+        {/* Top bar */}
+        <header className="bg-white border-b border-[var(--brand-border)] px-6 py-3 sticky top-0 z-30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-[12px] text-[var(--brand-ink)]/60">
+              <span className="text-[var(--brand-ink)]/40">LocInsight /</span>{' '}
+              <span className="font-medium text-[var(--brand-ink)] capitalize">
+                {NAV_ITEMS.find(n => n.id === activeView)?.label}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-[var(--brand-ink)]/60">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 pulse-dot" />
+              <span>Live data · Bali Phase 1</span>
+            </div>
+            <div className="text-[var(--brand-ink)]/40">·</div>
+            <div>Updated: Aug 2026</div>
+          </div>
+        </header>
+
+        <div className="p-6">
+          {activeView === 'dashboard' && (
+            <Dashboard
+              stats={data.stats}
+              topOpportunities={data.top_opportunities}
+              onSelectKelurahan={(id) => { setSelectedKelurahanId(id); setActiveView('analysis') }}
+              onNavigate={setActiveView}
+            />
+          )}
+          {activeView === 'map' && (
+            <MapExplorer
+              opportunities={data.top_opportunities}
+              stores={data.stores}
+              malls={data.malls}
+              pois={data.pois}
+              selectedKelurahanId={selectedKelurahanId}
+              onSelectKelurahan={handleSelectKelurahan}
+            />
+          )}
+          {activeView === 'opportunities' && (
+            <Opportunities
+              opportunities={data.top_opportunities}
+              brands={data.brands}
+              selectedKelurahanId={selectedKelurahanId}
+              onSelectKelurahan={(id) => { setSelectedKelurahanId(id); setActiveView('analysis') }}
+            />
+          )}
+          {activeView === 'analysis' && (
+            <Analysis
+              kelurahanList={data.kelurahan}
+              brands={data.brands}
+              selectedKelurahanId={selectedKelurahanId}
+              onSelectKelurahan={setSelectedKelurahanId}
+            />
+          )}
+          {activeView === 'brands' && (
+            <BrandsCoverage
+              brands={data.brands}
+              stores={data.stores}
+              onSelectKelurahan={handleSelectKelurahan}
+            />
+          )}
+          {activeView === 'malls' && (
+            <MallNetwork
+              malls={data.malls}
+              stores={data.stores}
+              brands={data.brands}
+              onSelectKelurahan={handleSelectKelurahan}
+            />
+          )}
+          {activeView === 'methodology' && <Methodology />}
+        </div>
+
+        {/* Footer */}
+        <footer className="bg-[var(--brand-ink)] text-white/60 text-[11px] px-6 py-4 mt-8">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa ·
+              Phase 1 Bali Pilot · v1.0
+            </div>
+            <div>
+              Built with Next.js 16 + React-Leaflet · Composite ML + Huff Gravity Model
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
+  )
+}
