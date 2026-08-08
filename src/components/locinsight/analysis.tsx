@@ -215,7 +215,7 @@ function AnalysisView({ data }: { data: any }) {
   return (
     <div className="space-y-4">
       {/* Header summary card */}
-      <Card className="card-premium bg-[var(--brand-ink)] text-white border-0">
+      <Card className="bg-[var(--brand-ink)] text-white border-0 rounded-xl shadow-sm">
         <CardContent className="p-6">
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6">
             <div>

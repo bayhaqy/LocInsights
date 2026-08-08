@@ -243,7 +243,7 @@ export function Methodology() {
       </Card>
 
       {/* Tech stack */}
-      <Card className="card-premium bg-[var(--brand-ink)] text-white">
+      <Card className="bg-[var(--brand-ink)] text-white border-0 rounded-xl shadow-sm">
         <CardContent className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <Cpu className="w-4 h-4 text-[var(--brand-red)]" />

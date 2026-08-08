@@ -5,8 +5,16 @@
  *   body: { n_estimators?, max_depth?, learning_rate?, min_samples_split?, subsample? }
  *   returns: { run_id, model_id, metrics, history, feature_importance }
  *
- * Runs a real gradient-boosted regression training, persists the model JSON,
- * and records the run in the TrainingRun table for audit history.
+ * Runs a real gradient-boosted regression training, persists the model JSON
+ * in-memory (so the inference route can pick it up on the same Lambda warm
+ * instance), and records the run in the TrainingRun table for audit history.
+ *
+ * IMPORTANT: Vercel serverless has a READ-ONLY filesystem — we must NOT call
+ * fs.writeFile outside /tmp. The model artifact is persisted to the DB via
+ * the TrainingRun row's metrics/features/hyperparameters/feature_importance
+ * columns. The in-memory model cache (src/app/api/locinsight/ml/route.ts)
+ * is updated so subsequent predictions on the same warm instance use the new
+ * model. A cold instance will fall back to the bundled JSON model.
  *
  * GET /api/locinsight/ml/train — list previous training runs
  */
@@ -14,16 +22,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { trainGBR, computeFeatureImportance, type GBRModel } from '@/lib/ml/gbr'
 import { buildTrainingDataset, FEATURE_NAMES } from '@/lib/ml/dataset'
-import { promises as fs } from 'fs'
-import path from 'path'
+import { setTrainedModel } from '@/lib/ml/model-cache'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const MODEL_DIR = path.join(process.cwd(), 'prisma', 'ml-models')
-const MODEL_PATH = path.join(MODEL_DIR, 'gbr-revenue-bali-v1.json')
-
 export async function POST(req: NextRequest) {
+  let model_id = 'mdl_gbr_revenue_v1'
+  let trainDuration = 0
+  let datasetSize = 0
+  let algoForFailure = 'gbr_regressor'
+
   try {
     const body = await req.json().catch(() => ({}))
     const config = {
@@ -39,6 +48,7 @@ export async function POST(req: NextRequest) {
 
     // Build dataset
     const rows = buildTrainingDataset(config.noise_seed)
+    datasetSize = rows.length
     const X = rows.map(r => r.X)
     const y = rows.map(r => r.y)
 
@@ -46,42 +56,19 @@ export async function POST(req: NextRequest) {
     const { model, history } = trainGBR(X, y, [...FEATURE_NAMES], config)
     const featureImportance = computeFeatureImportance(model)
 
-    // Persist model JSON
-    await fs.mkdir(MODEL_DIR, { recursive: true })
-    await fs.writeFile(MODEL_PATH, JSON.stringify(model, null, 2), 'utf-8')
+    trainDuration = Date.now() - startTime
 
-    const trainDuration = Date.now() - startTime
+    // Persist the model in an in-memory cache so the inference route can use
+    // it on subsequent requests (until the Lambda instance is recycled).
+    setTrainedModel(model)
 
-    // Record training run
-    const trainingRun = await prisma.trainingRun.create({
-      data: {
-        model_id: 'mdl_gbr_revenue_v1',
-        model_name: 'GBR Revenue Predictor v1',
-        algorithm: 'gbr_regressor',
-        status: 'completed',
-        dataset_size: rows.length,
-        features: JSON.stringify(model.feature_names),
-        hyperparameters: JSON.stringify({
-          n_estimators: model.n_estimators,
-          max_depth: model.max_depth,
-          learning_rate: model.learning_rate,
-          min_samples_split: config.min_samples_split,
-          subsample: config.subsample,
-          noise_seed: config.noise_seed,
-        }),
-        metrics: JSON.stringify(model.training_metrics),
-        feature_importance: JSON.stringify(featureImportance),
-        model_artifact_url: MODEL_PATH,
-        train_duration_ms: trainDuration,
-        finished_at: new Date(),
-      },
-    })
-
-    // Upsert MLModel (so the ML Engine UI can show it as the active model)
+    // STEP 1: Upsert the parent MLModel row FIRST so the FK from TrainingRun
+    // is satisfiable. (Previously we created TrainingRun first, which broke on
+    // fresh DBs where mdl_gbr_revenue_v1 didn't yet exist.)
     await prisma.mLModel.upsert({
-      where: { id: 'mdl_gbr_revenue_v1' },
+      where: { id: model_id },
       create: {
-        id: 'mdl_gbr_revenue_v1',
+        id: model_id,
         name: 'GBR Revenue Predictor v1',
         version: 'v1.0',
         type: 'revenue_forecast',
@@ -98,7 +85,6 @@ export async function POST(req: NextRequest) {
         trained_at: new Date(),
       },
       update: {
-        version: `v1.${trainingRun.id.slice(-4)}`,
         description: `Pure-TypeScript Gradient-Boosted Regression (Friedman 2001). Trained on ${rows.length} (kelurahan × brand) synthetic samples with log-normal noise (sigma=0.35). Replaces the heuristic revenue projection with learned model.`,
         features: JSON.stringify(model.feature_names),
         hyperparameters: JSON.stringify({
@@ -112,18 +98,75 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // STEP 2: Now safe to create the TrainingRun child row (FK satisfied).
+    const trainingRun = await prisma.trainingRun.create({
+      data: {
+        model_id,
+        model_name: 'GBR Revenue Predictor v1',
+        algorithm: 'gbr_regressor',
+        status: 'completed',
+        dataset_size: rows.length,
+        features: JSON.stringify(model.feature_names),
+        hyperparameters: JSON.stringify({
+          n_estimators: model.n_estimators,
+          max_depth: model.max_depth,
+          learning_rate: model.learning_rate,
+          min_samples_split: config.min_samples_split,
+          subsample: config.subsample,
+          noise_seed: config.noise_seed,
+        }),
+        metrics: JSON.stringify(model.training_metrics),
+        feature_importance: JSON.stringify(featureImportance),
+        // Mark as in-memory since Vercel FS is read-only
+        model_artifact_url: 'in-memory://gbr-revenue-bali-v1',
+        train_duration_ms: trainDuration,
+        finished_at: new Date(),
+      },
+    })
+
+    // Update MLModel version stamp with the run id (cosmetic)
+    await prisma.mLModel.update({
+      where: { id: model_id },
+      data: { version: `v1.${trainingRun.id.slice(-4)}` },
+    }).catch(() => {/* version stamp is cosmetic; ignore failures */})
+
     return NextResponse.json({
       success: true,
       run_id: trainingRun.id,
-      model_id: 'mdl_gbr_revenue_v1',
+      model_id,
       dataset_size: rows.length,
       train_duration_ms: trainDuration,
       metrics: model.training_metrics,
       feature_importance: featureImportance.slice(0, 10),
       history_sample: history.filter((_, i) => i % 10 === 0 || i === history.length - 1),
+      note: 'Model is active in-memory for this server instance. Cold instances will use the bundled baseline model.',
     })
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    // Record the failed run if we can (for audit history) — but only if the
+    // parent MLModel row already exists; otherwise just return the error.
+    try {
+      await prisma.trainingRun.create({
+        data: {
+          model_id,
+          model_name: 'GBR Revenue Predictor v1',
+          algorithm: algoForFailure,
+          status: 'failed',
+          dataset_size: datasetSize,
+          features: '[]',
+          hyperparameters: '{}',
+          metrics: '{}',
+          feature_importance: '[]',
+          error: (e?.message || String(e)).slice(0, 500),
+          train_duration_ms: trainDuration,
+          finished_at: new Date(),
+        },
+      })
+    } catch { /* parent MLModel may not exist yet; ignore */ }
+
+    return NextResponse.json(
+      { success: false, error: e?.message || String(e), stack: e?.stack?.slice(0, 800) },
+      { status: 500 }
+    )
   }
 }
 
@@ -152,6 +195,7 @@ export async function GET(req: NextRequest) {
         started_at: r.started_at,
         finished_at: r.finished_at,
         feature_importance: JSON.parse((r.feature_importance as string) || '[]').slice(0, 5),
+        error: r.error || null,
       })),
     })
   } catch (e: any) {

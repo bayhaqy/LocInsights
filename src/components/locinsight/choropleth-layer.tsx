@@ -134,10 +134,10 @@ export function ChoroplethLayer({
 
       // Add label
       if (showLabels && isActive) {
-        const centroid = poly.polygon.reduce(
-          (acc, [lat, lng]) => [acc[0] + lat / poly.polygon.length, acc[1] + lng / poly.polygon.length],
-          [0, 0]
-        )
+        // Use bounds center instead of vertex-average — correct for non-convex polygons
+        // (e.g. Badung's Bukit peninsula skews the vertex-average south)
+        const bounds = L.latLngBounds(poly.polygon.map(([lat, lng]) => L.latLng(lat, lng)))
+        const centroid: [number, number] = [bounds.getCenter().lat, bounds.getCenter().lng]
         const label = L.marker(centroid as L.LatLngExpression, {
           icon: L.divIcon({
             className: 'kab-label',

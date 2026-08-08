@@ -7,7 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: ['query'],
+    // Disable query logging in production — it adds latency and log volume
+    // on Vercel serverless. Enable only in dev for debugging.
+    log: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['query', 'error', 'warn'],
   })
 
 // Alias for code that uses the conventional `prisma` name

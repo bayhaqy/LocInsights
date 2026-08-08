@@ -154,6 +154,13 @@ export function LocInsightMap({
     })
   }, [stores, showStores, tierFilter])
 
+  // Memoize heat points so HeatLayer's useEffect doesn't tear down + recreate the
+  // canvas on every parent render (was the root cause of "heatmap not visible").
+  const heatPoints = useMemo(
+    () => filteredOpps.map(o => [o.lat, o.lng, o.composite_score / 100] as [number, number, number]),
+    [filteredOpps]
+  )
+
   return (
     <div style={{ height, width: '100%' }} className="relative rounded-lg overflow-hidden border border-[var(--brand-border)]">
       <MapContainer
@@ -185,19 +192,12 @@ export function LocInsightMap({
         {/* Point-based heatmap (leaflet.heat) */}
         {showHeat && heatMode === 'point' && (
           <HeatLayer
-            points={filteredOpps.map(o => [o.lat, o.lng, o.composite_score / 100] as [number, number, number])}
-            radius={28}
-            blur={22}
-            maxZoom={13}
-            minOpacity={0.20}
-            gradient={{
-              0.0: '#F3D0C5',
-              0.3: '#E8917A',
-              0.5: '#D45F4A',
-              0.7: '#C8102E',
-              0.85: '#A30F23',
-              1.0: '#7A0A1A',
-            }}
+            points={heatPoints}
+            radius={32}
+            blur={28}
+            maxZoom={11}
+            minOpacity={0.4}
+            max={0.6}
           />
         )}
 

@@ -2,9 +2,11 @@
  * LocInsight API route handlers — shared helpers
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient, Prisma } from '@prisma/client'
-
-export const db = new PrismaClient()
+import { Prisma } from '@prisma/client'
+// Re-use the cached Prisma client from db.ts — creating a fresh PrismaClient
+// per import (as before) caused connection-pool exhaustion on Vercel.
+import { db } from './db'
+export { db }
 
 export interface PaginatedResult<T> {
   data: T[]

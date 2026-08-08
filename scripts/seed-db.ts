@@ -10,6 +10,7 @@
  *   - province: Bali (all current data)
  *   - source: provenance string from the source-of-truth comment in each data file
  */
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { BALI_STORES } from '../src/lib/data/bali-stores'
 import { BALI_MALLS } from '../src/lib/data/bali-malls'

@@ -22,6 +22,7 @@ import { db, handleError } from '@/lib/api-helpers'
 import { scoreAllKelurahan, getTopOpportunities } from '@/lib/scoring/engine'
 import { predictGBR, computeFeatureImportance, type GBRModel } from '@/lib/ml/gbr'
 import { buildFeatureVector } from '@/lib/ml/dataset'
+import { getTrainedModel } from '@/lib/ml/model-cache'
 import { promises as fs } from 'fs'
 import path from 'path'
 
@@ -33,6 +34,10 @@ let cachedModel: { model: GBRModel; loadedAt: number } | null = null
 const MODEL_CACHE_TTL_MS = 60_000
 
 async function loadModel(): Promise<GBRModel | null> {
+  // Prefer a freshly-trained in-memory model if one exists (set by /ml/train).
+  const trained = getTrainedModel()
+  if (trained) return trained
+
   const now = Date.now()
   if (cachedModel && (now - cachedModel.loadedAt) < MODEL_CACHE_TTL_MS) {
     return cachedModel.model

@@ -78,3 +78,5 @@ mini-services/
 worklog.md
 dev.log
 server.log
+.env
+.ml_api_token

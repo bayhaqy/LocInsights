@@ -210,7 +210,8 @@
     border-top: 1px solid var(--brand-border);
   }
 
-  /* Premium card */
+  /* Premium card — kept here for backwards compat with existing light cards.
+     For dark-themed cards, omit .card-premium and use bg-[var(--brand-ink)] directly. */
   .card-premium {
     background: var(--brand-paper);
     border: 1px solid var(--brand-border);

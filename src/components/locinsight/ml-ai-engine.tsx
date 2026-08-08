@@ -182,7 +182,7 @@ export function MLAIEngine() {
             <Skeleton className="h-64 w-full" />
           ) : (
             <>
-              <Card className="card-premium bg-[var(--brand-ink)] text-white">
+              <Card className="bg-[var(--brand-ink)] text-white border-0 rounded-xl shadow-sm">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <Brain className="w-8 h-8 text-[var(--brand-red)] flex-shrink-0 mt-1" />
