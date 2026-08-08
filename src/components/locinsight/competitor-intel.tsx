@@ -57,7 +57,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
   async function deleteRow(id: string) {
     if (!confirm('Delete this competitor record?')) return
     try {
-      const res = await fetch(`/api/locinsight/competitors?id=${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/locinsight/competitors/${id}`, { method: 'DELETE' })
       const json = await res.json()
       if (json.success) {
         toast.success('Deleted')
