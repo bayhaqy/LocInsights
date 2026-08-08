@@ -198,14 +198,12 @@ export async function POST(req: NextRequest) {
       const batch = brandsToScrape.slice(i, i + BATCH_SIZE)
       const batchResults = await Promise.all(
         batch.map(async (brand) => {
-          const tagClauses = brand.osm_tags.map(tag => {
-            return `node[${tag}](${bboxStr});way[${tag}](${bboxStr});`
-          }).join('')
-          // Reduce Overpass server-side timeout to 10s (was 25s) for faster batch processing
-          const query = `[out:json][timeout:10];(${tagClauses});out center 200;`
-          const elements = await runOverpass(query)
-          if (elements.length === 0) {
-            return { brand, elements: [] as OverpassElement[] }
+          // Try primary tag first; if empty, try fallback tag
+          const buildQuery = (tag: string) =>
+            `[out:json][timeout:10];(node[${tag}](${bboxStr});way[${tag}](${bboxStr}););out center 200;`
+          let elements = await runOverpass(buildQuery(brand.osm_tag))
+          if (elements.length === 0 && brand.osm_tag_fallback) {
+            elements = await runOverpass(buildQuery(brand.osm_tag_fallback))
           }
           return { brand, elements }
         })
