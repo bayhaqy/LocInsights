@@ -452,3 +452,76 @@ Stage Summary:
 - Map: choropleth now uses real GADM admin boundaries with ColorBrewer YlOrRd 7-step scale + quantile classification
 - Competitor Intel: outlet names include location context (e.g., "Indomaret — Bedulu Mukti"); visible in Data Manager
 - Browser-verified: Map choropleth renders, About page shows all sections, Data Manager shows Competitors tab, sidebar has 15 items (no Field Surveys)
+
+---
+Task ID: BUGFIX-V6
+Agent: Super Z (main)
+Task: Unify Data Scraper + Competitor Intel scraper; add hierarchical location filter; fix store pollution; fix Vercel timeout
+
+Work Log:
+- USER QUESTIONS ADDRESSED:
+  1. "Why are scraper + competitor intel scraper similar functions?" → MERGED into ONE unified scraper with two modes
+  2. "Why can't I scrape? How does review + save work?" → Fixed Vercel FUNCTION_INVOCATION_TIMEOUT (root cause: per-result DB query for reverse-geocoding); review+save flow now has clear UX with classification badges
+  3. "How to search by country/province/city/kecamatan/kelurahan/desa?" → Added hierarchical location filter (Kabupaten → Kecamatan → Kelurahan cascading dropdowns)
+  4. "Why do other store results enter master store table with different parent?" → Fixed by brand-classifier routing (MAA brands → stores table; everything else → competitor_stores table)
+
+ROOT CAUSE of timeout: scrape/route.ts called db.kelurahan.findMany() INSIDE the per-result loop (200 results × 50ms = 10s) plus Overpass time = >60s. The competitor scraper already cached this; the data scraper did NOT.
+
+NEW FILES:
+- src/lib/scraper-engine.ts (440 lines) — unified engine with:
+  * Two modes: keyword (free-text → geocode → bbox Overpass) and brand (predefined catalog → full Bali bbox Overpass)
+  * RequestCache class — loads kelurahan + malls ONCE per request (fixes timeout)
+  * resolveLocation() — turns kab_code/kec_code/kel_code into a bbox + human label
+  * Single Overpass race pattern (3 endpoints, throws on empty so Promise.any waits)
+  * Single reverseGeocode() (no DB call per result)
+  * Single detectMall()
+  * Both modes accept optional location filter
+- src/lib/brand-classifier.ts (108 lines) — classifies scraped stores:
+  * classifyScrapedBrand(brandName) returns {target: 'maa_store'|'competitor'|'other', brand_id, parent, brand_name, brand_category, reason}
+  * MAA brand cache from src/lib/data/brands.ts (no DB call)
+  * Competitor brand catalog from src/lib/data/competitor-brands.ts
+  * Exact + substring match (e.g., "Starbucks Kuta" matches "Starbucks")
+- src/app/api/locinsight/locations/route.ts (75 lines) — admin hierarchy endpoint:
+  * Returns provinces, kabupaten, kecamatan, kelurahan in one parallel fetch
+  * Optional ?kab_code= or ?kec_code= filters
+  * 1-hour revalidation
+
+REFACTORED FILES:
+- src/app/api/locinsight/scrape/route.ts — thin wrapper around runScrape(); accepts mode + location + kinds
+- src/app/api/locinsight/scrape-competitors/route.ts — thin wrapper (brand mode); kept for backward compat
+- src/app/api/locinsight/scrape-save/route.ts — uses classifier to route items:
+  * MAA/MAP brands → stores table with brand_id + parent from catalog
+  * Competitors + others → competitor_stores table with brand_name = actual
+  * Malls → malls table; POIs → pois table
+  * Removed BR_SCRAPER placeholder brand entirely (no more store pollution)
+  * All dedup queries (50m rule) batched upfront
+- src/components/locinsight/scraper.tsx — unified UI:
+  * Mode toggle: "Keyword Search" vs "Brand Sweep (27 brands)"
+  * Hierarchical location filter: All Bali / Kabupaten / Kecamatan / Kelurahan (cascading dropdowns)
+  * Each store row shows classification badge (MAA store → stores / Competitor → competitor_stores / Other → competitor_stores)
+  * Save-routing summary panel shows where each kind will land BEFORE clicking Save
+  * Existing "How It Works" card updated to explain mode + location + classification
+- src/components/locinsight/competitor-intel.tsx — simplified:
+  * Removed the duplicate Scraper tab (was creating user confusion)
+  * Now shows existing competitor data only + filters + delete row button
+  * "Scrape More" button navigates to the unified scraper
+  * Fixed DELETE call (was using ?id= query; switched to URL path /competitors/{id})
+- src/app/page.tsx — wired onScrapeMore callback so CompetitorIntel's "Scrape More" navigates to scraper view
+
+VERIFICATION ON PRODUCTION (https://locinsights.vercel.app):
+- /api/locinsight/locations → 1 province, 9 kabupaten, 48 kecamatan, 172 kelurahan
+- /api/locinsight/scrape (keyword mode, kec_code=5103050) → 47 results in <60s (was timing out before)
+- /api/locinsight/scrape (brand mode, brands=[Indomaret,Alfamart], kab_code=5104) → 309 results
+- /api/locinsight/scrape-save with mixed items → 1 store (Starbucks → stores table with brand_id=BR001, parent=MAP) + 2 competitors (Indomaret → competitor_stores; Random Unknown Cafe → competitor_stores with brand_category=other)
+- Test data cleaned up; verified stores count back to 80, competitors back to 0
+- TypeScript: 0 errors in all touched files (scraper-engine.ts, brand-classifier.ts, locations/route.ts, scrape/route.ts, scrape-save/route.ts, scrape-competitors/route.ts, scraper.tsx, competitor-intel.tsx)
+- next build: clean, 12-14s
+
+Stage Summary:
+- All 4 user questions answered with concrete code-level fixes
+- Single unified scraper replaces two near-duplicate scrapers (industry best practice: GapMaps, Pi, Tarci all use a single scraper UI with mode + location scope)
+- Hierarchical location filter (Kabupaten → Kecamatan → Kelurahan) scopes scrapes to specific areas
+- Brand classifier prevents store pollution — only MAA/MAP brands ever land in the master stores table
+- Timeout fixed via per-request cache (was per-result DB query)
+- DELETE on competitors fixed (was using query string, route expects URL path)
+- Production verified end-to-end with real test data
