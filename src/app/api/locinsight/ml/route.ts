@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
       // Get the latest training run's metrics for the GBR model (if exists)
       const latestRun = await db.trainingRun.findFirst({
         where: { model_id: 'mdl_gbr_revenue_v1', status: 'completed' },
-        orderBy: { startedAt: 'desc' },
+        orderBy: { started_at: 'desc' },
       })
 
       if (latestRun) {
@@ -128,13 +128,13 @@ export async function GET(req: NextRequest) {
             name: 'GBR Revenue Predictor',
             version: `v1.${latestRun.id.slice(-4)}`,
             type: 'revenue_forecast',
-            algorithm: 'gradient_boosted_regression',
+            algorithm: 'gbr_regressor',
             description: `Real gradient-boosted regression (Friedman 2001) — pure TypeScript. Trained on ${latestRun.dataset_size} (kelurahan × brand) synthetic samples. Replaces the heuristic revenue projection with learned model.`,
             features: latestRun.features,
             hyperparameters: latestRun.hyperparameters,
             metrics: latestRun.metrics,
             status: 'active',
-            trained_at: latestRun.startedAt,
+            trained_at: latestRun.started_at,
           },
           update: {
             version: `v1.${latestRun.id.slice(-4)}`,
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
             hyperparameters: latestRun.hyperparameters,
             metrics: latestRun.metrics,
             status: 'active',
-            trained_at: latestRun.startedAt,
+            trained_at: latestRun.started_at,
           },
         })
       }
@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
         // Fallback: get from latest training run in DB
         const latestRun = await db.trainingRun.findFirst({
           where: { status: 'completed' },
-          orderBy: { startedAt: 'desc' },
+          orderBy: { started_at: 'desc' },
         })
         if (latestRun) {
           return NextResponse.json({
@@ -322,7 +322,7 @@ export async function GET(req: NextRequest) {
     if (action === 'training_runs') {
       const limit = Math.min(50, Number(sp.get('limit') || 20))
       const runs = await db.trainingRun.findMany({
-        orderBy: { startedAt: 'desc' },
+        orderBy: { started_at: 'desc' },
         take: limit,
       })
       return NextResponse.json({
@@ -334,11 +334,11 @@ export async function GET(req: NextRequest) {
           algorithm: r.algorithm,
           status: r.status,
           dataset_size: r.dataset_size,
-          metrics: JSON.parse(r.metrics || '{}'),
+          metrics: JSON.parse((r.metrics as string) || '{}'),
           train_duration_ms: r.train_duration_ms,
-          started_at: r.startedAt,
-          finished_at: r.finishedAt,
-          feature_importance: JSON.parse(r.feature_importance || '[]').slice(0, 5),
+          started_at: r.started_at,
+          finished_at: r.finished_at,
+          feature_importance: JSON.parse((r.feature_importance as string) || '[]').slice(0, 5),
         })),
       })
     }

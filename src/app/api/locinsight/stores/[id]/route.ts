@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params
     const store = await db.store.findUnique({
       where: { id },
-      include: { brand: true, mall: true },
+      include: { brands: true, malls: true },
     })
     if (!store) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
@@ -33,7 +33,7 @@ export async function PUT(
     const store = await db.store.update({
       where: { id },
       data: body,
-      include: { brand: true, mall: true },
+      include: { brands: true, malls: true },
     })
     return NextResponse.json({ success: true, data: store })
   } catch (e) {

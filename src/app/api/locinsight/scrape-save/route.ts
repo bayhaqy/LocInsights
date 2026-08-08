@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
               id,
               brand_id: 'BR_SCRAPER',
               brand_name: item.brand_name || 'Unknown Scraped',
-              brand_category: item.brand_category || 'lifestyle',
+              brand_category: (item.brand_category || 'lifestyle') as any,
               parent: 'MAP',
               name: item.name,
               lat: item.lat,
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
             data: {
               id,
               name: item.name,
-              type: item.poi_type || 'tourist_attraction',
+              type: (item.poi_type || 'tourist_attraction') as any,
               lat: item.lat,
               lng: item.lng,
               kec: loc.kec || '—',

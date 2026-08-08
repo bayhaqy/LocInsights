@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const where = status ? { review_status: status } : {}
     const surveys = await prisma.fieldSurvey.findMany({
       where,
-      orderBy: { submittedAt: 'desc' },
+      orderBy: { submitted_at: 'desc' },
       take: limit,
     })
 
@@ -71,9 +71,9 @@ export async function POST(req: NextRequest) {
         address: address || '',
         is_in_mall: !!is_in_mall,
         mall_name: mall_name || '',
-        condition: condition || '',
+        condition: condition || null,
         estimated_size_m2: estimated_size_m2 ? Number(estimated_size_m2) : null,
-        foot_traffic_observation: foot_traffic_observation || '',
+        foot_traffic_observation: foot_traffic_observation || null,
         notes: notes || '',
         photo_urls: JSON.stringify(photo_urls || []),
         review_status: 'pending',
@@ -102,21 +102,24 @@ export async function PATCH(req: NextRequest) {
     if (review_status === 'imported') {
       const survey = await prisma.fieldSurvey.findUnique({ where: { id } })
       if (survey && survey.brand_name) {
+        // Validate brand_category against competitor_category_enum
+        const validCompetitorCategories = ['convenience_store', 'fast_food', 'coffee', 'fashion', 'beauty', 'supermarket', 'pharmacy', 'department_store', 'sports', 'other']
+        const validatedCategory = survey.brand_category && validCompetitorCategories.includes(survey.brand_category) ? survey.brand_category : 'other'
         // Add as a competitor store (assuming it's a non-MAP brand observed in the field)
         await prisma.competitorStore.create({
           data: {
             brand_name: survey.brand_name,
-            brand_category: survey.brand_category || 'other',
+            brand_category: validatedCategory as any,
             name: survey.outlet_name || survey.brand_name,
             lat: survey.lat,
             lng: survey.lng,
             kec: '',
             kab: '',
-            city: survey.kelurahan_name,
+            city: survey.kelurahan_name || '',
             address: survey.address || '',
             is_in_mall: survey.is_in_mall,
             mall_name: survey.mall_name || null,
-            source: `field_survey:${survey.surveyor_name}:${survey.submittedAt.toISOString()}`,
+            source: `field_survey:${survey.surveyor_name}:${survey.submitted_at.toISOString()}`,
           },
         })
       }
@@ -127,7 +130,7 @@ export async function PATCH(req: NextRequest) {
       data: {
         review_status,
         reviewer_notes: reviewer_notes || '',
-        reviewedAt: new Date(),
+        reviewed_at: new Date(),
       },
     })
 

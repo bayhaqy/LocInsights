@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       data: {
         model_id: 'mdl_gbr_revenue_v1',
         model_name: 'GBR Revenue Predictor v1',
-        algorithm: 'gradient_boosted_regression',
+        algorithm: 'gbr_regressor',
         status: 'completed',
         dataset_size: rows.length,
         features: JSON.stringify(model.feature_names),
@@ -71,9 +71,9 @@ export async function POST(req: NextRequest) {
         }),
         metrics: JSON.stringify(model.training_metrics),
         feature_importance: JSON.stringify(featureImportance),
-        model_artifact: MODEL_PATH,
+        model_artifact_url: MODEL_PATH,
         train_duration_ms: trainDuration,
-        finishedAt: new Date(),
+        finished_at: new Date(),
       },
     })
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         name: 'GBR Revenue Predictor v1',
         version: 'v1.0',
         type: 'revenue_forecast',
-        algorithm: 'gradient_boosted_regression',
+        algorithm: 'gbr_regressor',
         description: `Pure-TypeScript Gradient-Boosted Regression (Friedman 2001). Trained on ${rows.length} (kelurahan × brand) synthetic samples with log-normal noise (sigma=0.35). Replaces the heuristic revenue projection with learned model.`,
         features: JSON.stringify(model.feature_names),
         hyperparameters: JSON.stringify({
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams
     const limit = Math.min(50, Number(sp.get('limit') || 20))
     const runs = await prisma.trainingRun.findMany({
-      orderBy: { startedAt: 'desc' },
+      orderBy: { started_at: 'desc' },
       take: limit,
     })
     return NextResponse.json({
@@ -147,11 +147,11 @@ export async function GET(req: NextRequest) {
         algorithm: r.algorithm,
         status: r.status,
         dataset_size: r.dataset_size,
-        metrics: JSON.parse(r.metrics || '{}'),
+        metrics: JSON.parse((r.metrics as string) || '{}'),
         train_duration_ms: r.train_duration_ms,
-        started_at: r.startedAt,
-        finished_at: r.finishedAt,
-        feature_importance: JSON.parse(r.feature_importance || '[]').slice(0, 5),
+        started_at: r.started_at,
+        finished_at: r.finished_at,
+        feature_importance: JSON.parse((r.feature_importance as string) || '[]').slice(0, 5),
       })),
     })
   } catch (e: any) {

@@ -380,12 +380,12 @@ export async function POST(req: NextRequest) {
     const run = await db.scraperRun.create({
       data: {
         query,
-        source: scrapeResult.source,
+        source: scrapeResult.source as any,
         status: 'success',
         found_count: scrapeResult.results.length,
         saved_count: 0, // 0 because we don't auto-save anymore
         result_json: JSON.stringify(scrapeResult.results.slice(0, 500)),
-        finishedAt: new Date(),
+        finished_at: new Date(),
       },
     })
 
@@ -413,7 +413,7 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams
     const limit = Math.min(100, Number(sp.get('limit') || 50))
     const runs = await db.scraperRun.findMany({
-      orderBy: { startedAt: 'desc' },
+      orderBy: { started_at: 'desc' },
       take: limit,
     })
     return NextResponse.json({ success: true, data: runs })

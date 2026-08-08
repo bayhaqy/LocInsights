@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     return paginate(db.store, req, {
       where,
-      include: { brand: true, mall: true },
+      include: { brands: true, malls: true },
       orderBy: { id: 'asc' },
       search: { fields: ['name', 'brand_name', 'address'], term },
     })
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const store = await db.store.create({
       data: body,
-      include: { brand: true, mall: true },
+      include: { brands: true, malls: true },
     })
     return NextResponse.json({ success: true, data: store }, { status: 201 })
   } catch (e) {

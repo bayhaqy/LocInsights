@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   // Phase 3: count of field surveys + training runs
   const [pendingSurveys, latestTrainingRun, competitorBrands] = await Promise.all([
     prisma.fieldSurvey.count({ where: { review_status: 'pending' } }),
-    prisma.trainingRun.findFirst({ orderBy: { startedAt: 'desc' } }),
+    prisma.trainingRun.findFirst({ orderBy: { started_at: 'desc' } }),
     prisma.competitorStore.groupBy({ by: ['brand_name'], _count: true, orderBy: { _count: { brand_name: 'desc' } } }),
   ])
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
           id: latestTrainingRun.id,
           model_name: latestTrainingRun.model_name,
           status: latestTrainingRun.status,
-          started_at: latestTrainingRun.startedAt,
+          started_at: latestTrainingRun.started_at,
           metrics: latestTrainingRun.metrics,
         } : null,
         competitor_brand_counts: competitorBrands.map((b: any) => ({ brand: b.brand_name, count: b._count?.brand_name ?? b._count ?? 0 })),

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
               address: item.address || undefined,
               is_in_mall: item.is_in_mall ?? false,
               mall_name: item.mall_name ?? null,
-              source: item.source || 'osm_overpass',
+              source: (item.source || 'osm_overpass') as any,
             },
           })
           updated += 1
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
           const created_row = await prisma.competitorStore.create({
             data: {
               brand_name: item.brand_name,
-              brand_category: item.brand_category,
+              brand_category: item.brand_category as any,
               name: item.name,
               lat: item.lat,
               lng: item.lng,
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
               address: item.address || '',
               is_in_mall: item.is_in_mall ?? false,
               mall_name: item.mall_name ?? null,
-              source: item.source || 'osm_overpass',
+              source: (item.source || 'osm_overpass') as any,
             },
           })
           existing.push({
