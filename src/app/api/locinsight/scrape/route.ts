@@ -157,8 +157,9 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass.osm.ch/api/interpreter',
   ]
-  // True race pattern: use Promise.any — first SUCCESSFUL response wins.
-  // Failed/aborted requests are ignored unless ALL fail.
+  // True race pattern: Promise.any returns first SUCCESSFUL response with actual data.
+  // IMPORTANT: We throw on empty results so Promise.any keeps waiting for other endpoints.
+  // (overpass.osm.ch returns empty [] quickly for non-European queries — would short-circuit the race.)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10000) // hard 10s overall cap
 
@@ -173,7 +174,11 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
         if (!res.ok) throw new Error(`${res.status}`)
         return res.json() as Promise<{ elements: OverpassElement[] }>
       })
-      .then(data => data.elements || [])
+      .then(data => {
+        const elements = data.elements || []
+        if (elements.length === 0) throw new Error('empty')
+        return elements
+      })
   )
 
   try {
@@ -181,9 +186,7 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
     clearTimeout(timeout)
     return winner
   } catch (e: any) {
-    // All promises rejected — return empty
     clearTimeout(timeout)
-    console.warn('All Overpass endpoints failed:', e.errors?.map((err: any) => err?.message).join('; '))
     return []
   }
 }
