@@ -103,37 +103,19 @@ async function geocode(query: string): Promise<NominatimResult | null> {
  * The original `query` is always tried first (most relevant), then narrow by category.
  */
 async function nominatimSearchByName(query: string, kind: 'store' | 'mall' | 'poi'): Promise<NominatimResult[]> {
-  const kindQueries: Record<string, string[]> = {
-    store: [query, `${query} cafe`, `${query} restaurant`],
-    mall: [query, `${query} mall`, `${query} shopping`],
-    poi: [query, `${query} hotel`, `${query} attraction`, `${query} beach`],
+  // When used as fallback in parallel mode, only do the primary query (no extra variants)
+  // to avoid stacking Nominatim rate-limit delays across 3 kinds.
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=20&countrycodes=id&viewbox=114.4,-8.05,115.7,-8.85&bounded=1&addressdetails=1`
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'id,en' },
+    })
+    if (!res.ok) return []
+    const data = (await res.json()) as NominatimResult[]
+    return data
+  } catch {
+    return []
   }
-  const queries = kindQueries[kind] || [query]
-  const all: NominatimResult[] = []
-  const seen = new Set<number>()
-  for (const q of queries) {
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=20&countrycodes=id&viewbox=114.4,-8.05,115.7,-8.85&bounded=1&addressdetails=1`
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'id,en' },
-      })
-      if (!res.ok) continue
-      const data = (await res.json()) as NominatimResult[]
-      for (const r of data) {
-        if (!seen.has(r.place_id)) {
-          seen.add(r.place_id)
-          all.push(r)
-        }
-      }
-      // Nominatim rate limit: 1 req/sec — wait 1.1s between queries
-      if (queries.indexOf(q) < queries.length - 1) {
-        await new Promise(r => setTimeout(r, 1100))
-      }
-    } catch {
-      // ignore — try next query
-    }
-  }
-  return all
 }
 
 function buildOverpassQuery(bbox: [number, number, number, number], kind: 'store' | 'mall' | 'poi'): string {
@@ -164,7 +146,8 @@ function buildOverpassQuery(bbox: [number, number, number, number], kind: 'store
       'way["natural"="beach"](bbox);',
     )
   }
-  const query = `[out:json][timeout:25];(${tagFilters.join('')});out center 200;`
+  // Reduce Overpass server-side timeout to 15s (was 25s) so we don't burn client-side budget
+  const query = `[out:json][timeout:15];(${tagFilters.join('')});out center 200;`
   return query.replace(/bbox/g, bboxStr)
 }
 
@@ -174,25 +157,43 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass.osm.ch/api/interpreter',
   ]
-  for (const endpoint of endpoints) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 12000)
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
+  // Try endpoints in parallel — first successful response wins (race pattern)
+  // Best practice for OSM Overpass: don't wait for slow endpoints, race them.
+  const controllers = endpoints.map(() => new AbortController())
+  const timeouts = controllers.map(c => setTimeout(() => c.abort(), 8000))
+
+  const promises = endpoints.map((endpoint, i) =>
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controllers[i].signal,
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`${res.status}`)
+        return res.json() as Promise<{ elements: OverpassElement[] }>
       })
-      clearTimeout(timeout)
-      if (!res.ok) continue
-      const data = await res.json() as { elements: OverpassElement[] }
-      return data.elements || []
-    } catch (e) {
-      console.warn(`Overpass ${endpoint} failed:`, e)
+      .then(data => data.elements || [])
+      .catch(e => {
+        console.warn(`Overpass ${endpoint} failed:`, e.message)
+        return null
+      })
+  )
+
+  // Race — return first non-null result
+  for (const p of promises) {
+    const result = await p
+    if (result && result.length > 0) {
+      // Cancel other in-flight requests
+      controllers.forEach(c => c.abort())
+      timeouts.forEach(t => clearTimeout(t))
+      return result
     }
   }
-  return []
+  // All failed/empty — collect any non-null (even if empty array)
+  timeouts.forEach(t => clearTimeout(t))
+  const allResults = await Promise.all(promises)
+  return allResults.find(r => r !== null) || []
 }
 
 function elementName(tags: Record<string, string>, fallback: string): string {
@@ -282,22 +283,24 @@ export async function runScrape(
   const bbox: [number, number, number, number] = [lat - dLat, lng - dLng, lat + dLat, lng + dLng]
 
   const kinds: Array<'store' | 'mall' | 'poi'> = kind === 'all' ? ['store', 'mall', 'poi'] : [kind]
-  const allElements: Array<{ element: OverpassElement; kind: 'store' | 'mall' | 'poi' }> = []
 
-  for (const k of kinds) {
-    const q = buildOverpassQuery(bbox, k)
-    const elements = await runOverpass(q)
-    for (const element of elements) {
-      allElements.push({ element, kind: k })
-    }
-  }
+  // Run all kinds in PARALLEL (was sequential — caused Vercel 60s timeouts)
+  const kindResults = await Promise.all(
+    kinds.map(async (k) => {
+      const q = buildOverpassQuery(bbox, k)
+      const elements = await runOverpass(q)
+      return elements.map(element => ({ element, kind: k }))
+    })
+  )
+  const allElements: Array<{ element: OverpassElement; kind: 'store' | 'mall' | 'poi' }> = kindResults.flat()
 
   let usedFallback = false
   if (allElements.length === 0) {
     usedFallback = true
-    for (const k of kinds) {
-      const nomResults = await nominatimSearchByName(query, k)
-      for (const r of nomResults) {
+    // Nominatim fallback — also parallelized per kind
+    const nomResults = await Promise.all(kinds.map(k => nominatimSearchByName(query, k)))
+    for (let i = 0; i < kinds.length; i++) {
+      for (const r of nomResults[i]) {
         allElements.push({
           element: {
             type: 'node',
@@ -313,7 +316,7 @@ export async function runScrape(
               ...(r.class === 'natural' ? { natural: r.type } : {}),
             },
           },
-          kind: k,
+          kind: kinds[i],
         })
       }
     }
