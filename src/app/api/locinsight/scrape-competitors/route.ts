@@ -162,17 +162,27 @@ function buildOutletName(brand: string, tags: Record<string, string>, geo: { kel
 
 /**
  * Detect if a point is inside a known mall (within 250m of a mall center).
+ * Malls list is cached to avoid N+1 Prisma queries.
  */
-async function detectMall(lat: number, lng: number): Promise<{ is_in_mall: boolean; mall_name: string | null }> {
+let mallsCache: Array<{ name: string; lat: number | null; lng: number | null }> | null = null
+async function getMallsCache() {
+  if (mallsCache !== null) return mallsCache
   try {
-    const malls = await prisma.mall.findMany({ select: { name: true, lat: true, lng: true } })
-    for (const m of malls) {
-      if (m.lat == null || m.lng == null) continue
-      if (haversineKm(lat, lng, m.lat, m.lng) <= 0.25) {
-        return { is_in_mall: true, mall_name: m.name }
-      }
+    mallsCache = await prisma.mall.findMany({ select: { name: true, lat: true, lng: true } })
+  } catch {
+    mallsCache = []
+  }
+  return mallsCache as Array<{ name: string; lat: number | null; lng: number | null }>
+}
+
+async function detectMall(lat: number, lng: number): Promise<{ is_in_mall: boolean; mall_name: string | null }> {
+  const malls = await getMallsCache()
+  for (const m of malls) {
+    if (m.lat == null || m.lng == null) continue
+    if (haversineKm(lat, lng, m.lat, m.lng) <= 0.25) {
+      return { is_in_mall: true, mall_name: m.name }
     }
-  } catch {}
+  }
   return { is_in_mall: false, mall_name: null }
 }
 
