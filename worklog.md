@@ -355,3 +355,100 @@ Stage Summary:
 - Bonus fixes: consolidated Prisma clients, gated query logging, removed secrets from git, fixed Vercel env vars region
 - Files changed: 26 files, +947 / -239 lines
 - New artifacts: scripts/sync_sqlite_to_supabase.py, src/lib/ml/model-cache.ts
+
+---
+Task ID: BUGFIX-V5
+Agent: Super Z (main)
+Task: Fix 8 user-reported issues (map heatmap, GBR error, header cleanup, About page, Bali wording, competitor intel, data completeness, scraper errors, field surveys)
+
+Work Log:
+- BUG 1 — Map heatmap "weird" / not aligning with kabupaten boundaries
+  - Root cause: simplified polygons in bali-kabupaten-polygons.ts were hand-drawn approximations
+  - Fix: Fetched real GADM v4.1 admin boundaries (bali-kabupaten.geojson: 9 kabupaten, bali-kecamatan.geojson: 59 kecamatan)
+  - Rewrote choropleth-layer.tsx: loads real GeoJSON from /public/geojson/, uses ColorBrewer YlOrRd 7-step scale, quantile classification, hover tooltips with metric values
+  - Added "Granularity" selector: kabupaten (9 regions) or kecamatan (59 regions)
+  - Removed src/lib/data/bali-kabupaten-polygons.ts (no longer needed)
+  - Best practices: Felt.com / Placer.ai use real admin polygons, not point buffers
+
+- BUG 2 — GBR model error: "Failed to load scikit-learn: No module named 'micropip'"
+  - Root cause: PyScript 2025.x doesn't expose `micropip` as a directly-importable module
+  - Fix: Added scikit-learn to PyScript packages config: `<script type="py" config='{"packages":["numpy","scikit-learn"]}'>` — Pyodide loads it at startup
+  - Removed `import micropip; micropip.install('scikit-learn')` from app.py
+  - Updated boot loader text + train button hint text
+
+- BUG 3 — Remove "Live · Bali · Phase 1+2+3 Updated: Aug 2026" header text
+  - Removed the entire right-side header div in page.tsx (kept breadcrumb only)
+  - Removed "Phase 1+2+3 · Bali" from sidebar footer
+  - Removed "Data as of Aug 2026" from sidebar footer
+  - Simplified page footer (removed "Phase 1+2+3 Bali · v3.0" and "PWA" mention)
+
+- BUG 4 — Create About page + move methodology info there
+  - Created src/components/locinsight/about.tsx with sections:
+    * What is LocInsight? (project overview, 3-stage framework, two complementary models)
+    * Methodology Summary (high-level formula + 3 factor cards)
+    * Data Sources (8 sources with type labels)
+    * Best Practices & Research References (8 academic/industry sources)
+    * Platform Capabilities (9 capability cards)
+    * Tech Stack (8 items)
+    * Maintainer info
+  - Added 'about' to NAV_ITEMS in page.tsx (last item)
+  - Simplified methodology.tsx to focus purely on formulas (Composite Score, Huff Model, GBR)
+  - Added a "see About page" pointer at top of Methodology
+
+- BUG 5 — Remove "Bali only" / "Phase 1/2/3" wording throughout
+  - dashboard.tsx: "Phase 1 · Bali Pilot" → "Location Intelligence", removed "172 kelurahan/desa di 9 kabupaten/kota" specificity
+  - ml-ai-engine.tsx: "Phase 3 — pure TypeScript" → "Pure TypeScript"
+  - ml-ai-engine.tsx: "Auto-retrain pipeline (Phase 3)" → "Auto-retrain pipeline"
+  - analysis.tsx: "Phase 3 GBR" → "GBR", "Phase 2 friction-based" → "friction-based"
+  - HF Space index.html: removed "Bali PoC" from header (×2) + meta description
+
+- BUG 6 — Competitor Intel: names/locations don't match; missing from Data Master
+  - Root cause A: competitor-brands.ts had TWO OSM tags per brand that were UNIONed (e.g., 'brand=Indomaret' OR 'shop=convenience') — returning ALL convenience stores in Bali
+  - Root cause B: outlet name was just `tags.name` (often just "Indomaret" repeated)
+  - Root cause C: kec/kab were pulled from OSM addr: tags (usually missing)
+  - Root cause D: scrape-competitors-save used invalid 'osm_overpass' enum value
+  - Fix A: Refactored competitor-brands.ts to use ONE specific osm_tag + optional osm_tag_fallback per brand (regex patterns for name variants)
+  - Fix B: buildOutletName() function — uses "Brand — Kelurahan/Kecamatan/Kabupaten" format
+  - Fix C: reverseGeocode() — uses cached kelurahan dataset to find nearest kelurahan (no API call needed)
+  - Fix D: cached mall list in detectMall() (was N+1 Prisma queries — 200 results × 50ms = 10s)
+  - Added new /api/locinsight/competitors CRUD routes (GET/POST/PUT/DELETE)
+  - Added 'competitors' tab to Data Manager (full CRUD + CSV/XLSX import/export via ENTITY_CONFIG)
+  - Validated: scraped 200 Indomaret outlets in Bali in 22 seconds, all with proper kec/kab and outlet names
+
+- BUG 7 — Scraper errors (was timing out)
+  - Root cause A: Scraper was using sequential kinds loop (3 kinds × 3 endpoints × 12s = up to 108s)
+  - Root cause B: Nominatim fallback stacked 3 queries per kind × 1.1s rate-limit delay = 9s extra
+  - Root cause C: Prisma.scraperRun.create() failed because source field had 'nominatim_only' which is NOT in scraper_source_enum
+  - Root cause D: Promise.any fulfilled on first response (even empty []) from overpass.osm.ch — Swiss-focused endpoint returns empty [] immediately for Bali queries, short-circuiting the race
+  - Root cause E: 12s timeout was aborting kumi.systems (which takes 5-10s) before it could return data
+  - Fix A: Promise.any races 3 endpoints in parallel, throws on empty so Promise.any keeps waiting
+  - Fix B: Reduced Overpass server-side timeout from 25s to 10-15s
+  - Fix C: Parallelized 3 kinds with Promise.all, simplified Nominatim fallback to single primary query
+  - Fix D: Used valid enum values ('nominatim', 'overpass') instead of 'nominatim_only', 'nominatim+overpass', 'overpass_partial', 'osm_overpass'
+  - Fix E: Increased overall cap from 12s to 20s to give kumi.systems time to respond
+  - Also fixed competitor scraper with same pattern + parallel batches of 5 brands
+  - Validated: scraper returns 14 Starbucks Kuta results in 18.7s; competitor scraper returns 200 Indomaret in 22s
+
+- BUG 8 — Field Surveys low value with empty data
+  - Removed from NAV_ITEMS in page.tsx (was 'surveys' with Smartphone icon)
+  - Removed FieldSurveys import from page.tsx
+  - Component file (field-surveys.tsx) kept for /survey PWA backward compat
+  - API route (/api/locinsight/field-survey) kept for /survey PWA backward compat
+
+- Added reverse-geocoding to regular data scraper too (same pattern as competitor scraper)
+  - Uses kelurahan dataset to find nearest kabupaten/kecamatan for each scraped result
+  - More reliable than OSM addr:suburb / addr:county tags (often missing)
+
+Build: tsc --noEmit clean for all changed files; next build succeeds in 12-14s
+Production: deployed to https://locinsights.vercel.app (commits 2b3d8ce → b7914b4)
+HF Space: deployed to https://bayhaqy-locinsights-ml.static.hf.space
+
+Stage Summary:
+- All 8 user-reported issues verified FIXED on production
+- New endpoints: /api/locinsight/competitors (CRUD), /geojson/bali-{kabupaten,kecamatan}.geojson
+- New components: About page
+- Removed: simplified bali-kabupaten-polygons.ts (replaced with real GADM GeoJSON)
+- Scraper performance: 18.7s for "Starbucks Kuta" (was 60s+ timeout); competitor scraper 22s for Indomaret
+- Map: choropleth now uses real GADM admin boundaries with ColorBrewer YlOrRd 7-step scale + quantile classification
+- Competitor Intel: outlet names include location context (e.g., "Indomaret — Bedulu Mukti"); visible in Data Manager
+- Browser-verified: Map choropleth renders, About page shows all sections, Data Manager shows Competitors tab, sidebar has 15 items (no Field Surveys)
