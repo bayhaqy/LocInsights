@@ -1,7 +1,7 @@
 /**
  * Anti-Sleep Cron Endpoint
  *
- * Called by Vercel Cron daily (see vercel.json — Hobby tier doesn't allow */15).
+ * Called by Vercel Cron daily (see vercel.json — Hobby tier doesn't allow every-15-min).
  * Performs lightweight pings to:
  *   1. Supabase (REST SELECT) — prevents DB auto-pause on free tier
  *   2. Hugging Face Static Space root URL — verifies reachability
