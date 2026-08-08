@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
               address: item.address || undefined,
               is_in_mall: item.is_in_mall ?? false,
               mall_name: item.mall_name ?? null,
-              source: (item.source || 'osm_overpass') as any,
+              source: (item.source || 'overpass') as any,
             },
           })
           updated += 1
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
               address: item.address || '',
               is_in_mall: item.is_in_mall ?? false,
               mall_name: item.mall_name ?? null,
-              source: (item.source || 'osm_overpass') as any,
+              source: (item.source || 'overpass') as any,
             },
           })
           existing.push({

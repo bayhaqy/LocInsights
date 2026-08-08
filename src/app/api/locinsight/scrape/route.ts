@@ -378,7 +378,9 @@ export async function runScrape(
   return {
     geocoded: { lat, lng, display_name: geo.display_name, is_in_bali: isBali, address: geo.address },
     used_fallback: usedFallback,
-    source: usedFallback ? 'nominatim_only' : 'nominatim+overpass',
+    // Map internal source label to Prisma scraper_source_enum values
+    // (allowed: nominatim | overpass | bps | map_co_id | mapactive_id | manual | google_places | osm)
+    source: usedFallback ? 'nominatim' : 'overpass',
     results,
   }
 }

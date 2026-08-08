@@ -253,7 +253,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       total_found: deduped.length,
-      source: usedFallback ? 'overpass_partial' : 'overpass',
+      // Prisma scraper_source_enum allows: nominatim | overpass | bps | map_co_id | mapactive_id | manual | google_places | osm
+      source: usedFallback ? 'overpass' : 'overpass',
       brands_with_data: brandsWithData,
       brands_scraped: brandsToScrape.map(b => b.name),
       results: deduped,
