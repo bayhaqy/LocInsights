@@ -45,7 +45,7 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
   // IMPORTANT: We throw on empty results so Promise.any keeps waiting for other endpoints.
   // (overpass.osm.ch returns empty [] quickly for non-European queries — would short-circuit the race.)
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 12000) // hard 12s overall cap
+  const timeout = setTimeout(() => controller.abort(), 20000) // hard 20s overall cap (kumi takes 5-10s)
 
   const promises = endpoints.map(endpoint =>
     fetch(endpoint, {
