@@ -37,7 +37,6 @@ export function Sidebar({ items, activeId, onSelect, stats }: SidebarProps) {
         </div>
         <div className="mt-3 text-[10px] text-white/40 leading-relaxed">
           Powered by <span className="text-white/70 font-medium">MAP Active Data Team</span>
-          <br />Phase 1+2+3 · Bali
         </div>
       </div>
 
@@ -87,9 +86,6 @@ export function Sidebar({ items, activeId, onSelect, stats }: SidebarProps) {
             <div className="text-[18px] font-bold text-white num-tabular leading-none">{stats.total_malls}</div>
             <div className="text-[9px] text-white/40 uppercase tracking-wider mt-1">Malls</div>
           </div>
-        </div>
-        <div className="pt-2 text-[9px] text-white/30 leading-tight text-center">
-          Data as of Aug 2026<br />BPS Bali · MAP Public Dir
         </div>
       </div>
     </aside>

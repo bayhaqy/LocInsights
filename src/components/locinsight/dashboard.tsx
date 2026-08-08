@@ -31,7 +31,7 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-[var(--brand-red)]" />
-            <span className="text-[11px] uppercase tracking-[0.2em] text-white/60 font-medium">Phase 1 · Bali Pilot</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-white/60 font-medium">Location Intelligence</span>
           </div>
           <h1 className="font-display text-[36px] leading-[1.1] font-bold mb-3 max-w-2xl">
             Retail Expansion Intelligence<br />
@@ -39,7 +39,7 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           </h1>
           <p className="text-[14px] text-white/70 max-w-3xl leading-relaxed">
             LocInsight menggabungkan composite ML scoring dengan Huff gravity market-share model untuk
-            mengidentifikasi peluang ekspansi toko di Tier 2–3 Bali. Sistem menganalisis 172 kelurahan/desa
+            mengidentifikasi peluang ekspansi toko di Tier 2–3. Sistem menganalisis kelurahan/desa
             di 9 kabupaten/kota, mempertimbangkan demografi, foot traffic, kompetisi, dan sinergi jaringan existing.
           </p>
 

@@ -21,7 +21,7 @@ import Papa from 'papaparse'
 import { db } from './api-helpers'
 
 export type EntityType =
-  | 'stores' | 'malls' | 'brands'
+  | 'stores' | 'malls' | 'brands' | 'competitors'
   | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan'
 
 export type FieldType = 'text' | 'number' | 'boolean' | 'select'
@@ -117,6 +117,27 @@ export const ENTITY_CONFIG: Record<EntityType, EntityConfig> = {
       { key: 'country', label: 'HQ Country', type: 'text', default: 'Indonesia' },
       { key: 'notes', label: 'Notes', type: 'text', fullWidth: true },
       { key: 'source', label: 'Source', type: 'text', default: 'manual' },
+    ],
+  },
+  competitors: {
+    idField: 'id',
+    label: 'Competitor Stores',
+    model: db.competitorStore,
+    fields: [
+      { key: 'id', label: 'ID', type: 'text', required: true },
+      { key: 'brand_name', label: 'Brand Name', type: 'text', required: true },
+      { key: 'brand_category', label: 'Category', type: 'select', options: ['convenience_store','fast_food','coffee','fashion','beauty','supermarket','pharmacy','other'], required: true },
+      { key: 'name', label: 'Outlet Name', type: 'text', required: true, fullWidth: true },
+      { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001', required: true },
+      { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001', required: true },
+      { key: 'kec', label: 'Kecamatan', type: 'text' },
+      { key: 'kab', label: 'Kabupaten', type: 'text' },
+      { key: 'city', label: 'City', type: 'text' },
+      { key: 'country', label: 'Country', type: 'text', default: 'Indonesia' },
+      { key: 'address', label: 'Address', type: 'text', fullWidth: true },
+      { key: 'is_in_mall', label: 'In Mall', type: 'boolean', default: false },
+      { key: 'mall_name', label: 'Mall Name', type: 'text' },
+      { key: 'source', label: 'Source', type: 'text', default: 'osm_overpass' },
     ],
   },
   kelurahan: {

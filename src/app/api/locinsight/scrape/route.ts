@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, handleError } from '@/lib/api-helpers'
 import { isOnBaliLand } from '@/lib/data/bali-land'
+import { haversineKm } from '@/lib/data/bali-kelurahan'
 import type { ScraperResultRow, GeocodedResult } from '@/lib/scraper-types'
 
 export type { ScraperResultRow, GeocodedResult }
@@ -53,6 +54,32 @@ interface OverpassElement {
   lon?: number
   center?: { lat: number; lon: number }
   tags?: Record<string, string>
+}
+
+/**
+ * Reverse-geocode kabupaten/kecamatan using the kelurahan dataset (point-in-polygon nearest neighbor).
+ * Faster than calling Nominatim reverse for every result.
+ */
+async function reverseGeocodeBali(lat: number, lng: number): Promise<{ kec: string; kab: string; kelurahanName: string }> {
+  try {
+    const kelurahan = await db.kelurahan.findMany({
+      select: { name: true, kec_name: true, kab_name: true, lat: true, lng: true },
+      take: 5000,
+    })
+    let best: { kec: string; kab: string; kelurahanName: string } | null = null
+    let bestDist = Infinity
+    for (const k of kelurahan) {
+      if (k.lat == null || k.lng == null) continue
+      const d = haversineKm(lat, lng, k.lat, k.lng)
+      if (d < bestDist && d <= 10) {
+        bestDist = d
+        best = { kec: k.kec_name || '', kab: k.kab_name || '', kelurahanName: k.name || '' }
+      }
+    }
+    return best || { kec: '', kab: '', kelurahanName: '' }
+  } catch {
+    return { kec: '', kab: '', kelurahanName: '' }
+  }
 }
 
 /**
@@ -301,9 +328,12 @@ export async function runScrape(
     const tags = element.tags || {}
     const name = elementName(tags, `${elKind}_${element.id}`)
     const onLand = isOnBaliLand(elat, elng, 1)
+
+    // Use reverse-geocoding for kabupaten/kecamatan (more reliable than OSM addr: tags)
+    const geo = await reverseGeocodeBali(elat, elng)
     const address = tags['addr:street']
-      ? `${tags['addr:street']}${tags['addr:housenumber'] ? ' ' + tags['addr:housenumber'] : ''}${tags['addr:city'] ? ', ' + tags['addr:city'] : ''}`.trim()
-      : geo.display_name
+      ? `${tags['addr:street']}${tags['addr:housenumber'] ? ' ' + tags['addr:housenumber'] : ''}${geo.kec ? ', ' + geo.kec : ''}${geo.kab ? ', ' + geo.kab : ''}`.trim()
+      : (geo.kelurahanName ? `${geo.kelurahanName}, ${geo.kec}, ${geo.kab}` : geo.kab || geo.kec || '')
 
     let category = 'unknown'
     let brand_name: string | undefined

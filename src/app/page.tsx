@@ -15,12 +15,12 @@ import { Scraper } from '@/components/locinsight/scraper'
 import { MLAIEngine } from '@/components/locinsight/ml-ai-engine'
 import { CompetitorIntel } from '@/components/locinsight/competitor-intel'
 import { ABTestSimulator } from '@/components/locinsight/ab-test-simulator'
-import { FieldSurveys } from '@/components/locinsight/field-surveys'
 import { MallTenants } from '@/components/locinsight/mall-tenants'
+import { About } from '@/components/locinsight/about'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
-  FileText, Database, Search, Brain, Shield, GitCompareArrows, Smartphone, StoreIcon,
+  FileText, Database, Search, Brain, Shield, GitCompareArrows, StoreIcon, Info,
 } from 'lucide-react'
 
 const NAV_ITEMS: NavItem[] = [
@@ -30,15 +30,15 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'analysis', label: 'Deep Analysis', icon: Crosshair, description: 'Per-kelurahan detail + isochrones' },
   { id: 'brands', label: 'Brand Coverage', icon: Store, description: 'MAP & MAA portfolio' },
   { id: 'malls', label: 'Mall Network', icon: Building2, description: 'Mall tenant coverage' },
-  { id: 'competitors', label: 'Competitor Intel', icon: Shield, description: 'Phase 2 — competitor scraping' },
-  { id: 'ab', label: 'A/B Simulator', icon: GitCompareArrows, description: 'Phase 2 — weight comparison' },
+  { id: 'competitors', label: 'Competitor Intel', icon: Shield, description: 'Competitor scraping + density' },
+  { id: 'ab', label: 'A/B Simulator', icon: GitCompareArrows, description: 'Weight comparison' },
   { id: 'ml', label: 'ML / AI Engine', icon: Brain, description: 'GBR revenue predictor + training' },
-  { id: 'mall_tenants', label: 'Mall Tenants', icon: StoreIcon, description: 'Phase 3 — live tenant audit' },
-  { id: 'surveys', label: 'Field Surveys', icon: Smartphone, description: 'Phase 3 — PWA submissions' },
+  { id: 'mall_tenants', label: 'Mall Tenants', icon: StoreIcon, description: 'Live tenant audit' },
   { id: 'reports', label: 'Reports', icon: FileText, description: 'Export PDF/CSV/JSON' },
   { id: 'data', label: 'Data Manager', icon: Database, description: 'CRUD master data' },
   { id: 'scraper', label: 'Data Scraper', icon: Search, description: 'Auto-scrape OSM data' },
-  { id: 'methodology', label: 'Methodology', icon: BookOpen, description: 'Framework & data sources' },
+  { id: 'methodology', label: 'Methodology', icon: BookOpen, description: 'Scoring framework & math' },
+  { id: 'about', label: 'About', icon: Info, description: 'Project overview & data sources' },
 ]
 
 export default function Home() {
@@ -121,14 +121,6 @@ export default function Home() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-[var(--brand-ink)]/60">
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 pulse-dot" />
-              <span>Live · Bali · Phase 1+2+3</span>
-            </div>
-            <div className="text-[var(--brand-ink)]/40">·</div>
-            <div>Updated: Aug 2026</div>
-          </div>
         </header>
 
         <div className="p-6">
@@ -185,21 +177,20 @@ export default function Home() {
           {activeView === 'ab' && <ABTestSimulator />}
           {activeView === 'ml' && <MLAIEngine />}
           {activeView === 'mall_tenants' && <MallTenants malls={data.malls} />}
-          {activeView === 'surveys' && <FieldSurveys />}
           {activeView === 'reports' && <Reports />}
           {activeView === 'data' && <DataManager />}
           {activeView === 'scraper' && <Scraper />}
           {activeView === 'methodology' && <Methodology />}
+          {activeView === 'about' && <About />}
         </div>
 
         <footer className="bg-[var(--brand-ink)] text-white/60 text-[11px] px-6 py-4 mt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa ·
-              Phase 1+2+3 Bali · v3.0
+              <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa
             </div>
             <div>
-              Next.js 16 + React-Leaflet + Prisma + GBR (Friedman 2001) + Huff Gravity + PWA
+              Next.js 16 + React-Leaflet + Prisma + GBR (Friedman 2001) + Huff Gravity
             </div>
           </div>
         </footer>

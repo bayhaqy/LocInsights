@@ -97,7 +97,7 @@ export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectK
               <GuideStep n={4} title="Check the Recommendation Action" desc="The blue 'Recommended Action' card tells you exactly what to do next: open store / wait / avoid / survey further." />
               <GuideStep n={5} title="Review competition" desc="Nearby MAP stores + competitor outlets (Indomaret, MCD, etc.) within 5km. Higher competitor density = lower competition score." />
               <GuideStep n={6} title="Use travel-time isochrones" desc="5/10/15-min motorbike reach polygon — realistic catchment area accounting for road network friction." />
-              <GuideStep n={7} title="Compare heuristic vs ML revenue" desc="Phase 3 GBR model predicts revenue from features. Disagreement with heuristic = signal to investigate." />
+              <GuideStep n={7} title="Compare heuristic vs ML revenue" desc="The GBR model predicts revenue from features. Disagreement with heuristic = signal to investigate." />
               <GuideStep n={8} title="Export via Reports tab" desc="When ready, use the Reports tab to generate PDF/CSV for stakeholder presentation." />
             </div>
           </CardContent>
@@ -281,7 +281,7 @@ function AnalysisView({ data }: { data: any }) {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[12px] font-bold text-[var(--brand-ink)] uppercase tracking-wider">
-                    ML Revenue Prediction (Phase 3 — GBR)
+                    ML Revenue Prediction (GBR)
                   </div>
                   <Badge variant="outline" className="text-[9px]">{(ml_prediction.confidence * 100).toFixed(0)}% confidence</Badge>
                 </div>
@@ -326,7 +326,7 @@ function AnalysisView({ data }: { data: any }) {
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Navigation className="w-4 h-4 text-[var(--brand-red)]" />
-              Travel-Time Isochrones (Phase 2 — friction-based)
+              Travel-Time Isochrones (friction-based)
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">

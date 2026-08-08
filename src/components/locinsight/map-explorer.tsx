@@ -75,7 +75,8 @@ export function MapExplorer({
   const [showMalls, setShowMalls] = useState(true)
   const [showPOIs, setShowPOIs] = useState(false)
   const [showHeat, setShowHeat] = useState(true)
-  const [heatMode, setHeatMode] = useState<'point' | 'region'>('region')
+  const [heatMode, setHeatMode] = useState<'region' | 'point'>('region')
+  const [heatGranularity, setHeatGranularity] = useState<'kabupaten' | 'kecamatan'>('kabupaten')
   const [heatMetric, setHeatMetric] = useState<'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'>('avg_score')
 
   // Filters
@@ -176,6 +177,7 @@ export function MapExplorer({
             showPOIs={showPOIs}
             showHeat={showHeat}
             heatMode={heatMode}
+            heatGranularity={heatGranularity}
             heatMetric={heatMetric}
             tierFilter={tierFilter}
             recommendationFilter={recFilter}
@@ -304,7 +306,9 @@ export function MapExplorer({
             <CardContent className="space-y-3 pt-0">
               <LayerToggle
                 label="Opportunity Heat"
-                desc={heatMode === 'region' ? 'Regional choropleth (kabupaten)' : 'Point intensity (per kelurahan)'}
+                desc={heatMode === 'region'
+                  ? (heatGranularity === 'kabupaten' ? 'Choropleth per kabupaten (9 regions)' : 'Choropleth per kecamatan (59 regions)')
+                  : 'Point intensity (per kelurahan)'}
                 icon={Crosshair}
                 checked={showHeat}
                 onCheckedChange={setShowHeat}
@@ -313,29 +317,39 @@ export function MapExplorer({
               {showHeat && (
                 <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
                   <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Heat Mode</Label>
-                    <Select value={heatMode} onValueChange={(v) => setHeatMode(v as 'point' | 'region')}>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Visualization Type</Label>
+                    <Select value={heatMode} onValueChange={(v) => setHeatMode(v as 'region' | 'point')}>
                       <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="region">Regional (per Kabupaten)</SelectItem>
-                        <SelectItem value="point">Point (per Kelurahan)</SelectItem>
+                        <SelectItem value="region">Choropleth (Region fill)</SelectItem>
+                        <SelectItem value="point">Point Heat (Per kelurahan)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   {heatMode === 'region' && (
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Metric</Label>
-                      <Select value={heatMetric} onValueChange={(v) => setHeatMetric(v as any)}>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Granularity</Label>
+                      <Select value={heatGranularity} onValueChange={(v) => setHeatGranularity(v as 'kabupaten' | 'kecamatan')}>
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="avg_score">Average composite score</SelectItem>
-                          <SelectItem value="max_score">Best score in region</SelectItem>
-                          <SelectItem value="high_priority_count"># high-priority sites</SelectItem>
-                          <SelectItem value="store_density"># kelurahan covered</SelectItem>
+                          <SelectItem value="kabupaten">Per Kabupaten/Kota (9)</SelectItem>
+                          <SelectItem value="kecamatan">Per Kecamatan (59)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   )}
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Metric</Label>
+                    <Select value={heatMetric} onValueChange={(v) => setHeatMetric(v as any)}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="avg_score">Average composite score</SelectItem>
+                        <SelectItem value="max_score">Best score in region</SelectItem>
+                        <SelectItem value="high_priority_count"># high-priority sites</SelectItem>
+                        <SelectItem value="store_density"># kelurahan covered</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
               <LayerToggle

@@ -13,10 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Database, Plus, Edit, Trash2, Search, Store as StoreIcon, Building2, Tag, MapPin, Map,
   RefreshCw, Upload, Download, FileSpreadsheet, Save, X, Check, AlertTriangle, FileDown,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-type EntityType = 'stores' | 'malls' | 'brands' | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan'
+type EntityType = 'stores' | 'malls' | 'brands' | 'competitors' | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan'
 
 interface EntityMeta {
   id: EntityType
@@ -27,6 +28,7 @@ interface EntityMeta {
 
 const ENTITIES: EntityMeta[] = [
   { id: 'stores', label: 'Stores', icon: StoreIcon, searchFields: ['name', 'brand_name'] },
+  { id: 'competitors', label: 'Competitors', icon: Shield, searchFields: ['name', 'brand_name', 'kab'] },
   { id: 'malls', label: 'Malls', icon: Building2, searchFields: ['name'] },
   { id: 'brands', label: 'Brands', icon: Tag, searchFields: ['name'] },
   { id: 'kelurahan', label: 'Kelurahan', icon: MapPin, searchFields: ['name', 'kec_name', 'kab_name'] },

@@ -158,7 +158,7 @@ export function MLAIEngine() {
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
             Real Gradient-Boosted Regression (Friedman 2001) + Huff gravity model + trade-area segmentation.
-            Phase 3 — pure TypeScript, no Python sidecar.
+            Pure TypeScript, no Python sidecar.
           </p>
         </div>
         <Button onClick={trainModel} disabled={training}>
@@ -396,7 +396,7 @@ export function MLAIEngine() {
           <Card className="card-premium">
             <CardContent className="p-3 flex items-center justify-between">
               <div className="text-[11px] text-[var(--brand-ink)]/60">
-                Audit history of all model training runs. Auto-retrain pipeline (Phase 3).
+                Audit history of all model training runs. Auto-retrain pipeline.
               </div>
               <Button size="sm" onClick={trainModel} disabled={training}>
                 {training ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />}

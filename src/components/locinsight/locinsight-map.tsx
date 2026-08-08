@@ -99,8 +99,10 @@ export interface LocInsightMapProps {
   showMalls: boolean
   showPOIs: boolean
   showHeat: boolean
-  /** 'point' = leaflet.heat intensity; 'region' = kabupaten choropleth */
-  heatMode?: 'point' | 'region'
+  /** 'region' = choropleth (real GADM polygons); 'point' = leaflet.heat intensity */
+  heatMode?: 'region' | 'point'
+  /** Choropleth granularity — kabupaten (9) or kecamatan (59) */
+  heatGranularity?: 'kabupaten' | 'kecamatan'
   /** Choropleth metric (only used when heatMode='region') */
   heatMetric?: 'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'
   tierFilter: 1 | 2 | 3 | 'all'
@@ -119,7 +121,8 @@ export function LocInsightMap({
   showMalls,
   showPOIs,
   showHeat,
-  heatMode = 'point',
+  heatMode = 'region',
+  heatGranularity = 'kabupaten',
   heatMetric = 'avg_score',
   tierFilter,
   recommendationFilter,
@@ -179,17 +182,18 @@ export function LocInsightMap({
 
         {selected && <FlyTo lat={selected.lat} lng={selected.lng} zoom={13} />}
 
-        {/* Regional choropleth heatmap (per kabupaten) */}
+        {/* Regional choropleth heatmap (per kabupaten OR kecamatan) — uses real GADM boundaries */}
         {showHeat && heatMode === 'region' && (
           <ChoroplethLayer
             opportunities={filteredOpps}
             metric={heatMetric}
+            granularity={heatGranularity}
             showLabels
             activeTier={tierFilter}
           />
         )}
 
-        {/* Point-based heatmap (leaflet.heat) */}
+        {/* Point-based heatmap (leaflet.heat) — per kelurahan */}
         {showHeat && heatMode === 'point' && (
           <HeatLayer
             points={heatPoints}
