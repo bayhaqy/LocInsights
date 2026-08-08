@@ -1,24 +1,35 @@
 /**
- * Save selected scraper results to master data tables.
+ * Save selected scraper results — UNIFIED endpoint.
  *
  * POST /api/locinsight/scrape-save
- *   Body: {
- *     run_id?: string,           // optional — links back to ScraperRun for audit
- *     query?: string,            // optional — for audit if run_id not provided
+ *   body: {
+ *     run_id?: string,
+ *     query?: string,
  *     items: ScraperResultRow[]  // selected rows from the UI
  *   }
  *
- * Returns: { success, saved: { stores, malls, pois }, skipped: number, errors: [] }
+ * ROUTING LOGIC (key fix vs. old version):
+ *   For each item with kind='store':
+ *     1. classifyScrapedBrand(item.brand_name) →
+ *        - target='maa_store'  → save to `stores` table with brand_id + parent from Brand catalog
+ *        - target='competitor' → save to `competitor_stores` table
+ *        - target='other'      → save to `competitor_stores` table with brand_name = actual
+ *     2. Malls → always go to `malls` table (no brand classification)
+ *     3. POIs  → always go to `pois` table
  *
- * Strategy:
- *   - For each item, look up by lat/lng within 50m to dedupe
- *   - Insert if not exists; skip if exists
- *   - Update ScraperRun.saved_count at the end if run_id is provided
+ * This prevents the "store pollution" issue where scraped non-MAA brands
+ * (Starbucks, Zara, Indomaret, etc.) were being written into the master
+ * `stores` table with `brand_id='BR_SCRAPER'` and `parent='MAP'`.
+ *
+ * Returns: { success, saved: {stores, competitors, malls, pois, total}, skipped, errors }
  */
+
 import { NextRequest, NextResponse } from 'next/server'
-import { db, handleError } from '@/lib/api-helpers'
+import { prisma } from '@/lib/db'
 import { isOnBaliLand } from '@/lib/data/bali-land'
-import type { ScraperResultRow, GeocodedResult } from '@/lib/scraper-types'
+import { haversineKm } from '@/lib/data/bali-kelurahan'
+import { classifyScrapedBrand } from '@/lib/brand-classifier'
+import type { ScraperResultRow } from '@/lib/scraper-types'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -28,11 +39,10 @@ interface SaveItem extends ScraperResultRow {}
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { run_id, query, items, geocoded } = body as {
+    const { run_id, items } = body as {
       run_id?: string
       query?: string
       items: SaveItem[]
-      geocoded?: GeocodedResult
     }
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -45,119 +55,154 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Helper to derive kec/kab/city from geocoded address (best effort)
-    const deriveLocation = () => {
-      const addr = geocoded?.address || {}
-      const town = addr.town || addr.village || ''
-      const city = addr.city || town
-      const kab = addr.county || addr.state || ''
-      const kec = town || kab
-      return { kec, kab, city }
-    }
-    const loc = deriveLocation()
+    // Load existing competitor stores once for dedup (50m rule)
+    const existingCompetitors = await prisma.competitorStore.findMany({
+      select: { id: true, lat: true, lng: true, brand_name: true },
+    })
+
+    // Load existing malls once for dedup
+    const existingMalls = await prisma.mall.findMany({
+      select: { id: true, lat: true, lng: true },
+    })
+
+    // Load existing POIs once for dedup
+    const existingPois = await prisma.poi.findMany({
+      select: { id: true, lat: true, lng: true },
+    })
+
+    // Load existing MAA/MAP stores once for dedup
+    const existingStores = await prisma.store.findMany({
+      select: { id: true, lat: true, lng: true, brand_id: true },
+    })
 
     const savedStores: string[] = []
+    const savedCompetitors: string[] = []
     const savedMalls: string[] = []
     const savedPois: string[] = []
     const errors: Array<{ index: number; name: string; error: string }> = []
     let skipped = 0
-
     const now = Date.now()
 
-    // Ensure the placeholder brand 'BR_SCRAPER' exists (foreign key target for scraped stores)
-    // Use upsert to be idempotent across runs.
-    await db.brand.upsert({
-      where: { id: 'BR_SCRAPER' },
-      create: {
-        id: 'BR_SCRAPER',
-        name: 'Scraped (Unassigned)',
-        parent: 'MAP',
-        category: 'lifestyle',
-        origin_country: 'Unknown',
-        format: 'unknown',
-        location_preference: 'both',
-        typical_size_m2: 0,
-        target_audience: 'Unknown',
-        price_segment: 'mid',
-        brand_strength: 0.0,
-        notes: 'Placeholder brand for stores added via the OSM scraper. Replace brand_id with the actual brand once classified.',
-        city: '',
-        country: 'Indonesia',
-        source: 'system (scraper placeholder)',
-      },
-      update: {},
-    }).catch(() => {/* ignore — already exists */})
-    let i = 0
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
       try {
-        // Validate on land (allow 1km tolerance for coastal POIs)
+        // Validate on land
         if (!isOnBaliLand(item.lat, item.lng, 1)) {
           errors.push({ index: i, name: item.name, error: 'Location is in the sea — skipped' })
           skipped++
-          i++
           continue
         }
 
+        // ----- STORE items: classify and route -----
         if (item.kind === 'store') {
-          // Dedupe within 50m
-          const existing = await db.store.findMany({
-            where: {
-              lat: { gte: item.lat - 0.0005, lte: item.lat + 0.0005 },
-              lng: { gte: item.lng - 0.0005, lte: item.lng + 0.0005 },
-            },
-            take: 1,
-          })
-          if (existing.length > 0) {
-            skipped++
-            i++
-            continue
+          const cls = classifyScrapedBrand(item.brand_name || item.name)
+
+          if (cls.target === 'maa_store' && cls.brand_id && cls.parent) {
+            // Save to master `stores` table — only MAA/MAP brands belong here
+            const nearby = existingStores.find(s =>
+              s.brand_id === cls.brand_id &&
+              haversineKm(s.lat, s.lng, item.lat, item.lng) < 0.05
+            )
+            if (nearby) {
+              skipped++
+              continue
+            }
+            const id = `SCR_S_${now}_${savedStores.length}`
+            await prisma.store.create({
+              data: {
+                id,
+                brand_id: cls.brand_id,
+                brand_name: cls.brand_name,
+                brand_category: (cls.brand_category as any) || 'lifestyle',
+                parent: cls.parent,
+                name: item.name,
+                lat: item.lat,
+                lng: item.lng,
+                kec: item.tags?.['addr:suburb'] || '',
+                kab: item.tags?.['addr:county'] || '',
+                city: item.tags?.['addr:city'] || '',
+                country: 'Indonesia',
+                is_in_mall: item.tags?._is_in_mall === 'true',
+                mall_name: item.tags?._mall_name || null,
+                address: item.address || '',
+                opened_year: new Date().getFullYear(),
+                confirmed: false,
+                source: item.source,
+              },
+            })
+            savedStores.push(id)
+          } else {
+            // Save to competitor_stores (competitor or other)
+            const targetBrand = cls.brand_name || item.brand_name || 'Unknown'
+            const nearbyComp = existingCompetitors.find(c =>
+              c.brand_name === targetBrand &&
+              haversineKm(c.lat, c.lng, item.lat, item.lng) < 0.05
+            )
+            if (nearbyComp) {
+              // Update existing row with richer info
+              await prisma.competitorStore.update({
+                where: { id: nearbyComp.id },
+                data: {
+                  name: item.name,
+                  kec: item.tags?.['addr:suburb'] || undefined,
+                  kab: item.tags?.['addr:county'] || undefined,
+                  city: item.tags?.['addr:city'] || undefined,
+                  address: item.address || undefined,
+                  is_in_mall: item.tags?._is_in_mall === 'true',
+                  mall_name: item.tags?._mall_name || null,
+                  source: (item.source?.startsWith('OSM') ? 'osm' : 'osm') as any,
+                },
+              })
+              savedCompetitors.push(nearbyComp.id)
+            } else {
+              const created = await prisma.competitorStore.create({
+                data: {
+                  brand_name: targetBrand,
+                  brand_category: (cls.brand_category as any) || 'other',
+                  name: item.name,
+                  lat: item.lat,
+                  lng: item.lng,
+                  kec: item.tags?.['addr:suburb'] || '',
+                  kab: item.tags?.['addr:county'] || '',
+                  city: item.tags?.['addr:city'] || '',
+                  country: 'Indonesia',
+                  address: item.address || '',
+                  is_in_mall: item.tags?._is_in_mall === 'true',
+                  mall_name: item.tags?._mall_name || null,
+                  source: 'osm' as any,
+                },
+              })
+              existingCompetitors.push({
+                id: created.id,
+                lat: created.lat,
+                lng: created.lng,
+                brand_name: created.brand_name,
+              })
+              savedCompetitors.push(created.id)
+            }
           }
-          const id = `SCR_S_${now}_${savedStores.length}`
-          await db.store.create({
-            data: {
-              id,
-              brand_id: 'BR_SCRAPER',
-              brand_name: item.brand_name || 'Unknown Scraped',
-              brand_category: (item.brand_category || 'lifestyle') as any,
-              parent: 'MAP',
-              name: item.name,
-              lat: item.lat,
-              lng: item.lng,
-              kec: loc.kec || '—',
-              kab: loc.kab || '—',
-              city: loc.city,
-              country: 'Indonesia',
-              is_in_mall: false,
-              address: item.address || '',
-              opened_year: new Date().getFullYear(),
-              confirmed: false,
-              source: item.source,
-            },
-          })
-          savedStores.push(id)
-        } else if (item.kind === 'mall') {
-          const existing = await db.mall.findMany({
-            where: {
-              lat: { gte: item.lat - 0.001, lte: item.lat + 0.001 },
-              lng: { gte: item.lng - 0.001, lte: item.lng + 0.001 },
-            },
-            take: 1,
-          })
-          if (existing.length > 0) {
+          continue
+        }
+
+        // ----- MALL items -----
+        if (item.kind === 'mall') {
+          const nearby = existingMalls.find(m =>
+            haversineKm(m.lat, m.lng, item.lat, item.lng) < 0.1
+          )
+          if (nearby) {
             skipped++
-            i++
             continue
           }
           const id = `SCR_M_${now}_${savedMalls.length}`
-          await db.mall.create({
+          await prisma.mall.create({
             data: {
               id,
               name: item.name,
               lat: item.lat,
               lng: item.lng,
-              kec: loc.kec || '—',
-              kab: loc.kab || '—',
-              city: loc.city,
+              kec: item.tags?.['addr:suburb'] || '',
+              kab: item.tags?.['addr:county'] || '',
+              city: item.tags?.['addr:city'] || '',
               country: 'Indonesia',
               gla_m2: 0,
               opened_year: new Date().getFullYear(),
@@ -167,35 +212,34 @@ export async function POST(req: NextRequest) {
               has_supermarket: false,
               has_department_store: false,
               visitor_estimate_daily: 5000,
-              notes: `Scraped from OSM`,
+              notes: 'Scraped from OSM',
               source: item.source,
             },
           })
           savedMalls.push(id)
-        } else if (item.kind === 'poi') {
-          const existing = await db.poi.findMany({
-            where: {
-              lat: { gte: item.lat - 0.001, lte: item.lat + 0.001 },
-              lng: { gte: item.lng - 0.001, lte: item.lng + 0.001 },
-            },
-            take: 1,
-          })
-          if (existing.length > 0) {
+          continue
+        }
+
+        // ----- POI items -----
+        if (item.kind === 'poi') {
+          const nearby = existingPois.find(p =>
+            haversineKm(p.lat, p.lng, item.lat, item.lng) < 0.1
+          )
+          if (nearby) {
             skipped++
-            i++
             continue
           }
           const id = `SCR_P_${now}_${savedPois.length}`
-          await db.poi.create({
+          await prisma.poi.create({
             data: {
               id,
               name: item.name,
               type: (item.poi_type || 'tourist_attraction') as any,
               lat: item.lat,
               lng: item.lng,
-              kec: loc.kec || '—',
-              kab: loc.kab || '—',
-              city: loc.city,
+              kec: item.tags?.['addr:suburb'] || '',
+              kab: item.tags?.['addr:county'] || '',
+              city: item.tags?.['addr:city'] || '',
               country: 'Indonesia',
               magnitude: item.poi_magnitude || 1000,
               notes: item.poi_notes || '',
@@ -203,37 +247,36 @@ export async function POST(req: NextRequest) {
             },
           })
           savedPois.push(id)
+          continue
         }
       } catch (e: any) {
         errors.push({ index: i, name: item.name, error: e.message })
       }
-      i++
     }
 
     // Update ScraperRun if run_id was provided
     if (run_id) {
-      const totalSaved = savedStores.length + savedMalls.length + savedPois.length
-      await db.scraperRun.update({
+      const totalSaved = savedStores.length + savedCompetitors.length + savedMalls.length + savedPois.length
+      await prisma.scraperRun.update({
         where: { id: run_id },
-        data: {
-          saved_count: totalSaved,
-        },
+        data: { saved_count: totalSaved },
       }).catch(() => {/* run might not exist if from old session */})
     }
 
     return NextResponse.json({
       success: true,
       saved: {
-        stores: savedStores.length,
+        stores: savedStores.length,         // MAA/MAP brands
+        competitors: savedCompetitors.length, // competitors + other
         malls: savedMalls.length,
         pois: savedPois.length,
-        total: savedStores.length + savedMalls.length + savedPois.length,
+        total: savedStores.length + savedCompetitors.length + savedMalls.length + savedPois.length,
       },
       skipped,
       errors,
       error_count: errors.length,
     })
-  } catch (e) {
-    return handleError(e)
+  } catch (e: any) {
+    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
   }
 }

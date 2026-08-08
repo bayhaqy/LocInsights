@@ -173,7 +173,7 @@ export default function Home() {
               onSelectKelurahan={handleSelectKelurahan}
             />
           )}
-          {activeView === 'competitors' && <CompetitorIntel />}
+          {activeView === 'competitors' && <CompetitorIntel onScrapeMore={() => setActiveView('scraper')} />}
           {activeView === 'ab' && <ABTestSimulator />}
           {activeView === 'ml' && <MLAIEngine />}
           {activeView === 'mall_tenants' && <MallTenants malls={data.malls} />}
