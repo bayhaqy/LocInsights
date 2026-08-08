@@ -1,6 +1,15 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# =============================================================================
+# LocInsight — .gitignore
+# =============================================================================
+# This repo (bayhaqy/LocInsights) is the Next.js frontend + API.
+# The DB and ML layers live in SEPARATE repos:
+#   - bayhaqy/Locinsights_db (GitHub)        — Supabase SQL migrations
+#   - Bayhaqy/LocInsights_ml (Hugging Face)  — PyScript ML Space
+# Local working copies of those repos are gitignored below.
 
-# dependencies
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
 node_modules
 /.pnp
 .pnp.*
@@ -9,74 +18,99 @@ node_modules
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+bun.lockb
 
-# testing
-/coverage
-
-# next.js
+# -----------------------------------------------------------------------------
+# Next.js
+# -----------------------------------------------------------------------------
 /.next/
 /out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+*.tsbuildinfo
 
-# production
+# -----------------------------------------------------------------------------
+# Production build
+# -----------------------------------------------------------------------------
 /build
+.vercel
 
-# misc
-.DS_Store
-*.pem
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+/coverage
 
-# debug
+# -----------------------------------------------------------------------------
+# Environment variables (NEVER commit)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+*.log
+dev.log
+dev.out.log
+server.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-local-*
+# -----------------------------------------------------------------------------
+# IDE / Editor
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
 .claude
 .z-ai-config
-*.log
-dev.log
-dev.out.log
-test
-prompt
 
-server.log
-# Skills directory
-/skills/deploy/
+# -----------------------------------------------------------------------------
+# OS
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.pem
+
+# -----------------------------------------------------------------------------
+# Prisma
+# -----------------------------------------------------------------------------
 prisma/schema.sqlite.backup.prisma
+
+# -----------------------------------------------------------------------------
+# Local SQLite DB (used during early dev; production uses Supabase)
+# -----------------------------------------------------------------------------
 db/
 
-# Deployment artifacts (separate repos: LocInsights_db, LocInsights_ml)
-deploy/
+# -----------------------------------------------------------------------------
+# Separate repositories (DO NOT commit these — they have their own remotes)
+# -----------------------------------------------------------------------------
+# Local working copy of the DB migrations repo
+deploy-locinsights_db/
+# HF Space (was a broken submodule; now lives only at HF)
+hf-space/
 
-# Skills system (AI agent tooling, not part of the app)
+# -----------------------------------------------------------------------------
+# AI agent tooling (not part of the application)
+# -----------------------------------------------------------------------------
 skills/
+.zscripts/
 
-# SQLite backup
-prisma/schema.sqlite.backup.prisma
-
-# Local SQLite database
-db/
-
-# Screenshots and research
+# -----------------------------------------------------------------------------
+# Local workspace artifacts (never needed in version control)
+# -----------------------------------------------------------------------------
 screenshots/
 research/
 tool-results/
 upload/
 examples/
 mini-services/
-.zscripts/
+tests/
 worklog.md
-dev.log
-server.log
-.env
-.ml_api_token
+prompt
+.ml_API_token
+local-*

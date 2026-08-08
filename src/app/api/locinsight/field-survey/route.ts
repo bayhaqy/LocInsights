@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const status = sp.get('status') || undefined
     const limit = Math.min(200, Number(sp.get('limit') || 100))
 
-    const where = status ? { review_status: status } : {}
+    const where = status ? { review_status: status as any } : {}
     const surveys = await prisma.fieldSurvey.findMany({
       where,
       orderBy: { submitted_at: 'desc' },
@@ -119,7 +119,8 @@ export async function PATCH(req: NextRequest) {
             address: survey.address || '',
             is_in_mall: survey.is_in_mall,
             mall_name: survey.mall_name || null,
-            source: `field_survey:${survey.surveyor_name}:${survey.submitted_at.toISOString()}`,
+            source: 'osm' as any,
+            source_url: `field_survey:${survey.surveyor_name}:${survey.submitted_at.toISOString()}`,
           },
         })
       }

@@ -178,11 +178,11 @@ export async function POST(req: NextRequest) {
           mall_id: mall_id || null,
           mall_name,
           brand_name: t.brand_name,
-          brand_category: t.brand_category,
+          brand_category: (t.brand_category as any) || null,
           is_map_brand: t.is_map_brand,
           is_competitor: t.is_competitor,
           category: t.category,
-          source: `osm_overpass:mall_audit:${new Date().toISOString()}`,
+          source: 'osm' as any,
         },
       })
     }

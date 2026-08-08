@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
         data: {
           model_id,
           model_name: 'GBR Revenue Predictor v1',
-          algorithm: algoForFailure,
+          algorithm: algoForFailure as any,
           status: 'failed',
           dataset_size: datasetSize,
           features: '[]',

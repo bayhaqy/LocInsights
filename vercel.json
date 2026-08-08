@@ -1,12 +1,15 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "next build",
   "devCommand": "next dev",
   "installCommand": "bun install",
   "outputDirectory": ".next",
+  "framework": "nextjs",
+  "regions": ["sin1"],
   "crons": [
     {
       "path": "/api/cron/anti-sleep",
-      "schedule": "0 8 * * *"
+      "schedule": "*/15 * * * *"
     }
   ]
 }

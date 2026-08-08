@@ -43,9 +43,11 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
   async function loadExisting() {
     setLoading(true)
     try {
-      const res = await fetch('/api/locinsight/scrape-competitors')
+      // Use the proper CRUD endpoint (paginated, supports search/filter).
+      // Old code used /scrape-competitors which was deleted during the V4 cleanup.
+      const res = await fetch('/api/locinsight/competitors?all=true')
       const json = await res.json()
-      if (json.success) setCompetitors(json.data)
+      if (json.success) setCompetitors(json.data || [])
       else toast.error(json.error || 'Failed to load')
     } catch (e: any) {
       toast.error(e.message)
