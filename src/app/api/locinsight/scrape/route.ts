@@ -157,43 +157,35 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass.osm.ch/api/interpreter',
   ]
-  // Try endpoints in parallel — first successful response wins (race pattern)
-  // Best practice for OSM Overpass: don't wait for slow endpoints, race them.
-  const controllers = endpoints.map(() => new AbortController())
-  const timeouts = controllers.map(c => setTimeout(() => c.abort(), 8000))
+  // True race pattern: use Promise.any — first SUCCESSFUL response wins.
+  // Failed/aborted requests are ignored unless ALL fail.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000) // hard 10s overall cap
 
-  const promises = endpoints.map((endpoint, i) =>
+  const promises = endpoints.map(endpoint =>
     fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
       body: `data=${encodeURIComponent(query)}`,
-      signal: controllers[i].signal,
+      signal: controller.signal,
     })
       .then(res => {
         if (!res.ok) throw new Error(`${res.status}`)
         return res.json() as Promise<{ elements: OverpassElement[] }>
       })
       .then(data => data.elements || [])
-      .catch(e => {
-        console.warn(`Overpass ${endpoint} failed:`, e.message)
-        return null
-      })
   )
 
-  // Race — return first non-null result
-  for (const p of promises) {
-    const result = await p
-    if (result && result.length > 0) {
-      // Cancel other in-flight requests
-      controllers.forEach(c => c.abort())
-      timeouts.forEach(t => clearTimeout(t))
-      return result
-    }
+  try {
+    const winner = await Promise.any(promises)
+    clearTimeout(timeout)
+    return winner
+  } catch (e: any) {
+    // All promises rejected — return empty
+    clearTimeout(timeout)
+    console.warn('All Overpass endpoints failed:', e.errors?.map((err: any) => err?.message).join('; '))
+    return []
   }
-  // All failed/empty — collect any non-null (even if empty array)
-  timeouts.forEach(t => clearTimeout(t))
-  const allResults = await Promise.all(promises)
-  return allResults.find(r => r !== null) || []
 }
 
 function elementName(tags: Record<string, string>, fallback: string): string {
