@@ -51,4 +51,30 @@ prompt
 
 server.log
 # Skills directory
-/skills/
+/skills/deploy/
+prisma/schema.sqlite.backup.prisma
+db/
+
+# Deployment artifacts (separate repos: LocInsights_db, LocInsights_ml)
+deploy/
+
+# Skills system (AI agent tooling, not part of the app)
+skills/
+
+# SQLite backup
+prisma/schema.sqlite.backup.prisma
+
+# Local SQLite database
+db/
+
+# Screenshots and research
+screenshots/
+research/
+tool-results/
+upload/
+examples/
+mini-services/
+.zscripts/
+worklog.md
+dev.log
+server.log

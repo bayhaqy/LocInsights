@@ -1,338 +1,755 @@
-// LocInsight Prisma schema
-// All master data is editable via the Data Manager UI.
-// The seed scripts import the original static .ts data files into these tables.
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// =============================================================
-// Master data — editable via Data Manager CRUD UI
-// =============================================================
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ABTest {
+  @@map("ab_tests")
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name       String
+  scenario_a Json
+  scenario_b Json
+  metrics    Json?    @default("{}")
+  winner     String?
+  created_by String?  @default("system")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Brand {
-  id                  String   @id
+  @@map("brands")
+  id                  String                    @id
   name                String
-  parent              String   // 'MAP' | 'MAA'
-  category            String   // 'food_beverage' | 'sports' | 'fashion' | 'department_store' | 'kids' | 'lifestyle' | 'beauty'
-  origin_country      String
-  format              String
-  location_preference String   // 'mall' | 'street' | 'both'
-  typical_size_m2     Int
-  target_audience     String
-  price_segment       String   // 'mass' | 'mid' | 'premium' | 'luxury'
-  brand_strength      Float    // 0-1
-  notes               String   @default("")
-  city                String   @default("") // HQ city (e.g., 'Jakarta' for MAP HQ)
-  country             String   @default("Indonesia") // HQ country
-  source              String   @default("map.co.id/brands") // provenance of this record
+  parent              brand_parent_enum         @default(MAA)
+  category            brand_category_enum
+  origin_country      String?                   @default("Indonesia")
+  format              String?
+  location_preference location_format_enum?     @default(both)
+  typical_size_m2     Int?                      @default(0)
+  target_audience     String?                   @default("")
+  price_segment       brand_price_segment_enum? @default(mid)
+  brand_strength      Float?                    @default(0.5)
+  notes               String?                   @default("")
+  city                String?                   @default("")
+  country             String?                   @default("Indonesia")
+  source              String?                   @default("map.co.id/brands")
+  is_active           Boolean?                  @default(true)
+  created_at          DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                  @default(now()) @db.Timestamptz(6)
   stores              Store[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+
+  @@index([category])
+  @@index([parent])
 }
 
-model Mall {
-  id                  String   @id
-  name                String
-  lat                 Float
-  lng                 Float
-  kec                 String
-  kab                 String
-  city                String   @default("") // city/kota name (e.g., 'Denpasar', 'Kuta')
-  country             String   @default("Indonesia")
-  gla_m2              Int
-  opened_year         Int
-  class               String   // 'super_regional' | 'regional' | 'community' | 'specialty'
-  anchor_count        Int      @default(0)
-  has_cinema          Boolean  @default(false)
-  has_supermarket     Boolean  @default(false)
-  has_department_store Boolean @default(false)
-  visitor_estimate_daily Int
-  notes               String   @default("")
-  source              String   @default("nowbali.co.id") // provenance
-  stores              Store[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-model Store {
-  id              String   @id
-  brand_id        String
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CompetitorStore {
+  @@map("competitor_stores")
+  id              String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
   brand_name      String
-  brand_category  String
-  parent          String   // 'MAP' | 'MAA'
+  brand_category  competitor_category_enum  @default(other)
   name            String
   lat             Float
   lng             Float
-  kec             String
-  kab             String
-  city            String   @default("") // city/kota
-  country         String   @default("Indonesia")
-  is_in_mall      Boolean  @default(false)
+  geom            Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  kec             String?                   @default("")
+  kab             String?                   @default("")
+  city            String?                   @default("")
+  country         String?                   @default("Indonesia")
+  address         String?                   @default("")
+  is_in_mall      Boolean?                  @default(false)
   mall_id         String?
   mall_name       String?
-  address         String
-  opened_year     Int
-  estimated_size_m2 Int    @default(0)
-  confirmed       Boolean  @default(false)
-  source          String   @default("map.co.id directory") // provenance
-  brand           Brand?   @relation(fields: [brand_id], references: [id])
-  mall            Mall?    @relation(fields: [mall_id], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  source          scraper_source_enum?      @default(osm)
+  source_url      String?                   @default("")
+  last_crawled_at DateTime?                 @default(now()) @db.Timestamptz(6)
+  created_at      DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime                  @default(now()) @db.Timestamptz(6)
+  malls           Mall?                    @relation(fields: [mall_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([brand_name], map: "competitor_brand_idx")
+  @@index([brand_category], map: "competitor_category_idx")
+  @@index([geom], map: "competitor_geom_idx", type: Gist)
+  @@index([kab], map: "competitor_kab_idx")
 }
 
-model Poi {
-  id        String   @id
-  name      String
-  type      String   // 'tourist_attraction' | 'beach' | 'temple' | 'hotel_cluster' | 'transit_hub' | 'university' | 'hospital' | 'office_cluster' | 'port'
-  lat       Float
-  lng       Float
-  kec       String
-  kab       String
-  city      String   @default("") // city/kota
-  country   String   @default("Indonesia")
-  magnitude Float
-  notes     String   @default("")
-  source    String   @default("Google Maps POI") // provenance
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Country {
+  @@map("countries")
+  id         String      @id
+  name       String
+  iso2       String?
+  iso3       String?
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @default(now()) @db.Timestamptz(6)
+  provinces  Province[]
 }
 
-model Kelurahan {
-  id                  String   @id
-  code                String
-  name                String
-  kec_code            String
-  kec_name            String
-  kab_code            String
-  kab_name            String
-  city                String   @default("") // city/kota (== kab_name when same, e.g., Denpasar)
-  country             String   @default("Indonesia")
-  tier                Int      // 1 | 2 | 3
-  lat                 Float
-  lng                 Float
-  population          Int
-  area_km2            Float
-  density             Int
-  urban_index         Int
-  income_index        Int
-  tourist_index       Int
-  transport_index     Int
-  poi_density_index   Int
-  is_coastal          Boolean  @default(false)
-  source              String   @default("BPS Bali 2024") // provenance
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FieldSurvey {
+  @@map("field_surveys")
+  id                       String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  kelurahan_id             String?
+  kelurahan_name           String?                   @default("")
+  lat                      Float
+  lng                      Float
+  geom                     Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  accuracy_m               Float?
+  surveyor_name            String
+  survey_type              survey_type_enum
+  brand_name               String?
+  brand_category           String?
+  outlet_name              String?                   @default("")
+  address                  String?                   @default("")
+  is_in_mall               Boolean?                  @default(false)
+  mall_name                String?                   @default("")
+  condition                outlet_condition_enum?
+  estimated_size_m2        Int?
+  foot_traffic_observation traffic_enum?
+  notes                    String?                   @default("")
+  photo_urls               Json?                     @default("[]")
+  review_status            review_status_enum?       @default(pending)
+  reviewer_notes           String?                   @default("")
+  submitted_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  reviewed_at              DateTime?                 @db.Timestamptz(6)
+
+  @@index([geom], type: Gist)
+  @@index([review_status], map: "field_surveys_status_idx")
+  @@index([surveyor_name], map: "field_surveys_surveyor_idx")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Kabupaten {
-  code                String   @id
-  name                String
-  type                String   // 'Kabupaten' | 'Kota'
-  capital             String
-  lat                 Float
-  lng                 Float
-  city                String   @default("") // For Kota-type, == name; for Kabupaten, == capital
-  country             String   @default("Indonesia")
-  province            String   @default("Bali")
-  area_km2            Float
-  population_2024     Int
-  population_density  Int
-  gdrp_per_capita_juta Float
-  tier                Int
-  hdmi_2024           Float
-  tourist_hotels      Int
-  notes               String   @default("")
-  source              String   @default("BPS Bali 2024") // provenance
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  @@map("kabupaten")
+  code                 String                    @id
+  name                 String
+  type                 admin_type_enum           @default(Kabupaten)
+  capital              String?
+  province_code        String
+  province             String                    @default("Bali")
+  country              String                    @default("Indonesia")
+  city                 String                    @default("")
+  lat                  Float
+  lng                  Float
+  geom                 Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  area_km2             Float?
+  population_2024      Int?
+  population_density   Int?
+  gdrp_per_capita_juta Float?
+  tier                 admin_tier_enum?
+  hdmi_2024            Float?
+  tourist_hotels       Int?                      @default(0)
+  notes                String?                   @default("")
+  source               String?                   @default("BPS Bali 2024")
+  created_at           DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                  @default(now()) @db.Timestamptz(6)
+  provinces            Province                 @relation(fields: [province_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  kecamatan            Kecamatan[]
+  kelurahan            Kelurahan[]
+
+  @@index([geom], type: Gist)
+  @@index([province_code], map: "kabupaten_province_idx")
+  @@index([tier])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Kecamatan {
-  code            String   @id
+  @@map("kecamatan")
+  code            String                    @id
   name            String
   kabupaten_code  String
-  city            String   @default("") // city/kota
-  country         String   @default("Indonesia")
-  province        String   @default("Bali")
+  province        String                    @default("Bali")
+  country         String                    @default("Indonesia")
+  city            String                    @default("")
   lat             Float
   lng             Float
-  population_2024 Int
-  area_km2        Float
-  tier            Int
-  urban_score     Int
-  is_capital      Boolean  @default(false)
-  source          String   @default("BPS Bali 2024") // provenance
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  geom            Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  population_2024 Int?
+  area_km2        Float?
+  tier            admin_tier_enum?
+  urban_score     Int?
+  is_capital      Boolean?                  @default(false)
+  source          String?                   @default("BPS Bali 2024")
+  created_at      DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime                  @default(now()) @db.Timestamptz(6)
+  kabupaten       Kabupaten                 @relation(fields: [kabupaten_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  kelurahan       Kelurahan[]
+
+  @@index([geom], type: Gist)
+  @@index([kabupaten_code], map: "kecamatan_kabupaten_idx")
 }
 
-// =============================================================
-// ML/AI — model metadata, training runs, predictions
-// =============================================================
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Kelurahan {
+  @@map("kelurahan")
+  id                String                    @id
+  code              String                    @unique
+  name              String
+  kec_code          String
+  kec_name          String?
+  kab_code          String
+  kab_name          String?
+  province          String                    @default("Bali")
+  country           String                    @default("Indonesia")
+  city              String                    @default("")
+  tier              admin_tier_enum?
+  lat               Float
+  lng               Float
+  geom              Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  population        Int?
+  area_km2          Float?
+  density           Int?
+  urban_index       Int?
+  income_index      Int?
+  tourist_index     Int?
+  transport_index   Int?
+  poi_density_index Int?
+  is_coastal        Boolean?                  @default(false)
+  source            String?                   @default("BPS Bali 2024")
+  created_at        DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime                  @default(now()) @db.Timestamptz(6)
+  kabupaten         Kabupaten                 @relation(fields: [kab_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  kecamatan         Kecamatan                 @relation(fields: [kec_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([geom], type: Gist)
+  @@index([kab_code], map: "kelurahan_kab_idx")
+  @@index([kec_code], map: "kelurahan_kec_idx")
+  @@index([tier])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MallTenant {
+  @@map("mall_tenants")
+  id              String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  mall_id         String?
+  mall_name       String
+  brand_name      String
+  brand_category  brand_category_enum?
+  is_map_brand    Boolean?             @default(false)
+  is_competitor   Boolean?             @default(false)
+  floor           String?              @default("")
+  category        String?              @default("")
+  source          scraper_source_enum? @default(osm)
+  source_url      String?              @default("")
+  last_crawled_at DateTime?            @default(now()) @db.Timestamptz(6)
+  created_at      DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime             @default(now()) @db.Timestamptz(6)
+  malls           Mall?               @relation(fields: [mall_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([brand_name], map: "mall_tenants_brand_idx")
+  @@index([mall_id], map: "mall_tenants_mall_idx")
+  @@index([is_map_brand], map: "mall_tenants_map_brand_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Mall {
+  @@map("malls")
+  id                     String                    @id
+  name                   String
+  lat                    Float
+  lng                    Float
+  geom                   Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  kec                    String?                   @default("")
+  kab                    String?                   @default("")
+  city                   String?                   @default("")
+  country                String?                   @default("Indonesia")
+  gla_m2                 Int?                      @default(0)
+  opened_year            Int?
+  class                  mall_class_enum?          @default(regional)
+  anchor_count           Int?                      @default(0)
+  has_cinema             Boolean?                  @default(false)
+  has_supermarket        Boolean?                  @default(false)
+  has_department_store   Boolean?                  @default(false)
+  visitor_estimate_daily Int?                      @default(0)
+  notes                  String?                   @default("")
+  source                 String?                   @default("nowbali.co.id")
+  created_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  competitor_stores      CompetitorStore[]
+  mall_tenants           MallTenant[]
+  stores                 Store[]
+
+  @@index([geom], type: Gist)
+  @@index([kab])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model MLModel {
-  id              String   @id
+  @@map("ml_models")
+  id              String                @id
   name            String
   version         String
-  type            String   // 'site_scoring' | 'revenue_forecast' | 'cannibalization' | 'cluster'
-  algorithm       String   // 'huff_gravity' | 'xgboost' | 'random_forest' | 'kmeans' | 'dbscan'
-  description     String
-  features        String   // JSON array
-  hyperparameters String   // JSON
-  metrics         String   // JSON: { rmse, mae, r2, ... }
-  status          String   @default("active") // 'active' | 'archived' | 'experimental'
-  trained_at      DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  type            ml_model_type_enum
+  algorithm       ml_algorithm_enum
+  description     String?               @default("")
+  features        Json?                 @default("[]")
+  hyperparameters Json?                 @default("{}")
+  metrics         Json?                 @default("{}")
+  status          ml_model_status_enum? @default(active)
+  trained_at      DateTime?             @default(now()) @db.Timestamptz(6)
+  created_at      DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime              @default(now()) @db.Timestamptz(6)
   predictions     Prediction[]
+  training_runs   TrainingRun[]
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Poi {
+  @@map("pois")
+  id         String                    @id
+  name       String
+  type       poi_type_enum
+  lat        Float
+  lng        Float
+  geom       Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  kec        String?                   @default("")
+  kab        String?                   @default("")
+  city       String?                   @default("")
+  country    String?                   @default("Indonesia")
+  magnitude  Float?                    @default(0)
+  notes      String?                   @default("")
+  source     String?                   @default("Google Maps POI")
+  created_at DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime                  @default(now()) @db.Timestamptz(6)
+
+  @@index([geom], type: Gist)
+  @@index([kab])
+  @@index([type])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Prediction {
-  id           String   @id @default(cuid())
-  model_id     String
-  model        MLModel  @relation(fields: [model_id], references: [id])
-  target_type  String   // 'kelurahan' | 'store' | 'mall'
-  target_id    String
-  target_name  String
-  prediction   Float
-  confidence   Float    @default(0)
-  explanation  String   // JSON
-  createdAt    DateTime @default(now())
+  @@map("predictions")
+  id            String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  mmodel_id      String
+  target_type   prediction_target_enum
+  target_id     String
+  target_name   String?                   @default("")
+  lat           Float?
+  lng           Float?
+  geom          Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  prediction    Float
+  score_pct     Float?                    @default(dbgenerated("(prediction * (100.0)::double precision)"))
+  confidence    Float?                    @default(0)
+  explanation   Json?                     @default("{}")
+  is_blank_spot Boolean?                  @default(false)
+  created_at    DateTime                  @default(now()) @db.Timestamptz(6)
+  ml_models     MLModel                 @relation(fields: [mmodel_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([geom], type: Gist)
+  @@index([mmodel_id], map: "predictions_mmodel_idx")
+  @@index([target_type, target_id], map: "predictions_target_idx")
 }
 
-// =============================================================
-// Scraper runs — log of all OSM/external data scraping operations
-// =============================================================
-
-model ScraperRun {
-  id          String   @id @default(cuid())
-  query       String
-  source      String   // 'nominatim' | 'overpass' | 'manual' | 'bps'
-  status      String   // 'pending' | 'running' | 'success' | 'failed' | 'partial'
-  found_count Int      @default(0)
-  saved_count Int      @default(0)
-  error       String?
-  result_json String   @default("[]") // JSON of found items
-  startedAt   DateTime @default(now())
-  finishedAt  DateTime?
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Province {
+  @@map("provinces")
+  code       String                    @id
+  name       String
+  country_id String                    @default("ID")
+  country    String                    @default("Indonesia")
+  lat        Float
+  lng        Float
+  geom       Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  area_km2   Float?
+  population Int?
+  created_at DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime                  @default(now()) @db.Timestamptz(6)
+  kabupaten  Kabupaten[]
+  countries  Country                 @relation(fields: [country_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-// =============================================================
-// Reports — generated report metadata
-// =============================================================
-
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Report {
-  id          String   @id @default(cuid())
-  title       String
-  type        String   // 'executive_summary' | 'site_analysis' | 'brand_expansion' | 'regional_comparison'
-  format      String   // 'pdf' | 'xlsx' | 'csv' | 'json'
-  filters     String   @default("{}") // JSON
-  status      String   @default("pending") // 'pending' | 'generated' | 'failed'
-  file_path   String?
+  @@map("reports")
+  id           String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  title        String
+  type         String
+  format       report_format_enum
+  filters      Json?               @default("{}")
+  status       report_status_enum? @default(pending)
+  file_path    String?
+  file_url     String?
   file_size_kb Int?
-  generated_by String  @default("system")
-  createdAt   DateTime @default(now())
+  generated_by String?             @default("system")
+  created_at   DateTime            @default(now()) @db.Timestamptz(6)
 }
 
-// =============================================================
-// Phase 2: Competitor stores (Indomaret, Alfamart, McDonald's, KFC, etc.)
-// Populated via the scraper module (mode='competitor') + manual entry.
-// =============================================================
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ScraperRun {
+  @@map("scraper_runs")
+  id          String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  query       String
+  source      scraper_source_enum @default(osm)
+  status      scraper_status_enum @default(pending)
+  found_count Int?                @default(0)
+  saved_count Int?                @default(0)
+  error       String?
+  result_json Json?               @default("[]")
+  started_at  DateTime            @default(now()) @db.Timestamptz(6)
+  finished_at DateTime?           @db.Timestamptz(6)
 
-model CompetitorStore {
-  id          String   @id @default(cuid())
-  brand_name  String   // 'Indomaret', 'Alfamart', 'McDonald''s', etc.
-  brand_category String // 'convenience_store' | 'fast_food' | 'coffee' | 'fashion' | 'beauty' | 'supermarket' | 'pharmacy' | 'other'
-  name        String   // specific outlet name (e.g., 'Indomaret Kuta Utara')
-  lat         Float
-  lng         Float
-  kec         String   @default("")
-  kab         String   @default("")
-  city        String   @default("")
-  country     String   @default("Indonesia")
-  address     String   @default("")
-  is_in_mall  Boolean  @default(false)
-  mall_id     String?
-  mall_name   String?
-  source      String   @default("osm_nominatim")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@index([source])
+  @@index([status])
 }
 
-// =============================================================
-// Phase 3: ML training runs (auto-retrain pipeline)
-// =============================================================
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+// Skipped: spatial_ref_sys (PostGIS internal table)
 
-model TrainingRun {
-  id              String   @id @default(cuid())
-  model_id        String   // references MLModel.id
-  model_name      String
-  algorithm       String
-  status          String   // 'pending' | 'running' | 'completed' | 'failed'
-  dataset_size    Int      @default(0)
-  features        String   @default("[]") // JSON array of feature names
-  hyperparameters String   @default("{}") // JSON
-  metrics         String   @default("{}") // JSON: { rmse, mae, r2, mape }
-  feature_importance String @default("[]") // JSON: [{feature, importance}]
-  model_artifact  String?  // path to JSON model file under prisma/ml-models/
-  train_duration_ms Int?
-  error           String?
-  startedAt       DateTime @default(now())
-  finishedAt      DateTime?
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StagingCompetitor {
+  @@map("staging_competitors")
+  id              String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  batch_id        String
+  source          scraper_source_enum  @default(osm)
+  source_url      String?              @default("")
+  last_crawled_at DateTime?            @default(now()) @db.Timestamptz(6)
+  brand_name      String
+  brand_category  String?
+  name            String
+  lat             Float?
+  lng             Float?
+  kec             String?              @default("")
+  kab             String?              @default("")
+  city            String?              @default("")
+  country         String?              @default("Indonesia")
+  address         String?              @default("")
+  is_in_mall      Boolean?             @default(false)
+  mall_name       String?
+  review_status   approval_status_enum @default(pending)
+  reviewer        String?
+  reviewer_notes  String?              @default("")
+  reviewed_at     DateTime?            @db.Timestamptz(6)
+  merged_to       String?
+  quality_issues  String?              @default(dbgenerated("('[]'::jsonb)::text"))
+  is_duplicate    Boolean?             @default(false)
+  created_at      DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@index([batch_id], map: "staging_comp_batch_idx")
+  @@index([review_status], map: "staging_comp_status_idx")
 }
 
-// =============================================================
-// Phase 3: Field surveyor (offline PWA form submissions)
-// =============================================================
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StagingMall {
+  @@map("staging_malls")
+  id              String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  batch_id        String
+  source          scraper_source_enum  @default(osm)
+  source_url      String?              @default("https://www.nowbali.co.id")
+  last_crawled_at DateTime?            @default(now()) @db.Timestamptz(6)
+  name            String
+  lat             Float?
+  lng             Float?
+  kec             String?              @default("")
+  kab             String?              @default("")
+  city            String?              @default("")
+  address         String?              @default("")
+  gla_m2          Int?
+  opened_year     Int?
+  class           String?
+  review_status   approval_status_enum @default(pending)
+  reviewer        String?
+  reviewer_notes  String?              @default("")
+  reviewed_at     DateTime?            @db.Timestamptz(6)
+  merged_to       String?
+  quality_issues  String?              @default(dbgenerated("('[]'::jsonb)::text"))
+  is_duplicate    Boolean?             @default(false)
+  created_at      DateTime             @default(now()) @db.Timestamptz(6)
 
-model FieldSurvey {
-  id            String   @id @default(cuid())
-  kelurahan_id  String?
-  kelurahan_name String  @default("")
-  lat           Float
-  lng           Float
-  accuracy_m    Float?
-  surveyor_name String
-  survey_type   String   // 'site_visit' | 'competitor_audit' | 'mall_audit' | 'market_observations'
-  brand_name    String?  // brand observed (if any)
-  brand_category String? @default("")
-  outlet_name   String?  @default("")
-  address       String?  @default("")
-  is_in_mall    Boolean  @default(false)
-  mall_name     String?  @default("")
-  condition     String?  @default("") // 'excellent' | 'good' | 'fair' | 'poor' | 'under_construction'
+  @@index([batch_id], map: "staging_malls_batch_idx")
+  @@index([review_status], map: "staging_malls_status_idx")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model StagingStore {
+  @@map("staging_stores")
+  id                String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  batch_id          String
+  source            scraper_source_enum  @default(osm)
+  source_url        String?              @default("")
+  last_crawled_at   DateTime?            @default(now()) @db.Timestamptz(6)
+  brand_name        String
+  brand_category    String?
+  parent            String?              @default("MAA")
+  name              String
+  lat               Float?
+  lng               Float?
+  kec               String?              @default("")
+  kab               String?              @default("")
+  city              String?              @default("")
+  country           String?              @default("Indonesia")
+  address           String?              @default("")
+  is_in_mall        Boolean?             @default(false)
+  mall_name         String?
   estimated_size_m2 Int?
-  foot_traffic_observation String? @default("") // 'low' | 'medium' | 'high' | 'very_high'
-  notes         String   @default("")
-  photo_urls    String   @default("[]") // JSON array of relative URLs
-  review_status String   @default("pending") // 'pending' | 'approved' | 'rejected' | 'imported'
-  reviewer_notes String  @default("")
-  submittedAt   DateTime @default(now())
-  reviewedAt    DateTime?
+  review_status     approval_status_enum @default(pending)
+  reviewer          String?
+  reviewer_notes    String?              @default("")
+  reviewed_at       DateTime?            @db.Timestamptz(6)
+  merged_to         String?
+  quality_issues    String?              @default(dbgenerated("('[]'::jsonb)::text"))
+  is_duplicate      Boolean?             @default(false)
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@index([batch_id], map: "staging_stores_batch_idx")
+  @@index([lat, lng])
+  @@index([review_status], map: "staging_stores_status_idx")
 }
 
-// =============================================================
-// Phase 3: Mall tenant directory (live integration from scraper)
-// =============================================================
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Store {
+  @@map("stores")
+  id                String                    @id
+  brand_id          String
+  brand_name        String
+  brand_category    brand_category_enum?
+  parent            brand_parent_enum         @default(MAA)
+  name              String
+  lat               Float
+  lng               Float
+  geom              Unsupported("geography")? @default(dbgenerated("(st_makepoint(lng, lat))::geography"))
+  kec               String?                   @default("")
+  kab               String?                   @default("")
+  city              String?                   @default("")
+  country           String?                   @default("Indonesia")
+  is_in_mall        Boolean?                  @default(false)
+  mall_id           String?
+  mall_name         String?
+  address           String?                   @default("")
+  opened_year       Int?
+  estimated_size_m2 Int?                      @default(0)
+  confirmed         Boolean?                  @default(false)
+  source            String?                   @default("map.co.id directory")
+  created_at        DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime                  @default(now()) @db.Timestamptz(6)
+  brands            Brand                    @relation(fields: [brand_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  malls             Mall?                    @relation(fields: [mall_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-model MallTenant {
-  id          String   @id @default(cuid())
-  mall_id     String?
-  mall_name   String
-  brand_name  String
-  brand_category String @default("")
-  is_map_brand Boolean @default(false) // true if brand is in MAP/MAA portfolio
-  is_competitor Boolean @default(false)
-  floor       String?  @default("")
-  category    String   @default("")
-  source      String   @default("osm_nominatim")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@index([brand_id], map: "stores_brand_idx")
+  @@index([geom], type: Gist)
+  @@index([kab])
+  @@index([mall_id], map: "stores_mall_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model TrainingRun {
+  @@map("training_runs")
+  id                 String                @id @default(dbgenerated("(gen_random_uuid())::text"))
+  mmodel_id           String
+  model_name         String
+  algorithm          ml_algorithm_enum
+  status             training_status_enum? @default(pending)
+  dataset_size       Int?                  @default(0)
+  features           Json?                 @default("[]")
+  hyperparameters    Json?                 @default("{}")
+  metrics            Json?                 @default("{}")
+  feature_importance Json?                 @default("[]")
+  model_artifact_url String?
+  train_duration_ms  Int?
+  error              String?
+  started_at         DateTime              @default(now()) @db.Timestamptz(6)
+  finished_at        DateTime?             @db.Timestamptz(6)
+  ml_models          MLModel             @relation(fields: [mmodel_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([mmodel_id], map: "training_runs_mmodel_idx")
+  @@index([status])
+}
+
+enum admin_tier_enum {
+  tier_1 @map("1")
+  tier_2 @map("2")
+  tier_3 @map("3")
+}
+
+enum admin_type_enum {
+  Kabupaten
+  Kota
+}
+
+enum approval_status_enum {
+  pending
+  approved
+  rejected
+  merged
+}
+
+enum brand_category_enum {
+  sports
+  fashion
+  food_beverage
+  department_store
+  kids
+  lifestyle
+  beauty
+  athleisure
+  footwear
+}
+
+enum brand_parent_enum {
+  MAP
+  MAA
+  OTHER
+}
+
+enum brand_price_segment_enum {
+  mass
+  mid
+  premium
+  luxury
+}
+
+enum competitor_category_enum {
+  convenience_store
+  fast_food
+  coffee
+  fashion
+  beauty
+  supermarket
+  pharmacy
+  department_store
+  sports
+  other
+}
+
+enum location_format_enum {
+  mall
+  street
+  both
+}
+
+enum mall_class_enum {
+  super_regional
+  regional
+  community
+  specialty
+}
+
+enum ml_algorithm_enum {
+  huff_gravity
+  gradient_boosting
+  random_forest
+  xgboost
+  kmeans
+  dbscan
+  gbr_regressor
+}
+
+enum ml_model_status_enum {
+  active
+  archived
+  experimental
+}
+
+enum ml_model_type_enum {
+  site_scoring
+  revenue_forecast
+  cannibalization
+  cluster
+  blank_spot
+}
+
+enum outlet_condition_enum {
+  excellent
+  good
+  fair
+  poor
+  under_construction
+}
+
+enum poi_type_enum {
+  tourist_attraction
+  beach
+  temple
+  hotel_cluster
+  transit_hub
+  university
+  hospital
+  office_cluster
+  port
+  market
+  school
+  government
+  stadium
+  airport
+}
+
+enum prediction_target_enum {
+  kelurahan
+  store
+  mall
+  candidate_site
+}
+
+enum report_format_enum {
+  pdf
+  xlsx
+  csv
+  json
+}
+
+enum report_status_enum {
+  pending
+  generated
+  failed
+}
+
+enum review_status_enum {
+  pending
+  approved
+  rejected
+  imported
+}
+
+enum scraper_source_enum {
+  nominatim
+  overpass
+  bps
+  map_co_id
+  mapactive_id
+  manual
+  google_places
+  osm
+}
+
+enum scraper_status_enum {
+  pending
+  running
+  success
+  failed
+  partial
+}
+
+enum survey_type_enum {
+  site_visit
+  competitor_audit
+  mall_audit
+  market_observations
+}
+
+enum traffic_enum {
+  low
+  medium
+  high
+  very_high
+}
+
+enum training_status_enum {
+  pending
+  running
+  completed
+  failed
 }
