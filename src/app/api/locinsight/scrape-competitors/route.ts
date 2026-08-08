@@ -41,25 +41,33 @@ async function runOverpass(query: string): Promise<OverpassElement[]> {
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass.osm.ch/api/interpreter',
   ]
-  for (const endpoint of endpoints) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 15000)
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
+  // True race pattern: Promise.any returns first SUCCESSFUL response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000) // hard 12s overall cap
+
+  const promises = endpoints.map(endpoint =>
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controller.signal,
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`${res.status}`)
+        return res.json() as Promise<{ elements: OverpassElement[] }>
       })
-      clearTimeout(timeout)
-      if (!res.ok) continue
-      const data = await res.json() as { elements: OverpassElement[] }
-      return data.elements || []
-    } catch (e) {
-      console.warn(`Overpass ${endpoint} failed:`, e)
-    }
+      .then(data => data.elements || [])
+  )
+
+  try {
+    const winner = await Promise.any(promises)
+    clearTimeout(timeout)
+    return winner
+  } catch (e: any) {
+    clearTimeout(timeout)
+    console.warn('All Overpass endpoints failed:', e.errors?.map((err: any) => err?.message).join('; '))
+    return []
   }
-  return []
 }
 
 interface ScrapedCompetitor {
@@ -179,56 +187,70 @@ export async function POST(req: NextRequest) {
     const [s, w, n, e] = BALI_BBOX
     const bboxStr = `${s},${w},${n},${e}`
 
+    // Process brands in parallel batches of 5 to avoid overwhelming Overpass
+    // while still keeping total scrape time well under 60s Vercel limit.
+    const BATCH_SIZE = 5
     const allResults: ScrapedCompetitor[] = []
     let usedFallback = false
     let brandsWithData = 0
 
-    for (const brand of brandsToScrape) {
-      // Try Overpass first
-      const tagClauses = brand.osm_tags.map(tag => {
-        return `node[${tag}](${bboxStr});way[${tag}](${bboxStr});`
-      }).join('')
-      const query = `[out:json][timeout:25];(${tagClauses});out center 200;`
-      const elements = await runOverpass(query)
-
-      if (elements.length === 0) {
-        usedFallback = true
-        continue
-      }
-      brandsWithData += 1
-
-      for (const el of elements) {
-        const elat = el.lat ?? el.center?.lat
-        const elng = el.lon ?? el.center?.lon
-        if (elat == null || elng == null) continue
-        const onLand = isOnBaliLand(elat, elng, 1)
-        const tags = el.tags || {}
-        const geo = await reverseGeocode(elat, elng)
-        const mallInfo = await detectMall(elat, elng)
-        const outletName = buildOutletName(brand.name, tags, geo, el.id)
-
-        const addressParts = [
-          tags['addr:street'],
-          tags['addr:housenumber'],
-          geo.kec,
-          geo.kab,
-        ].filter(Boolean).join(' ')
-
-        allResults.push({
-          brand_name: brand.name,
-          brand_category: brand.category,
-          name: outletName,
-          lat: elat,
-          lng: elng,
-          kec: geo.kec,
-          kab: geo.kab,
-          city: geo.city,
-          address: addressParts || '',
-          is_in_mall: mallInfo.is_in_mall,
-          mall_name: mallInfo.mall_name,
-          on_land: onLand,
-          source: `OSM Overpass: brand="${brand.name}" — ${new Date().toISOString()}`,
+    for (let i = 0; i < brandsToScrape.length; i += BATCH_SIZE) {
+      const batch = brandsToScrape.slice(i, i + BATCH_SIZE)
+      const batchResults = await Promise.all(
+        batch.map(async (brand) => {
+          const tagClauses = brand.osm_tags.map(tag => {
+            return `node[${tag}](${bboxStr});way[${tag}](${bboxStr});`
+          }).join('')
+          // Reduce Overpass server-side timeout to 10s (was 25s) for faster batch processing
+          const query = `[out:json][timeout:10];(${tagClauses});out center 200;`
+          const elements = await runOverpass(query)
+          if (elements.length === 0) {
+            return { brand, elements: [] as OverpassElement[] }
+          }
+          return { brand, elements }
         })
+      )
+
+      for (const { brand, elements } of batchResults) {
+        if (elements.length === 0) {
+          usedFallback = true
+          continue
+        }
+        brandsWithData += 1
+
+        for (const el of elements) {
+          const elat = el.lat ?? el.center?.lat
+          const elng = el.lon ?? el.center?.lon
+          if (elat == null || elng == null) continue
+          const onLand = isOnBaliLand(elat, elng, 1)
+          const tags = el.tags || {}
+          const geo = await reverseGeocode(elat, elng)
+          const mallInfo = await detectMall(elat, elng)
+          const outletName = buildOutletName(brand.name, tags, geo, el.id)
+
+          const addressParts = [
+            tags['addr:street'],
+            tags['addr:housenumber'],
+            geo.kec,
+            geo.kab,
+          ].filter(Boolean).join(' ')
+
+          allResults.push({
+            brand_name: brand.name,
+            brand_category: brand.category,
+            name: outletName,
+            lat: elat,
+            lng: elng,
+            kec: geo.kec,
+            kab: geo.kab,
+            city: geo.city,
+            address: addressParts || '',
+            is_in_mall: mallInfo.is_in_mall,
+            mall_name: mallInfo.mall_name,
+            on_land: onLand,
+            source: `OSM Overpass: brand="${brand.name}" — ${new Date().toISOString()}`,
+          })
+        }
       }
     }
 
