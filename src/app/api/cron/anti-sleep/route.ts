@@ -35,24 +35,20 @@ export async function GET(request: Request) {
     ml_api: "skipped" as string,
   };
 
-  // 1. Ping Supabase (SELECT 1 via REST)
+  // 1. Ping Supabase (lightweight: just fetch a single row from countries)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (supabaseUrl && supabaseKey) {
     try {
-      const r = await fetch(`${supabaseUrl}/rest/v1/rpc/merge_staging_store`, {
-        method: "POST",
+      const r = await fetch(`${supabaseUrl}/rest/v1/countries?select=id&limit=1`, {
+        method: "GET",
         headers: {
           apikey: supabaseKey,
           Authorization: `Bearer ${supabaseKey}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify({}),
         signal: AbortSignal.timeout(8000),
       });
-      // 400 = auth OK, function needs args = connectivity OK
-      // 401 = auth failed
-      results.supabase = r.status === 400 ? "ok" : `error_http_${r.status}`;
+      results.supabase = r.ok ? "ok" : `error_http_${r.status}`;
     } catch (e) {
       results.supabase = `error: ${(e as Error).message.slice(0, 80)}`;
     }
