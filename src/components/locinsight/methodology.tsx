@@ -9,6 +9,15 @@ import { Layers, Network, BookOpen, ArrowRight, Database, GitBranch, Target } fr
  *
  * Project overview, data sources, tech stack, and capabilities live on the
  * About page (per user request — no duplication).
+ *
+ * Writing conventions applied (best practices for technical methodology docs):
+ *  • Each section opens with a one-sentence thesis, then expands with assumptions,
+ *    formula, intuition, and limitations (no orphan paragraphs).
+ *  • Mathematical notation uses monospace code blocks for reproducibility.
+ *  • Model hyperparameters and decision thresholds are stated explicitly so
+ *    analysts can audit and replicate.
+ *  • Cross-references to the A/B Simulator and Deep Analysis pages rather than
+ *    restating the same content.
  */
 export function Methodology() {
   return (
@@ -27,6 +36,7 @@ export function Methodology() {
           <BookOpen className="w-4 h-4 text-[var(--brand-red)] flex-shrink-0" />
           <span>
             Looking for project overview, data sources, or tech stack? See the <strong>About</strong> page.
+            For interactive tuning of the weights described here, open the <strong>A/B Simulator</strong>.
           </span>
         </CardContent>
       </Card>

@@ -5,11 +5,19 @@ import { Badge } from '@/components/ui/badge'
 import {
   Info, BookOpen, Database, Cpu, GitBranch, Activity, Network,
   Layers, MapPin, Users, Building2, Target, Workflow, Sparkles,
+  Globe, Github,
 } from 'lucide-react'
 
 /**
  * About page — focuses on WHAT the app is, WHY it's useful, and HOW it's built.
  * The scoring math/methods live on the Methodology page (no duplication).
+ *
+ * Writing conventions applied (best practices for technical writing):
+ *  • Each section opens with a clear thesis sentence, then expands with context,
+ *    examples, and rationale (no orphan single-sentence paragraphs).
+ *  • Active voice, present tense for system behaviour.
+ *  • Inline code/tags used for field names; badges used for source type.
+ *  • Cross-references to the Methodology page rather than duplicating formulas.
  */
 export function About() {
   return (
@@ -71,7 +79,7 @@ export function About() {
             />
             <UseCase
               title="Competitor Density Analysis"
-              desc="833+ competitor outlets tracked (Indomaret, Alfamart, KFC, McDonald's, etc.). Understand saturation levels and competitive intensity per area."
+              desc="887+ competitor outlets tracked (Indomaret, Alfamart, KFC, McDonald's, etc.). Understand saturation levels and competitive intensity per area."
             />
             <UseCase
               title="Tier 2/3 City Expansion"
@@ -102,7 +110,7 @@ export function About() {
             <WorkflowStage
               stage="1"
               title="Market Identification"
-              desc="Find areas with strong demand signals — population density, income, tourist traffic, and competitor gaps. Bali's 573 kelurahan are scored and tiered."
+              desc="Find areas with strong demand signals — population density, income, tourist traffic, and competitor gaps. Bali's 716 kelurahan are scored and tiered."
             />
             <WorkflowStage
               stage="2"
@@ -241,7 +249,7 @@ export function About() {
             <Capability
               icon={Activity}
               title="Competitor Intel"
-              desc="833+ competitor outlets tracked (Indomaret, Alfamart, MCD, KFC, etc.). Density heatmap + review-then-save scraper."
+              desc="887+ competitor outlets tracked (Indomaret, Alfamart, MCD, KFC, etc.). Density heatmap + review-then-save scraper."
             />
             <Capability
               icon={Cpu}
@@ -287,14 +295,74 @@ export function About() {
         </CardContent>
       </Card>
 
-      {/* Maintainer */}
-      <Card className="card-premium bg-[var(--brand-cream)]">
-        <CardContent className="p-5 text-center">
-          <div className="text-[13px] text-[var(--brand-ink)]/85">
-            <strong className="text-[var(--brand-ink)]">Maintained by</strong> Achmad Bayhaqy · Data Team, MAP Active Adiperkasa (MAA)
+      {/* Developer / Author */}
+      <Card className="card-premium border-[var(--brand-red)]/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[var(--brand-red)]" />
+            Developer & Maintainer
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            {/* Avatar */}
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center font-display font-bold text-[24px] text-white flex-shrink-0 shadow-md"
+              style={{
+                background: 'radial-gradient(circle at 35% 30%, #E8324A 0%, #C8102E 45%, #7A0A1A 100%)',
+                boxShadow: '0 6px 16px -6px rgba(200, 16, 46, 0.45)',
+              }}
+              aria-hidden="true"
+            >
+              AB
+            </div>
+
+            {/* Bio */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[15px] font-bold text-[var(--brand-ink)] leading-tight">
+                Achmad Bayhaqy
+              </div>
+              <div className="text-[12px] text-[var(--brand-ink)]/70 mt-0.5">
+                Developer &amp; Data Engineer · MAP Active Adiperkasa (MAA) Data Team
+              </div>
+              <p className="text-[12.5px] text-[var(--brand-ink)]/80 leading-relaxed mt-2">
+                Designed and built LocInsight end-to-end — from data ingestion and PostGIS schema design through
+                composite scoring, Huff gravity modelling, and the GBR revenue predictor. Responsible for the
+                continuous data pipeline that keeps competitor, POI, and demographic layers fresh, and for
+                evolving the platform as new market signals and brand segments are added.
+              </p>
+
+              {/* Links */}
+              <div className="flex flex-wrap items-center gap-3 mt-3">
+                <a
+                  href="https://bayhaqy.my.id"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--brand-red)] hover:text-[var(--brand-red-dark)] transition-colors group"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>bayhaqy.my.id</span>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                </a>
+                <span className="text-[var(--brand-border)]">·</span>
+                <a
+                  href="https://github.com/bayhaqy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--brand-ink)]/70 hover:text-[var(--brand-ink)] transition-colors group"
+                >
+                  <Github className="w-3.5 h-3.5" />
+                  <span>github.com/bayhaqy</span>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                </a>
+              </div>
+            </div>
           </div>
-          <div className="text-[11px] text-[var(--brand-ink)]/55 mt-1">
-            Built with open-source tools · All data from public sources · For internal strategic planning use
+
+          <div className="mt-4 pt-3 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/55 leading-relaxed">
+            Built with open-source tools · All data sourced from public, auditable sources ·
+            For internal strategic planning use.
+            For questions, feedback, or contributions, reach out via the developer website above.
           </div>
         </CardContent>
       </Card>

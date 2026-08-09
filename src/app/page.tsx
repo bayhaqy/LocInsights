@@ -21,6 +21,7 @@ import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
   FileText, Database, Search, Brain, Shield, GitCompareArrows, StoreIcon, Info,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 
 const NAV_ITEMS: NavItem[] = [
@@ -47,6 +48,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedKelurahanId, setSelectedKelurahanId] = useState<string | null>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     fetch('/api/locinsight/overview')
@@ -70,24 +72,12 @@ export default function Home() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen bg-[var(--brand-cream)]">
-        <div className="w-64 bg-[var(--brand-ink)]" />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[var(--brand-red)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <div className="text-[14px] text-[var(--brand-ink)]/70 font-medium">Loading LocInsight…</div>
-            <div className="text-[11px] text-[var(--brand-ink)]/50 mt-1">Computing scores for 716 kelurahan + competitor data…</div>
-          </div>
-        </div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (error || !data) {
     return (
       <div className="flex min-h-screen bg-[var(--brand-cream)]">
-        <div className="w-64 bg-[var(--brand-ink)]" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <div className="text-[var(--brand-red)] text-[14px] font-medium mb-2">Failed to load data</div>
@@ -104,16 +94,23 @@ export default function Home() {
         items={NAV_ITEMS}
         activeId={activeView}
         onSelect={setActiveView}
-        stats={{
-          total_kelurahan: data.stats.total_kelurahan,
-          total_stores: data.stats.total_stores,
-          total_malls: data.stats.total_malls,
-        }}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
 
-      <main className="flex-1 overflow-x-hidden">
-        <header className="bg-white border-b border-[var(--brand-border)] px-6 py-3 sticky top-0 z-30 flex items-center justify-between">
+      <main className="flex-1 overflow-x-hidden min-w-0">
+        <header className="bg-white border-b border-[var(--brand-border)] px-4 sm:px-6 py-3 sticky top-0 z-30 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarCollapsed(c => !c)}
+              className="p-1.5 rounded-md hover:bg-[var(--brand-cream)] text-[var(--brand-ink)]/70 hover:text-[var(--brand-ink)] transition-colors"
+              title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+              aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+            >
+              {sidebarCollapsed
+                ? <PanelLeftOpen className="w-4 h-4" />
+                : <PanelLeftClose className="w-4 h-4" />}
+            </button>
             <div className="text-[12px] text-[var(--brand-ink)]/60">
               <span className="text-[var(--brand-ink)]/40">LocInsight /</span>{' '}
               <span className="font-medium text-[var(--brand-ink)] capitalize">
@@ -123,7 +120,7 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {activeView === 'dashboard' && (
             <Dashboard
               stats={data.stats}
@@ -184,17 +181,137 @@ export default function Home() {
           {activeView === 'about' && <About />}
         </div>
 
-        <footer className="bg-[var(--brand-ink)] text-white/60 text-[11px] px-6 py-4 mt-8">
+        <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa
             </div>
-            <div>
-              Next.js 16 + React-Leaflet + Prisma + GBR (Friedman 2001) + Huff Gravity
+            <div className="text-white/45">
+              © {new Date().getFullYear()} · Built by{' '}
+              <a
+                href="https://bayhaqy.my.id"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/70 hover:text-white underline-offset-2 hover:underline"
+              >
+                Achmad Bayhaqy
+              </a>
             </div>
           </div>
         </footer>
       </main>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------
+ * LoadingScreen — minimalist animated globe loader.
+ * Uses CSS animations only (no JS), shows a rotating globe SVG with
+ * orbiting meridian rings + the LocInsight brand wordmark.
+ * ---------------------------------------------------------------- */
+function LoadingScreen() {
+  return (
+    <div className="flex min-h-screen bg-[var(--brand-cream)] items-center justify-center">
+      <style>{`
+        @keyframes locinsight-globe-spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes locinsight-globe-spin-reverse {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(-360deg); }
+        }
+        @keyframes locinsight-pulse {
+          0%, 100% { opacity: 0.55; transform: scale(1); }
+          50%      { opacity: 1;    transform: scale(1.04); }
+        }
+        @keyframes locinsight-fade-up {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes locinsight-dot {
+          0%, 80%, 100% { opacity: 0.2; }
+          40%           { opacity: 1; }
+        }
+        .li-globe-ring     { animation: locinsight-globe-spin 8s linear infinite;        transform-origin: center; }
+        .li-globe-ring-r   { animation: locinsight-globe-spin-reverse 6s linear infinite; transform-origin: center; }
+        .li-globe-core     { animation: locinsight-pulse 3.2s ease-in-out infinite;      transform-origin: center; }
+        .li-fade-up        { animation: locinsight-fade-up 0.6s ease-out 0.15s both; }
+        .li-dot            { animation: locinsight-dot 1.4s ease-in-out infinite; }
+      `}</style>
+
+      <div className="flex flex-col items-center gap-6">
+        {/* Globe */}
+        <div className="relative w-24 h-24">
+          {/* outer dashed orbit */}
+          <svg
+            viewBox="0 0 100 100"
+            className="absolute inset-0 li-globe-ring"
+            aria-hidden="true"
+          >
+            <circle
+              cx="50" cy="50" r="46"
+              fill="none"
+              stroke="var(--brand-red)"
+              strokeWidth="1.2"
+              strokeDasharray="3 6"
+              opacity="0.55"
+            />
+          </svg>
+
+          {/* middle meridian ring (rotates opposite) */}
+          <svg
+            viewBox="0 0 100 100"
+            className="absolute inset-0 li-globe-ring-r"
+            aria-hidden="true"
+          >
+            <ellipse
+              cx="50" cy="50" rx="34" ry="46"
+              fill="none"
+              stroke="var(--brand-ink)"
+              strokeWidth="1"
+              opacity="0.25"
+            />
+            <ellipse
+              cx="50" cy="50" rx="18" ry="46"
+              fill="none"
+              stroke="var(--brand-ink)"
+              strokeWidth="1"
+              opacity="0.18"
+            />
+            {/* latitude lines */}
+            <line x1="6"  y1="50" x2="94" y2="50" stroke="var(--brand-ink)" strokeWidth="0.8" opacity="0.18" />
+            <line x1="14" y1="36" x2="86" y2="36" stroke="var(--brand-ink)" strokeWidth="0.6" opacity="0.12" />
+            <line x1="14" y1="64" x2="86" y2="64" stroke="var(--brand-ink)" strokeWidth="0.6" opacity="0.12" />
+          </svg>
+
+          {/* core globe */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className="li-globe-core w-14 h-14 rounded-full flex items-center justify-center font-bold text-[22px] text-white shadow-lg"
+              style={{
+                background: 'radial-gradient(circle at 35% 30%, #E8324A 0%, #C8102E 45%, #7A0A1A 100%)',
+                boxShadow: '0 8px 24px -8px rgba(200, 16, 46, 0.5), inset 0 -6px 12px rgba(0,0,0,0.25)',
+              }}
+            >
+              L
+            </div>
+          </div>
+        </div>
+
+        {/* Wordmark + tagline */}
+        <div className="li-fade-up text-center">
+          <div className="font-display text-[18px] font-bold text-[var(--brand-ink)] tracking-tight">
+            LocInsight
+          </div>
+          <div className="text-[12px] text-[var(--brand-ink)]/55 mt-1.5 flex items-center justify-center gap-1">
+            <span>Loading Location Insights</span>
+            <span className="li-dot" style={{ animationDelay: '0s'   }}>.</span>
+            <span className="li-dot" style={{ animationDelay: '0.2s' }}>.</span>
+            <span className="li-dot" style={{ animationDelay: '0.4s' }}>.</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
