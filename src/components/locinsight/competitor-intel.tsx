@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import {
-  Search, Filter, Shield, MapPin, RefreshCw, Trash2, Edit, Save, X, ArrowRight,
+  Search, Shield, RefreshCw, Trash2, Edit, Save, X, ArrowRight,
+  ArrowUp, ArrowDown, ArrowUpDown, Download, Filter as FilterIcon,
 } from 'lucide-react'
 
 interface CompetitorRow {
@@ -56,19 +57,63 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
+// =====================================================
+// Column definitions — drives header rendering, sort,
+// per-column filter, and CSV export.
+// =====================================================
+type SortDir = 'asc' | 'desc' | null
+
+interface ColumnDef {
+  key: keyof CompetitorRow
+  label: string
+  sortable?: boolean
+  filterable?: boolean
+  filterType?: 'text' | 'select'
+  width?: string
+  format?: (v: any, row: CompetitorRow) => React.ReactNode
+  csvFormat?: (v: any, row: CompetitorRow) => string
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'brand_name', label: 'Brand', sortable: true, filterable: true, filterType: 'select',
+    format: (v) => <span className="font-medium text-[var(--brand-red)]">{v}</span> },
+  { key: 'brand_category', label: 'Category', sortable: true, filterable: true, filterType: 'select',
+    format: (v) => <Badge variant="outline" className="text-[9px]">{CATEGORY_LABELS[v as string] || v}</Badge> },
+  { key: 'name', label: 'Outlet Name', sortable: true, filterable: true, filterType: 'text',
+    format: (v) => <span className="block max-w-[200px] truncate" title={String(v)}>{v}</span> },
+  { key: 'kec', label: 'Kecamatan', sortable: true, filterable: true, filterType: 'select',
+    format: (v) => v || '—' },
+  { key: 'kab', label: 'Kabupaten', sortable: true, filterable: true, filterType: 'select',
+    format: (v) => v || '—' },
+  { key: 'is_in_mall', label: 'In Mall', sortable: true, filterable: true, filterType: 'select',
+    format: (v) => v ? <Badge className="text-[9px] bg-[var(--brand-ink)]">Yes</Badge> : '—',
+    csvFormat: (v) => v ? 'Yes' : 'No' },
+  { key: 'mall_name', label: 'Mall Name', sortable: true, filterable: true, filterType: 'text',
+    format: (v, row) => row.is_in_mall ? <span className="block max-w-[120px] truncate" title={String(v || '')}>{v || '—'}</span> : '—' },
+  { key: 'source', label: 'Source', sortable: true, filterable: true, filterType: 'select',
+    format: (v) => <span className="text-[10px] text-[var(--brand-ink)]/60">{v}</span> },
+]
+
 export function CompetitorIntel({ onScrapeMore }: Props) {
   const [competitors, setCompetitors] = useState<CompetitorRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState({ brand: '', kab: '', kec: '', category: '' })
   const [editing, setEditing] = useState<CompetitorRow | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // Sort & per-column filter state
+  const [sortCol, setSortCol] = useState<keyof CompetitorRow | null>('brand_name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  // Global text search (matches any field)
+  const [globalSearch, setGlobalSearch] = useState('')
+  // Per-column filters: { brand_name: 'Alfamart', kec: 'Kuta', ... }
+  const [colFilters, setColFilters] = useState<Partial<Record<keyof CompetitorRow, string>>>({})
 
   useEffect(() => {
     loadExisting()
   }, [])
 
-  async function loadExisting() {
+  const loadExisting = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/locinsight/competitors?all=true')
@@ -80,7 +125,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   async function deleteRow(id: string) {
     if (!confirm('Delete this competitor record?')) return
@@ -107,7 +152,6 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
     if (!editing) return
     setSaving(true)
     try {
-      // Strip fields we don't want to overwrite
       const { id, last_crawled_at, created_at, updated_at, ...updateFields } = editing as any
       const res = await fetch(`/api/locinsight/competitors/${id}`, {
         method: 'PUT',
@@ -130,33 +174,163 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
     }
   }
 
-  const filtered = competitors.filter(c => {
-    if (filter.brand && c.brand_name !== filter.brand) return false
-    if (filter.category && c.brand_category !== filter.category) return false
-    if (filter.kab && !c.kab.toLowerCase().includes(filter.kab.toLowerCase())) return false
-    if (filter.kec && !c.kec.toLowerCase().includes(filter.kec.toLowerCase())) return false
-    return true
-  })
+  // Toggle sort column
+  function toggleSort(colKey: keyof CompetitorRow) {
+    if (sortCol !== colKey) {
+      setSortCol(colKey)
+      setSortDir('asc')
+    } else if (sortDir === 'asc') {
+      setSortDir('desc')
+    } else if (sortDir === 'desc') {
+      setSortCol(null)
+      setSortDir(null)
+    } else {
+      setSortCol(colKey)
+      setSortDir('asc')
+    }
+  }
 
-  const brandsInDb = Array.from(new Set(competitors.map(c => c.brand_name)))
-  const categoriesInDb = Array.from(new Set(competitors.map(c => c.brand_category)))
-  const kecamatanInDb = Array.from(new Set(competitors.map(c => c.kec).filter(Boolean)))
+  // Reset all filters & sort
+  function resetFilters() {
+    setGlobalSearch('')
+    setColFilters({})
+    setSortCol('brand_name')
+    setSortDir('asc')
+  }
+
+  // === Apply global + per-column filters, then sort ===
+  const filtered = useMemo(() => {
+    let result = competitors
+
+    // Global search
+    if (globalSearch.trim()) {
+      const q = globalSearch.toLowerCase()
+      result = result.filter(c =>
+        `${c.brand_name} ${c.brand_category} ${c.name} ${c.kec} ${c.kab} ${c.city} ${c.address} ${c.mall_name || ''} ${c.source}`
+          .toLowerCase().includes(q)
+      )
+    }
+
+    // Per-column filters
+    for (const [k, v] of Object.entries(colFilters)) {
+      if (!v) continue
+      const key = k as keyof CompetitorRow
+      result = result.filter(c => {
+        const cellVal = c[key]
+        if (cellVal == null) return false
+        if (typeof cellVal === 'boolean') return String(cellVal) === v
+        return String(cellVal).toLowerCase().includes((v as string).toLowerCase())
+      })
+    }
+
+    // Sort
+    if (sortCol && sortDir) {
+      const col = sortCol
+      const dir = sortDir === 'asc' ? 1 : -1
+      result = [...result].sort((a, b) => {
+        const va = a[col]
+        const vb = b[col]
+        if (va == null && vb == null) return 0
+        if (va == null) return 1
+        if (vb == null) return -1
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+        return String(va).localeCompare(String(vb)) * dir
+      })
+    }
+
+    return result
+  }, [competitors, globalSearch, colFilters, sortCol, sortDir])
+
+  // === Get unique values for select-based column filters ===
+  const filterOptions = useMemo(() => {
+    const opts: Record<string, string[]> = {}
+    for (const col of COLUMNS) {
+      if (col.filterType === 'select') {
+        const set = new Set<string>()
+        for (const r of competitors) {
+          const v = r[col.key]
+          if (v != null && v !== '') set.add(typeof v === 'boolean' ? String(v) : String(v))
+        }
+        opts[col.key as string] = Array.from(set).sort()
+      }
+    }
+    return opts
+  }, [competitors])
+
+  const brandsInDb = filterOptions['brand_name'] || []
+  const categoriesInDb = filterOptions['brand_category'] || []
+  const kecamatanInDb = filterOptions['kec'] || []
+  const kabupatenInDb = filterOptions['kab'] || []
+  const sourcesInDb = filterOptions['source'] || []
+
   const byBrand = brandsInDb.map(b => ({
     brand: b,
     count: competitors.filter(c => c.brand_name === b).length,
   })).sort((a, b) => b.count - a.count)
 
+  // === Filtered CSV export ===
+  function exportFilteredCSV() {
+    if (filtered.length === 0) {
+      toast.info('No data to export')
+      return
+    }
+    const headers = ['id', ...COLUMNS.map(c => c.key), 'address', 'city', 'lat', 'lng', 'source_url', 'last_crawled_at']
+    const headerLabels = ['ID', ...COLUMNS.map(c => c.label), 'Address', 'City', 'Latitude', 'Longitude', 'Source URL', 'Last Crawled At']
+    const lines = [headerLabels.join(',')]
+    for (const r of filtered) {
+      const cells = headers.map(h => {
+        const v = (r as any)[h]
+        if (v == null) return ''
+        const s = typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
+        // RFC 4180 quoting
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`
+        }
+        return s
+      })
+      lines.push(cells.join(','))
+    }
+    const csv = lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `competitors_filtered_${filtered.length}rows_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${filtered.length} filtered rows to CSV`)
+  }
+
+  const isFilterActive = globalSearch !== '' || Object.values(colFilters).some(v => v) ||
+    (sortCol !== 'brand_name' || sortDir !== 'asc')
+
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-          Competitor Intelligence
-        </h2>
-        <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          View, edit, and analyze competitor store presence (Indomaret, Alfamart, McDonald's, etc.) scraped from OpenStreetMap.
-          Each competitor is enriched with kecamatan & kabupaten info via reverse-geocoding. For bulk operations, use the{' '}
-          <strong>Data Manager → Competitors</strong> tab.
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
+            Competitor Intelligence
+          </h2>
+          <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
+            View, edit, and analyze competitor store presence scraped from OpenStreetMap. Click any column header to sort;
+            use the filter inputs below each header to narrow results; export respects current filters & sort.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={loadExisting} disabled={loading}>
+            <RefreshCw className={`w-3 h-3 mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => onScrapeMore?.()}
+            className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
+          >
+            <Search className="w-3 h-3 mr-1.5" /> Scrape More
+            <ArrowRight className="w-3 h-3 ml-1.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -181,8 +355,8 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
         </Card>
         <Card className="card-premium">
           <CardContent className="p-4">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">Kabupaten</div>
-            <div className="font-display text-[28px] font-bold text-[var(--brand-ink)]">{new Set(competitors.map(c => c.kab)).size}</div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">Showing (Filtered)</div>
+            <div className="font-display text-[28px] font-bold text-[var(--brand-ink)]">{filtered.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -202,7 +376,10 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {byBrand.slice(0, 12).map(b => (
-                <div key={b.brand} className="bg-[var(--brand-cream)] p-2 rounded">
+                <div key={b.brand} className="bg-[var(--brand-cream)] p-2 rounded cursor-pointer hover:bg-[var(--brand-cream)]/70"
+                  onClick={() => setColFilters(prev => ({ ...prev, brand_name: b.brand }))}
+                  title={`Click to filter by ${b.brand}`}
+                >
                   <div className="text-[11px] font-medium text-[var(--brand-ink)] truncate">{b.brand}</div>
                   <div className="text-[18px] font-bold text-[var(--brand-red)] num-tabular">{b.count}</div>
                 </div>
@@ -212,66 +389,32 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
         </CardContent>
       </Card>
 
-      {/* Filters */}
+      {/* Global filter bar */}
       <Card className="card-premium">
         <CardContent className="p-3 flex flex-wrap gap-2 items-end">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">Brand</label>
-            <select
-              value={filter.brand}
-              onChange={e => setFilter(f => ({ ...f, brand: e.target.value }))}
-              className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded"
-            >
-              <option value="">All brands</option>
-              {brandsInDb.sort().map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">Category</label>
-            <select
-              value={filter.category}
-              onChange={e => setFilter(f => ({ ...f, category: e.target.value }))}
-              className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded"
-            >
-              <option value="">All categories</option>
-              {categoriesInDb.sort().map(c => <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">Kabupaten</label>
-            <input
-              type="text"
-              value={filter.kab}
-              onChange={e => setFilter(f => ({ ...f, kab: e.target.value }))}
-              placeholder="Badung, Denpasar…"
-              className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded"
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">
+              Global Search (any field)
+            </label>
+            <Input
+              value={globalSearch}
+              onChange={e => setGlobalSearch(e.target.value)}
+              placeholder="Search across all columns…"
+              className="text-[12px] h-8"
             />
           </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">Kecamatan</label>
-            <input
-              type="text"
-              value={filter.kec}
-              onChange={e => setFilter(f => ({ ...f, kec: e.target.value }))}
-              placeholder="Kuta, Denpasar Barat…"
-              className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded"
-            />
-          </div>
-          <Button variant="outline" size="sm" onClick={loadExisting} className="ml-auto">
-            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+          <Button variant="outline" size="sm" onClick={resetFilters} disabled={!isFilterActive} className="h-8">
+            <FilterIcon className="w-3 h-3 mr-1" /> Reset
           </Button>
-          <Button
-            size="sm"
-            onClick={() => onScrapeMore?.()}
-            className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
-          >
-            <Search className="w-3 h-3 mr-1" /> Scrape More
-            <ArrowRight className="w-3 h-3 ml-1" />
+          <Button size="sm" onClick={exportFilteredCSV} disabled={filtered.length === 0}
+            className="bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white h-8">
+            <Download className="w-3 h-3 mr-1.5" />
+            Export Filtered ({filtered.length})
           </Button>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Table with sort + per-column filter */}
       <Card className="card-premium">
         <CardContent className="p-0">
           {loading ? (
@@ -282,35 +425,74 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-[13px] text-[var(--brand-ink)]/60">
-              No competitor stores found. Click <strong>Scrape More</strong> to fetch from OpenStreetMap via the unified Data Scraper.
+              No competitor stores match the current filters. Adjust filters or{' '}
+              <strong>Scrape More</strong> to fetch new data.
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+            <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
               <table className="w-full text-[11.5px]">
-                <thead className="bg-[var(--brand-cream)] sticky top-0">
+                <thead className="bg-[var(--brand-cream)] sticky top-0 z-10">
                   <tr className="text-left text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/70">
-                    <th className="p-2">Brand</th>
-                    <th className="p-2">Category</th>
-                    <th className="p-2">Outlet Name</th>
-                    <th className="p-2">Kecamatan</th>
-                    <th className="p-2">Kabupaten</th>
-                    <th className="p-2">In Mall</th>
-                    <th className="p-2">Mall Name</th>
-                    <th className="p-2">Source</th>
+                    {COLUMNS.map(col => {
+                      const isSorted = sortCol === col.key
+                      const SortIcon = !isSorted ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
+                      return (
+                        <th key={col.key as string} className="p-2 select-none">
+                          <button
+                            onClick={() => col.sortable && toggleSort(col.key)}
+                            className={`flex items-center gap-1 hover:text-[var(--brand-red)] ${col.sortable ? 'cursor-pointer' : ''}`}
+                          >
+                            {col.label}
+                            {col.sortable && <SortIcon className={`w-3 h-3 ${isSorted ? 'text-[var(--brand-red)]' : 'text-[var(--brand-ink)]/40'}`} />}
+                          </button>
+                        </th>
+                      )
+                    })}
                     <th className="p-2 text-right">Actions</th>
+                  </tr>
+                  {/* Per-column filter row */}
+                  <tr className="border-t border-[var(--brand-border)] bg-white">
+                    {COLUMNS.map(col => {
+                      if (!col.filterable) return <th key={col.key as string} className="p-1" />
+                      const value = colFilters[col.key] || ''
+                      if (col.filterType === 'select') {
+                        const opts = filterOptions[col.key as string] || []
+                        return (
+                          <th key={col.key as string} className="p-1">
+                            <select
+                              value={value}
+                              onChange={e => setColFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
+                              className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full bg-white"
+                            >
+                              <option value="">All</option>
+                              {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </th>
+                        )
+                      }
+                      return (
+                        <th key={col.key as string} className="p-1">
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={e => setColFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
+                            placeholder="Filter…"
+                            className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full"
+                          />
+                        </th>
+                      )
+                    })}
+                    <th className="p-1" />
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.slice(0, 500).map(c => (
                     <tr key={c.id} className="border-t border-[var(--brand-border)] hover:bg-[var(--brand-cream)]/50">
-                      <td className="p-2 font-medium text-[var(--brand-red)]">{c.brand_name}</td>
-                      <td className="p-2"><Badge variant="outline" className="text-[9px]">{CATEGORY_LABELS[c.brand_category] || c.brand_category}</Badge></td>
-                      <td className="p-2 max-w-[200px] truncate" title={c.name}>{c.name}</td>
-                      <td className="p-2">{c.kec || '—'}</td>
-                      <td className="p-2">{c.kab || '—'}</td>
-                      <td className="p-2">{c.is_in_mall ? <Badge className="text-[9px] bg-[var(--brand-ink)]">Yes</Badge> : '—'}</td>
-                      <td className="p-2 max-w-[120px] truncate" title={c.mall_name || ''}>{c.is_in_mall ? (c.mall_name || '—') : '—'}</td>
-                      <td className="p-2 text-[10px] text-[var(--brand-ink)]/60">{c.source}</td>
+                      {COLUMNS.map(col => (
+                        <td key={col.key as string} className="p-2">
+                          {col.format ? col.format(c[col.key], c) : (c[col.key] ?? '—')}
+                        </td>
+                      ))}
                       <td className="p-2">
                         <div className="flex items-center gap-1 justify-end">
                           <button
@@ -333,6 +515,11 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                   ))}
                 </tbody>
               </table>
+              {filtered.length > 500 && (
+                <div className="p-2 text-center text-[11px] text-[var(--brand-ink)]/60 bg-[var(--brand-cream)] border-t border-[var(--brand-border)]">
+                  Showing first 500 of {filtered.length} filtered rows. Use Export to download all.
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -349,7 +536,6 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
           </DialogHeader>
           {editing && (
             <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
-              {/* Brand info */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Brand Name *</Label>
@@ -382,7 +568,6 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                 />
               </div>
 
-              {/* Admin boundary info — the key fix */}
               <div className="bg-[var(--brand-cream)] p-3 rounded border border-[var(--brand-border)]">
                 <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">Location (Admin Boundary)</Label>
                 <div className="grid grid-cols-2 gap-3">
@@ -424,7 +609,6 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                 </div>
               </div>
 
-              {/* Coordinates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Latitude</Label>
@@ -448,7 +632,6 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                 </div>
               </div>
 
-              {/* Mall info */}
               <div className="grid grid-cols-2 gap-3 items-center">
                 <div className="flex items-center gap-2">
                   <Switch
@@ -468,7 +651,6 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                 </div>
               </div>
 
-              {/* Source info */}
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Source URL</Label>
                 <Input

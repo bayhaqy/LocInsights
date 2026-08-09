@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Database, Plus, Edit, Trash2, Search, Store as StoreIcon, Building2, Tag, MapPin, Map,
   RefreshCw, Upload, Download, FileSpreadsheet, Save, X, Check, AlertTriangle, FileDown,
-  Shield, Globe, Flag,
+  Shield, Globe, Flag, ArrowUp, ArrowDown, ArrowUpDown, Filter as FilterIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -60,6 +60,14 @@ export function DataManager() {
   const [savingBulk, setSavingBulk] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Table view sort + per-column filter state (client-side, on current page data)
+  const [sortCol, setSortCol] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null)
+  const [colFilters, setColFilters] = useState<Record<string, string>>({})
+
+  // Field config (declared early so useMemos below can reference it)
+  const fieldConfig = getFieldConfig(activeEntity)
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -91,6 +99,9 @@ export function DataManager() {
   useEffect(() => {
     setPage(1)
     setDraft(null)
+    setSortCol(null)
+    setSortDir(null)
+    setColFilters({})
   }, [activeEntity, search])
 
   function openCreate() {
@@ -249,6 +260,116 @@ export function DataManager() {
     }
   }
 
+  // === Client-side sort + filter applied to current page data ===
+  function toggleSort(colKey: string) {
+    if (sortCol !== colKey) {
+      setSortCol(colKey)
+      setSortDir('asc')
+    } else if (sortDir === 'asc') {
+      setSortDir('desc')
+    } else if (sortDir === 'desc') {
+      setSortCol(null)
+      setSortDir(null)
+    } else {
+      setSortCol(colKey)
+      setSortDir('asc')
+    }
+  }
+
+  function resetTableFilters() {
+    setSortCol(null)
+    setSortDir(null)
+    setColFilters({})
+  }
+
+  const processedData = useMemo(() => {
+    let result = data
+    // Apply per-column filters
+    if (Object.keys(colFilters).length > 0) {
+      result = result.filter(row => {
+        for (const [k, v] of Object.entries(colFilters)) {
+          if (!v) continue
+          const cellVal = (row as any)[k]
+          if (cellVal == null) return false
+          if (typeof cellVal === 'boolean') {
+            if (String(cellVal) !== v) return false
+          } else if (!String(cellVal).toLowerCase().includes(v.toLowerCase())) {
+            return false
+          }
+        }
+        return true
+      })
+    }
+    // Apply sort
+    if (sortCol && sortDir) {
+      const dir = sortDir === 'asc' ? 1 : -1
+      result = [...result].sort((a, b) => {
+        const va = (a as any)[sortCol]
+        const vb = (b as any)[sortCol]
+        if (va == null && vb == null) return 0
+        if (va == null) return 1
+        if (vb == null) return -1
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+        return String(va).localeCompare(String(vb)) * dir
+      })
+    }
+    return result
+  }, [data, colFilters, sortCol, sortDir])
+
+  // Get unique values for select-based filters on each column
+  const filterOptions = useMemo(() => {
+    const opts: Record<string, string[]> = {}
+    for (const f of fieldConfig) {
+      const set = new Set<string>()
+      for (const r of data) {
+        const v = (r as any)[f.key]
+        if (v != null && v !== '') {
+          set.add(typeof v === 'boolean' ? String(v) : String(v))
+        }
+      }
+      const arr = Array.from(set).sort()
+      // Only show select-style filter if <= 30 unique values; otherwise text input
+      if (arr.length > 0 && arr.length <= 30) {
+        opts[f.key] = arr
+      }
+    }
+    return opts
+  }, [data, fieldConfig])
+
+  // Export current filtered+sorted view as CSV
+  function exportFilteredViewCSV() {
+    if (processedData.length === 0) {
+      toast.info('No data to export')
+      return
+    }
+    const fields = fieldConfig
+    const headers = fields.map(f => f.label)
+    const lines = [headers.join(',')]
+    for (const r of processedData) {
+      const cells = fields.map(f => {
+        const v = (r as any)[f.key]
+        if (v == null) return ''
+        const s = typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v)
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`
+        }
+        return s
+      })
+      lines.push(cells.join(','))
+    }
+    const csv = lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${activeEntity}_filtered_${processedData.length}rows_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${processedData.length} filtered rows to CSV`)
+  }
+
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -282,7 +403,6 @@ export function DataManager() {
     }
   }
 
-  const fieldConfig = getFieldConfig(activeEntity)
   const tableColumns = fieldConfig.slice(0, 6)
   const hasChanges = draft && Object.keys(draft).length > 0
 
@@ -360,14 +480,23 @@ export function DataManager() {
                 <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={savingBulk} className="h-7 text-[11px]">
                   <Upload className="w-3 h-3 mr-1" /> Import
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadExport('csv')} className="h-7 text-[11px]">
-                  <Download className="w-3 h-3 mr-1" /> CSV
+                <Button size="sm" variant="outline" onClick={() => downloadExport('csv')} className="h-7 text-[11px]" title="Export ALL records (server-side)">
+                  <Download className="w-3 h-3 mr-1" /> CSV (All)
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px]">
-                  <Download className="w-3 h-3 mr-1" /> XLSX
+                <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px]" title="Export ALL records (server-side)">
+                  <Download className="w-3 h-3 mr-1" /> XLSX (All)
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px]">
+                <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px]" title="Download empty template">
                   <FileDown className="w-3 h-3 mr-1" /> Template
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={exportFilteredViewCSV}
+                  disabled={viewMode !== 'table' || processedData.length === 0}
+                  className="h-7 text-[11px] bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white"
+                  title={viewMode === 'table' ? `Export ${processedData.length} filtered/sorted rows on this page` : 'Switch to Table View to use filtered export'}
+                >
+                  <Download className="w-3 h-3 mr-1" /> Export View ({viewMode === 'table' ? processedData.length : 0})
                 </Button>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--brand-ink)]/40" />
@@ -416,9 +545,18 @@ export function DataManager() {
           <CardContent>
             {viewMode === 'table' ? (
               <TableView
-                data={data}
+                data={processedData}
+                totalCount={data.length}
                 loading={loading}
                 columns={tableColumns}
+                allFieldConfig={fieldConfig}
+                sortCol={sortCol}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                colFilters={colFilters}
+                onColFilterChange={(k, v) => setColFilters(prev => ({ ...prev, [k]: v }))}
+                filterOptions={filterOptions}
+                onResetFilters={resetTableFilters}
                 onEdit={openEdit}
                 onDelete={remove}
               />
@@ -438,6 +576,7 @@ export function DataManager() {
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--brand-border)]">
               <div className="text-[11px] text-[var(--brand-ink)]/60">
                 Page {page} of {totalPages} · {total} records
+                {viewMode === 'table' && data.length !== processedData.length && ` · ${processedData.length} after filter`}
                 {viewMode === 'spreadsheet' && ' · showing up to 100 per page for inline editing'}
               </div>
               <div className="flex gap-1">
@@ -505,62 +644,130 @@ export function DataManager() {
 }
 
 // =============================================================
-// Table View (read-only, with edit/delete actions)
+// Table View (with column sort, per-column filter, edit/delete)
 // =============================================================
 function TableView({
-  data, loading, columns, onEdit, onDelete,
+  data, totalCount, loading, columns, allFieldConfig, sortCol, sortDir, onSort,
+  colFilters, onColFilterChange, filterOptions, onResetFilters, onEdit, onDelete,
 }: {
   data: any[]
+  totalCount: number
   loading: boolean
   columns: FieldConfig[]
+  allFieldConfig: FieldConfig[]
+  sortCol: string | null
+  sortDir: 'asc' | 'desc' | null
+  onSort: (k: string) => void
+  colFilters: Record<string, string>
+  onColFilterChange: (k: string, v: string) => void
+  filterOptions: Record<string, string[]>
+  onResetFilters: () => void
   onEdit: (row: any) => void
   onDelete: (row: any) => void
 }) {
+  const hasFilters = Object.values(colFilters).some(v => v) || sortCol
   return (
-    <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-      <table className="w-full text-[11.5px]">
-        <thead className="sticky top-0 bg-white z-10">
-          <tr className="border-b border-[var(--brand-border)]">
-            {columns.map(f => (
-              <th key={f.key} className="text-left px-2 py-2 font-semibold text-[var(--brand-ink)]/70 uppercase tracking-wider text-[10px] whitespace-nowrap">
-                {f.label}
-              </th>
-            ))}
-            <th className="text-right px-2 py-2 w-20"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">Loading…</td></tr>
-          ) : data.length === 0 ? (
-            <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">No records found</td></tr>
-          ) : (
-            data.map((row, i) => (
-              <tr key={i} className="border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/50">
-                {columns.map(f => (
-                  <td key={f.key} className="px-2 py-1.5 whitespace-nowrap">
-                    {formatCell(row[f.key], f.type)}
+    <div className="space-y-2">
+      {/* Filter status bar */}
+      {hasFilters && (
+        <div className="flex items-center justify-between text-[11px] px-2 py-1 bg-[var(--brand-cream)] rounded">
+          <span className="text-[var(--brand-ink)]/70">
+            <FilterIcon className="w-3 h-3 inline mr-1" />
+            Showing <strong>{data.length}</strong> of {totalCount} on this page
+            {sortCol && <span className="ml-2 text-[var(--brand-ink)]/50">· sorted by {sortCol} {sortDir}</span>}
+          </span>
+          <button onClick={onResetFilters} className="text-[var(--brand-red)] hover:underline">
+            Reset filters
+          </button>
+        </div>
+      )}
+      <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+        <table className="w-full text-[11.5px]">
+          <thead className="sticky top-0 bg-white z-10">
+            <tr className="border-b border-[var(--brand-border)]">
+              {columns.map(f => {
+                const isSorted = sortCol === f.key
+                const SortIcon = !isSorted ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
+                return (
+                  <th key={f.key} className="text-left px-2 py-2 font-semibold text-[var(--brand-ink)]/70 uppercase tracking-wider text-[10px] whitespace-nowrap">
+                    <button
+                      onClick={() => onSort(f.key)}
+                      className="flex items-center gap-1 hover:text-[var(--brand-red)]"
+                    >
+                      {f.label}
+                      <SortIcon className={`w-3 h-3 ${isSorted ? 'text-[var(--brand-red)]' : 'text-[var(--brand-ink)]/40'}`} />
+                    </button>
+                  </th>
+                )
+              })}
+              <th className="text-right px-2 py-2 w-20"></th>
+            </tr>
+            {/* Per-column filter row */}
+            <tr className="border-b border-[var(--brand-border)] bg-[var(--brand-cream)]/30">
+              {columns.map(f => {
+                const opts = filterOptions[f.key]
+                if (opts && opts.length > 0) {
+                  return (
+                    <th key={f.key} className="px-1 py-1">
+                      <select
+                        value={colFilters[f.key] || ''}
+                        onChange={e => onColFilterChange(f.key, e.target.value)}
+                        className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full bg-white"
+                      >
+                        <option value="">All</option>
+                        {opts.map(o => <option key={o} value={o}>{o.length > 30 ? o.slice(0, 27) + '…' : o}</option>)}
+                      </select>
+                    </th>
+                  )
+                }
+                return (
+                  <th key={f.key} className="px-1 py-1">
+                    <input
+                      type="text"
+                      value={colFilters[f.key] || ''}
+                      onChange={e => onColFilterChange(f.key, e.target.value)}
+                      placeholder="Filter…"
+                      className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full"
+                    />
+                  </th>
+                )
+              })}
+              <th className="px-1 py-1" />
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">Loading…</td></tr>
+            ) : data.length === 0 ? (
+              <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">No records match current filters</td></tr>
+            ) : (
+              data.map((row, i) => (
+                <tr key={i} className="border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/50">
+                  {columns.map(f => (
+                    <td key={f.key} className="px-2 py-1.5 whitespace-nowrap">
+                      {formatCell(row[f.key], f.type)}
+                    </td>
+                  ))}
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => onEdit(row)}
+                      className="p-1 rounded hover:bg-[var(--brand-red)]/10 text-[var(--brand-ink)]/60 hover:text-[var(--brand-red)]"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(row)}
+                      className="p-1 rounded hover:bg-red-100 text-[var(--brand-ink)]/60 hover:text-red-600 ml-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </td>
-                ))}
-                <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                  <button
-                    onClick={() => onEdit(row)}
-                    className="p-1 rounded hover:bg-[var(--brand-red)]/10 text-[var(--brand-ink)]/60 hover:text-[var(--brand-red)]"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(row)}
-                    className="p-1 rounded hover:bg-red-100 text-[var(--brand-ink)]/60 hover:text-red-600 ml-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

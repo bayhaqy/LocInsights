@@ -84,7 +84,8 @@ const DEMO_METRIC_OPTIONS: { value: DemoMetric; label: string; icon: any; color:
 
 const DEMO_GRANULARITY_OPTIONS: { value: DemoGranularity; label: string }[] = [
   { value: 'kabupaten', label: 'Per Kabupaten/Kota (9 regions)' },
-  { value: 'kecamatan', label: 'Per Kecamatan (59 regions)' },
+  { value: 'kecamatan', label: 'Per Kecamatan (57 regions)' },
+  { value: 'kelurahan', label: 'Per Kelurahan/Desa (point markers, ~170+ villages)' },
 ]
 
 export function MapExplorer({
@@ -159,6 +160,8 @@ export function MapExplorer({
   const [tierFilter, setTierFilter] = useState<1 | 2 | 3 | 'all'>('all')
   const [recFilter, setRecFilter] = useState<'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'>('all')
   const [kabFilter, setKabFilter] = useState<string>('all')
+  const [kecFilter, setKecFilter] = useState<string>('all')
+  const [kelurahanFilter, setKelurahanFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [parentFilter, setParentFilter] = useState<'all' | 'MAP' | 'MAA'>('all')
   const [search, setSearch] = useState('')
@@ -166,10 +169,45 @@ export function MapExplorer({
 
   const selected = opportunities.find(o => o.kelurahan_id === selectedKelurahanId)
 
+  // Build cascading dropdown options from opportunities data
+  const kabOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const o of opportunities) if (o.kab_name) set.add(o.kab_name)
+    return Array.from(set).sort()
+  }, [opportunities])
+
+  const kecOptions = useMemo(() => {
+    if (kabFilter === 'all') return []
+    const set = new Set<string>()
+    for (const o of opportunities) {
+      if (o.kab_name === kabFilter && o.kec_name) set.add(o.kec_name)
+    }
+    return Array.from(set).sort()
+  }, [opportunities, kabFilter])
+
+  const kelurahanOptions = useMemo(() => {
+    if (kecFilter === 'all') return []
+    const set = new Set<string>()
+    for (const o of opportunities) {
+      if (o.kec_name === kecFilter && o.kelurahan_name) set.add(o.kelurahan_name)
+    }
+    return Array.from(set).sort()
+  }, [opportunities, kecFilter])
+
+  // Reset kec/kelurahan filters when parent changes
+  useEffect(() => {
+    if (kabFilter === 'all' && kecFilter !== 'all') setKecFilter('all')
+  }, [kabFilter, kecFilter])
+  useEffect(() => {
+    if (kecFilter === 'all' && kelurahanFilter !== 'all') setKelurahanFilter('all')
+  }, [kecFilter, kelurahanFilter])
+
   const resetFilters = () => {
     setTierFilter('all')
     setRecFilter('all')
     setKabFilter('all')
+    setKecFilter('all')
+    setKelurahanFilter('all')
     setCategoryFilter('all')
     setParentFilter('all')
     setSearch('')
@@ -182,6 +220,8 @@ export function MapExplorer({
       if (tierFilter !== 'all' && o.tier !== tierFilter) return false
       if (recFilter !== 'all' && o.recommendation !== recFilter) return false
       if (kabFilter !== 'all' && o.kab_name !== kabFilter) return false
+      if (kecFilter !== 'all' && o.kec_name !== kecFilter) return false
+      if (kelurahanFilter !== 'all' && o.kelurahan_name !== kelurahanFilter) return false
       if (o.composite_score < scoreRange[0] || o.composite_score > scoreRange[1]) return false
       if (q) {
         const hay = `${o.kelurahan_name} ${o.kec_name} ${o.kab_name}`.toLowerCase()
@@ -189,7 +229,7 @@ export function MapExplorer({
       }
       return true
     })
-  }, [opportunities, tierFilter, recFilter, kabFilter, scoreRange, search])
+  }, [opportunities, tierFilter, recFilter, kabFilter, kecFilter, kelurahanFilter, scoreRange, search])
 
   const filteredStores = useMemo(() => {
     if (!showStores) return []
@@ -203,6 +243,7 @@ export function MapExplorer({
         if (kabTier[s.kab] !== tierFilter) return false
       }
       if (kabFilter !== 'all' && s.kab !== kabFilter) return false
+      if (kecFilter !== 'all' && s.kec !== kecFilter) return false
       if (categoryFilter !== 'all' && s.brand_category !== categoryFilter) return false
       if (parentFilter !== 'all' && s.parent !== parentFilter) return false
       if (search) {
@@ -212,7 +253,7 @@ export function MapExplorer({
       }
       return true
     })
-  }, [stores, showStores, tierFilter, kabFilter, categoryFilter, parentFilter, search])
+  }, [stores, showStores, tierFilter, kabFilter, kecFilter, categoryFilter, parentFilter, search])
 
   // ===== Aggregate demographic data based on selected metric + granularity =====
   const demoData: DemoRegionRow[] = useMemo(() => {
@@ -255,40 +296,54 @@ export function MapExplorer({
     }
 
     // kecamatan granularity
-    if (demoMetric === 'population_density' || demoMetric === 'population') {
-      return kecamatanAll.map(k => ({
-        name: k.name,
-        value: demoMetric === 'population_density'
-          ? (k.population_2024 && k.area_km2 ? k.population_2024 / k.area_km2 : null)
-          : (k.population_2024 ?? null),
-        population: k.population_2024 ?? null,
-        kelurahan_count: kelurahanAll.filter(kl => kl.kec_code === k.code).length,
-        tier: k.tier ? Number(k.tier.replace('tier_', '')) : null,
+    if (demoGranularity === 'kecamatan') {
+      if (demoMetric === 'population_density' || demoMetric === 'population') {
+        return kecamatanAll.map(k => ({
+          name: k.name,
+          value: demoMetric === 'population_density'
+            ? (k.population_2024 && k.area_km2 ? k.population_2024 / k.area_km2 : null)
+            : (k.population_2024 ?? null),
+          population: k.population_2024 ?? null,
+          kelurahan_count: kelurahanAll.filter(kl => kl.kec_code === k.code).length,
+          tier: k.tier ? Number(k.tier.replace('tier_', '')) : null,
+        }))
+      }
+      // For indices — aggregate kelurahan up to kecamatan
+      const byKec = new Map<string, { name: string; sum: number; count: number; pop: number; tier: string | null }>()
+      for (const kl of kelurahanAll) {
+        const k = kl.kec_name
+        if (!k) continue
+        const v = kl[demoMetric]
+        if (v == null) continue
+        const r = byKec.get(k) || { name: k, sum: 0, count: 0, pop: 0, tier: kl.tier }
+        r.sum += v
+        r.count += 1
+        r.pop += kl.population || 0
+        byKec.set(k, r)
+      }
+      return Array.from(byKec.values()).map(r => ({
+        name: r.name,
+        value: r.count > 0 ? r.sum / r.count : null,
+        population: r.pop,
+        kelurahan_count: r.count,
+        tier: r.tier ? Number(r.tier.replace('tier_', '')) : null,
       }))
     }
-    // For indices — aggregate kelurahan up to kecamatan
-    const byKec = new Map<string, { name: string; sum: number; count: number; pop: number; tier: string | null }>()
-    for (const kl of kelurahanAll) {
-      const k = kl.kec_name
-      if (!k) continue
-      const v = kl[demoMetric]
-      if (v == null) continue
-      const r = byKec.get(k) || { name: k, sum: 0, count: 0, pop: 0, tier: kl.tier }
-      r.sum += v
-      r.count += 1
-      r.pop += kl.population || 0
-      byKec.set(k, r)
-    }
-    return Array.from(byKec.values()).map(r => ({
-      name: r.name,
-      value: r.count > 0 ? r.sum / r.count : null,
-      population: r.pop,
-      kelurahan_count: r.count,
-      tier: r.tier ? Number(r.tier.replace('tier_', '')) : null,
+
+    // kelurahan granularity — point-level data (each kelurahan is one row)
+    return kelurahanAll.map(kl => ({
+      name: kl.name,
+      value: kl[demoMetric] ?? null,
+      population: kl.population ?? null,
+      kelurahan_count: 1,
+      tier: kl.tier ? Number(kl.tier.replace('tier_', '')) : null,
+      lat: kl.lat ?? null,
+      lng: kl.lng ?? null,
     }))
   }, [showDemographics, demoMetric, demoGranularity, kelurahanAll, kecamatanAll, kabupatenAll])
 
   const isFilterActive = tierFilter !== 'all' || recFilter !== 'all' || kabFilter !== 'all' ||
+    kecFilter !== 'all' || kelurahanFilter !== 'all' ||
     categoryFilter !== 'all' || parentFilter !== 'all' || search !== '' ||
     scoreRange[0] !== 0 || scoreRange[1] !== 100
 
@@ -370,12 +425,40 @@ export function MapExplorer({
 
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Kabupaten/Kota</Label>
-                <Select value={kabFilter} onValueChange={setKabFilter}>
+                <Select value={kabFilter} onValueChange={(v) => { setKabFilter(v); setKecFilter('all'); setKelurahanFilter('all'); }}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {KABUPATEN_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    <SelectItem value="all">All Kabupaten/Kota</SelectItem>
+                    {kabOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                    Kecamatan {kabFilter !== 'all' ? `(${kecOptions.length})` : ''}
+                  </Label>
+                  <Select value={kecFilter} onValueChange={(v) => { setKecFilter(v); setKelurahanFilter('all'); }} disabled={kabFilter === 'all'}>
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Kecamatan</SelectItem>
+                      {kecOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                    Kelurahan/Desa {kecFilter !== 'all' ? `(${kelurahanOptions.length})` : ''}
+                  </Label>
+                  <Select value={kelurahanFilter} onValueChange={setKelurahanFilter} disabled={kecFilter === 'all'}>
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Kelurahan</SelectItem>
+                      {kelurahanOptions.slice(0, 200).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -463,8 +546,8 @@ export function MapExplorer({
               <LayerToggle
                 label="Opportunity Score"
                 desc={heatMode === 'region'
-                  ? (heatGranularity === 'kabupaten' ? 'Choropleth per kabupaten (9 regions)' : 'Choropleth per kecamatan (59 regions)')
-                  : 'Point intensity (per kelurahan)'}
+                  ? (heatGranularity === 'kabupaten' ? 'Choropleth per kabupaten (9 regions)' : 'Choropleth per kecamatan (57 regions)')
+                  : 'Point intensity per kelurahan/desa (finest granularity)'}
                 icon={Crosshair}
                 checked={showHeat}
                 onCheckedChange={setShowHeat}
@@ -473,23 +556,23 @@ export function MapExplorer({
               {showHeat && (
                 <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
                   <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Visualization Type</Label>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Granularity</Label>
                     <Select value={heatMode} onValueChange={(v) => setHeatMode(v as 'region' | 'point')}>
                       <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="region">Choropleth (Region fill)</SelectItem>
-                        <SelectItem value="point">Point Heat (Per kelurahan)</SelectItem>
+                        <SelectItem value="point">Per Kelurahan/Desa (point intensity, finest)</SelectItem>
+                        <SelectItem value="region">Per Region (choropleth fill)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   {heatMode === 'region' && (
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Granularity</Label>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Level</Label>
                       <Select value={heatGranularity} onValueChange={(v) => setHeatGranularity(v as 'kabupaten' | 'kecamatan')}>
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="kabupaten">Per Kabupaten/Kota (9)</SelectItem>
-                          <SelectItem value="kecamatan">Per Kecamatan (59)</SelectItem>
+                          <SelectItem value="kecamatan">Per Kecamatan (57)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

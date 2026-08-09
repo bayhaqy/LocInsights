@@ -31,7 +31,7 @@ export type DemoMetric =
   | 'population_density'
   | 'population'
 
-export type DemoGranularity = 'kabupaten' | 'kecamatan'
+export type DemoGranularity = 'kabupaten' | 'kecamatan' | 'kelurahan'
 
 export interface DemoRegionRow {
   /** Region name (matches GADM NAME_2 for kabupaten, NAME_3 for kecamatan) */
@@ -44,6 +44,10 @@ export interface DemoRegionRow {
   kelurahan_count?: number
   /** Tier of region (1/2/3) */
   tier?: number | null
+  /** Lat (used only for kelurahan-level point rendering) */
+  lat?: number | null
+  /** Lng (used only for kelurahan-level point rendering) */
+  lng?: number | null
 }
 
 interface ChoroplethDemographicsLayerProps {
@@ -128,8 +132,12 @@ export function ChoroplethDemographicsLayer({
   const layerRef = useRef<L.LayerGroup | null>(null)
   const [geoData, setGeoData] = useState<GeoJSON.FeatureCollection | null>(null)
 
-  // Load GeoJSON once
+  // Load GeoJSON once (only for kabupaten/kecamatan — kelurahan uses point markers)
   useEffect(() => {
+    if (granularity === 'kelurahan') {
+      setGeoData(null)
+      return
+    }
     const url = granularity === 'kabupaten'
       ? '/geojson/bali-kabupaten.geojson'
       : '/geojson/bali-kecamatan.geojson'
@@ -276,6 +284,65 @@ export function ChoroplethDemographicsLayer({
       }
     }
   }, [map, geoData, lookup, metric, showLabels, breaks, scale, granularity])
+
+  // === Kelurahan-level point rendering (no polygons — too small to render as choropleth) ===
+  useEffect(() => {
+    if (granularity !== 'kelurahan') return
+
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current)
+    }
+
+    const layerGroup = L.layerGroup()
+    layerRef.current = layerGroup
+    layerGroup.addTo(map)
+
+    const metricLabel = METRIC_LABELS[metric]
+    const fmt = METRIC_FORMAT[metric]
+
+    for (const row of data) {
+      if (row.lat == null || row.lng == null) continue
+      const hasValue = row.value != null && !Number.isNaN(row.value)
+      const colorIdx = hasValue ? quantile(row.value as number, breaks) : 0
+      const color = hasValue ? getColor(scale, colorIdx) : '#cccccc'
+      const displayValue = hasValue ? fmt(row.value as number) : 'No data'
+
+      // Larger circle for higher value (visual emphasis)
+      const radius = hasValue ? 5 + colorIdx * 1.5 : 4
+
+      const marker = L.circleMarker([row.lat as number, row.lng as number], {
+        radius,
+        color: '#0F0F12',
+        weight: 0.8,
+        opacity: 0.7,
+        fillColor: color,
+        fillOpacity: hasValue ? 0.85 : 0.3,
+      })
+
+      const popText = row.population != null ? row.population.toLocaleString() : '—'
+      const tierText = row.tier ? `Tier ${row.tier}` : '—'
+
+      marker.bindTooltip(
+        `<div style="font-size:11px;line-height:1.5;min-width:160px">
+          <strong style="font-size:12.5px">${row.name}</strong><br/>
+          <span style="color:#666">Tier:</span> <strong>${tierText}</strong><br/>
+          <span style="color:#666">${metricLabel}:</span>
+          <strong style="color:${color};font-size:13px">${displayValue}</strong><br/>
+          <span style="color:#666">Population:</span> <strong>${popText}</strong>
+        </div>`,
+        { sticky: true, direction: 'top' }
+      )
+
+      marker.addTo(layerGroup)
+    }
+
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current)
+        layerRef.current = null
+      }
+    }
+  }, [map, data, metric, breaks, scale, granularity])
 
   return null
 }
