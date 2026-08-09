@@ -9,10 +9,25 @@ export async function GET(req: NextRequest) {
     const term = sp.get('search')
     const kab = sp.get('kab')
     const tier = sp.get('tier')
+    const all = sp.get('all') === 'true'
 
     const where: any = {}
     if (kab) where.kab_name = kab
-    if (tier) where.tier = Number(tier)
+    // Tier is an enum (tier_1, tier_2, tier_3). Accept both "1" and "tier_1".
+    if (tier) {
+      const tierMap: Record<string, string> = { '1': 'tier_1', '2': 'tier_2', '3': 'tier_3' }
+      where.tier = tierMap[tier] || tier
+    }
+
+    if (all) {
+      // Single-shot full fetch for map layers (income heatmap, etc.)
+      const data = await db.kelurahan.findMany({
+        where,
+        orderBy: { id: 'asc' },
+        take: 5000,
+      })
+      return NextResponse.json({ success: true, data, count: data.length })
+    }
 
     return paginate(db.kelurahan, req, {
       where,

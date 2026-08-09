@@ -10,7 +10,11 @@ export async function GET(req: NextRequest) {
     const tier = sp.get('tier')
 
     const where: any = {}
-    if (tier) where.tier = Number(tier)
+    // Tier is an enum (tier_1, tier_2, tier_3). Accept both "1" and "tier_1".
+    if (tier) {
+      const tierMap: Record<string, string> = { '1': 'tier_1', '2': 'tier_2', '3': 'tier_3' }
+      where.tier = tierMap[tier] || tier
+    }
 
     return paginate(db.kabupaten, req, {
       where,

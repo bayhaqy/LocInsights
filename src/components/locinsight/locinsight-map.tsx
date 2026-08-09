@@ -88,6 +88,20 @@ function FlyTo({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   return null
 }
 
+export interface CompetitorPin {
+  id: string
+  brand_name: string
+  brand_category?: string
+  name: string
+  lat: number
+  lng: number
+  kec?: string
+  kab?: string
+  is_in_mall?: boolean
+  mall_name?: string | null
+  source?: string
+}
+
 export interface LocInsightMapProps {
   opportunities: OpportunityScore[]
   stores: Store[]
@@ -107,6 +121,15 @@ export interface LocInsightMapProps {
   heatMetric?: 'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'
   tierFilter: 1 | 2 | 3 | 'all'
   recommendationFilter: 'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'
+  /** Advanced layers (Phase 4) */
+  showCompetitors?: boolean
+  showTouristPOIs?: boolean
+  showIncomeHeat?: boolean
+  showCrowdDensity?: boolean
+  competitors?: CompetitorPin[]
+  competitorBrandFilter?: string
+  /** Kelurahan-level points with income_index for income heatmap */
+  kelurahanPoints?: Array<{ lat: number; lng: number; income_index: number; name: string; kab: string }>
   height?: string
 }
 
@@ -126,6 +149,13 @@ export function LocInsightMap({
   heatMetric = 'avg_score',
   tierFilter,
   recommendationFilter,
+  showCompetitors = false,
+  showTouristPOIs = false,
+  showIncomeHeat = false,
+  showCrowdDensity = false,
+  competitors = [],
+  competitorBrandFilter = 'all',
+  kelurahanPoints = [],
   height = '600px',
 }: LocInsightMapProps) {
   const [mapReady, setMapReady] = useState(false)
@@ -163,6 +193,41 @@ export function LocInsightMap({
     () => filteredOpps.map(o => [o.lat, o.lng, o.composite_score / 100] as [number, number, number]),
     [filteredOpps]
   )
+
+  // Competitor markers (filtered by brand if a filter is set)
+  const filteredCompetitors = useMemo(() => {
+    if (!showCompetitors) return []
+    if (competitorBrandFilter === 'all') return competitors
+    return competitors.filter(c => c.brand_name === competitorBrandFilter)
+  }, [competitors, showCompetitors, competitorBrandFilter])
+
+  // Tourist POIs: filter pois to tourist-related types
+  const touristPOIs = useMemo(() => {
+    if (!showTouristPOIs) return []
+    const touristTypes = ['tourist_attraction', 'beach', 'temple', 'hotel_cluster', 'university']
+    return pois.filter(p => touristTypes.includes(p.type))
+  }, [pois, showTouristPOIs])
+
+  // Crowd density heat points: combine POIs + malls + stores + competitors
+  const crowdPoints = useMemo(() => {
+    if (!showCrowdDensity) return []
+    const pts: Array<[number, number, number]> = []
+    pois.forEach(p => pts.push([p.lat, p.lng, 0.3]))
+    malls.forEach(m => pts.push([m.lat, m.lng, 0.8]))
+    stores.forEach(s => pts.push([s.lat, s.lng, 0.5]))
+    competitors.forEach(c => pts.push([c.lat, c.lng, 0.4]))
+    return pts
+  }, [pois, malls, stores, competitors, showCrowdDensity])
+
+  // Income color scale: 0-100 income_index → green (low) to dark green (high)
+  function incomeColor(idx: number): string {
+    if (idx >= 80) return '#065f46' // dark green
+    if (idx >= 70) return '#10b981' // emerald
+    if (idx >= 60) return '#34d399' // light green
+    if (idx >= 50) return '#fbbf24' // yellow
+    if (idx >= 40) return '#f97316' // orange
+    return '#dc2626' // red
+  }
 
   return (
     <div style={{ height, width: '100%' }} className="relative rounded-lg overflow-hidden border border-[var(--brand-border)]">
@@ -344,6 +409,116 @@ export function LocInsightMap({
             </Popup>
           </Marker>
         ))}
+
+        {/* ====== Advanced Layers (Phase 4) ====== */}
+
+        {/* Competitor store markers (red shields) */}
+        {showCompetitors && filteredCompetitors.map(c => (
+          <CircleMarker
+            key={`comp-${c.id}`}
+            center={[c.lat, c.lng]}
+            radius={4}
+            pathOptions={{
+              color: '#dc2626',
+              fillColor: '#dc2626',
+              fillOpacity: 0.7,
+              weight: 1,
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+              <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
+                <strong>{c.brand_name}</strong><br />
+                {c.name}<br />
+                {c.kec ? `${c.kec}, ` : ''}{c.kab || ''}
+              </div>
+            </Tooltip>
+            <Popup>
+              <div style={{ minWidth: 180 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2, color: '#dc2626' }}>{c.brand_name}</div>
+                <div style={{ fontSize: 12, marginBottom: 6 }}>{c.name}</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 6 }}>
+                  {c.is_in_mall ? `📍 ${c.mall_name || 'In Mall'}` : (c.kec ? `${c.kec}, ` : '') + (c.kab || '')}
+                </div>
+                <div style={{ fontSize: 11, display: 'grid', gridTemplateColumns: '1fr auto', gap: 3 }}>
+                  <span>Category:</span><strong>{(c.brand_category || 'other').replace('_', ' ')}</strong>
+                  <span>Source:</span><strong>{c.source || '—'}</strong>
+                </div>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {/* Tourist attraction markers (cyan) */}
+        {showTouristPOIs && touristPOIs.map(p => (
+          <CircleMarker
+            key={`tourist-${p.id}`}
+            center={[p.lat, p.lng]}
+            radius={5}
+            pathOptions={{
+              color: '#0891b2',
+              fillColor: '#0891b2',
+              fillOpacity: 0.7,
+              weight: 1.5,
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+              <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
+                <strong>{p.name}</strong><br />
+                {p.type.replace('_', ' ')} · {p.kab}
+              </div>
+            </Tooltip>
+            <Popup>
+              <div style={{ minWidth: 160 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#0891b2' }}>{p.name}</div>
+                <div style={{ fontSize: 11, color: '#666' }}>{p.type.replace('_', ' ')} · {p.kec}, {p.kab}</div>
+                <div style={{ fontSize: 12, marginTop: 6 }}>{p.notes}</div>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {/* Income heatmap — circle markers colored by income_index per kelurahan */}
+        {showIncomeHeat && kelurahanPoints.map((k, i) => (
+          <CircleMarker
+            key={`inc-${i}`}
+            center={[k.lat, k.lng]}
+            radius={8}
+            pathOptions={{
+              color: incomeColor(k.income_index),
+              fillColor: incomeColor(k.income_index),
+              fillOpacity: 0.6,
+              weight: 1,
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+              <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
+                <strong>{k.name}</strong><br />
+                Income Index: <strong style={{ color: incomeColor(k.income_index) }}>{k.income_index}</strong><br />
+                {k.kab}
+              </div>
+            </Tooltip>
+          </CircleMarker>
+        ))}
+
+        {/* Crowd density heatmap (leaflet.heat) */}
+        {showCrowdDensity && crowdPoints.length > 0 && (
+          <HeatLayer
+            points={crowdPoints}
+            radius={25}
+            blur={20}
+            maxZoom={12}
+            minOpacity={0.3}
+            max={0.8}
+            gradient={{
+              0.0: '#fef3c7',
+              0.2: '#fde68a',
+              0.4: '#fb923c',
+              0.6: '#ef4444',
+              0.8: '#b91c1c',
+              1.0: '#7f1d1d',
+            }}
+          />
+        )}
       </MapContainer>
 
       {/* Map legend overlay */}
@@ -355,6 +530,22 @@ export function LocInsightMap({
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: '#B0B0B0' }}></span>Avoid (&lt;40)</div>
         {showMalls && <div className="flex items-center gap-2 pt-1 border-t border-[var(--brand-border)]"><span className="w-3 h-3 rounded-full" style={{ background: '#0F0F12', border: '2px solid #C8102E' }}></span>Mall</div>}
         {showStores && <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: '#C8102E' }}></span>MAP Store · <span style={{ background: '#0F0F12' }} className="w-3 h-3 rounded-full inline-block"></span>MAA Store</div>}
+        {showCompetitors && <div className="flex items-center gap-2 pt-1 border-t border-[var(--brand-border)]"><span className="w-3 h-3 rounded-full" style={{ background: '#dc2626' }}></span>Competitor Store</div>}
+        {showTouristPOIs && <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: '#0891b2' }}></span>Tourist Attraction</div>}
+        {showIncomeHeat && (
+          <div className="pt-1 border-t border-[var(--brand-border)]">
+            <div className="font-semibold text-[10px] uppercase tracking-wider mb-1">Income Index</div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full" style={{ background: '#dc2626' }}></span>＜40
+              <span className="w-3 h-3 rounded-full" style={{ background: '#f97316' }}></span>40-49
+              <span className="w-3 h-3 rounded-full" style={{ background: '#fbbf24' }}></span>50-59
+              <span className="w-3 h-3 rounded-full" style={{ background: '#34d399' }}></span>60-69
+              <span className="w-3 h-3 rounded-full" style={{ background: '#10b981' }}></span>70-79
+              <span className="w-3 h-3 rounded-full" style={{ background: '#065f46' }}></span>≥80
+            </div>
+          </div>
+        )}
+        {showCrowdDensity && <div className="flex items-center gap-2 pt-1 border-t border-[var(--brand-border)]"><span className="w-3 h-3 rounded-full" style={{ background: '#fb923c' }}></span>Crowd Density (heat)</div>}
       </div>
 
       {!mapReady && (

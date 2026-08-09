@@ -4,15 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Info, BookOpen, Database, Cpu, GitBranch, Activity, Network,
-  Layers, MapPin, Users, Building2, Target,
+  Layers, MapPin, Users, Building2, Target, Workflow, Sparkles,
 } from 'lucide-react'
 
 /**
- * About page — consolidates project overview, methodology summary,
- * data sources, and tech stack in one place.
- *
- * Per user request: moved methodology info here so the Methodology page
- * can stay focused on the scoring framework itself.
+ * About page — focuses on WHAT the app is, WHY it's useful, and HOW it's built.
+ * The scoring math/methods live on the Methodology page (no duplication).
  */
 export function About() {
   return (
@@ -42,70 +39,85 @@ export function About() {
             using a combination of composite scoring, the Huff Gravity Model, and Gradient-Boosted Regression (GBR).
           </p>
           <p>
-            The platform follows the <strong>3-stage retail site selection framework</strong> recommended by
-            industry leaders like OnSpot Data (2026), Placer.ai (2024), Felt.com (2026), and GrowthFactor.ai (2025):
-            <strong> (1) Market Identification</strong> — find areas with strong demand signals;
-            <strong> (2) Site-level Evaluation</strong> — score each candidate using multi-factor analysis;
-            <strong> (3) Post-selection Monitoring</strong> — track performance and adjust the model.
-          </p>
-          <p>
-            Two complementary models power the scoring. <strong>Composite Weighted Scoring</strong> (0–100) is
-            transparent and tunable — analysts can adjust weights and immediately see the impact. The
-            <strong> Huff Gravity Model</strong> (Huff 1964, validated by MIT in 2021 with transactional data) projects
-            market share and revenue by modeling how far customers will travel to a store versus its competitors.
-            For revenue prediction, a <strong>Gradient-Boosted Regression</strong> tree ensemble (Friedman 2001) learns
-            the non-linear relationships between site features and historical performance.
+            The platform is purpose-built for the Indonesian retail context, with Bali as the proof-of-concept region.
+            It ingests public data from BPS (statistics), OpenStreetMap (POIs and competitor locations), GADM (administrative
+            boundaries), and MAP/MAA's own brand directory — then synthesizes this into actionable expansion recommendations
+            that analysts can explore, validate, and refine.
           </p>
         </CardContent>
       </Card>
 
-      {/* Methodology summary */}
+      {/* Why use it — Use Cases */}
       <Card className="card-premium">
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-[var(--brand-red)]" />
-            Methodology Summary
+            <Sparkles className="w-4 h-4 text-[var(--brand-red)]" />
+            Why Use LocInsight? — Key Use Cases
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <UseCase
+              title="White-Space Identification"
+              desc="Find underserved kelurahan (villages) where demand signals are strong but MAA/MAP has no presence. Ranked by composite score (0-100)."
+            />
+            <UseCase
+              title="Revenue Projection"
+              desc="Estimate daily customers, market share, and monthly revenue for any candidate site — before committing capital. Powered by Huff Gravity Model + GBR."
+            />
+            <UseCase
+              title="Cannibalization Risk Assessment"
+              desc="See how a new store would impact existing nearby outlets. The Huff Model automatically captures cannibalization via the distance-decay denominator."
+            />
+            <UseCase
+              title="Competitor Density Analysis"
+              desc="833+ competitor outlets tracked (Indomaret, Alfamart, KFC, McDonald's, etc.). Understand saturation levels and competitive intensity per area."
+            />
+            <UseCase
+              title="Tier 2/3 City Expansion"
+              desc="Bali's 9 kabupaten span Tier 1 (Badung, Denpasar) to Tier 3 (Jembrana, Bangli, Karangasem). Identify high-potential sites in untapped secondary markets."
+            />
+            <UseCase
+              title="A/B Strategy Simulation"
+              desc="Tune the 6 scoring weights live and compare rankings before/after. Validate strategic pivots (e.g. 'what if we prioritize foot traffic over income?')."
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* How it works — Workflow */}
+      <Card className="card-premium">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
+            <Workflow className="w-4 h-4 text-[var(--brand-red)]" />
+            How It Works — 3-Stage Workflow
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 space-y-4 text-[13px] leading-relaxed text-[var(--brand-ink)]/85">
           <p>
-            For full formula details and factor breakdowns, see the <strong>Methodology</strong> page.
-            Here is the high-level view:
+            LocInsight follows the <strong>3-stage retail site selection framework</strong> recommended by
+            industry leaders like OnSpot Data (2026), Placer.ai (2024), Felt.com (2026), and GrowthFactor.ai (2025):
           </p>
-
-          <div className="bg-[var(--brand-ink)] text-white p-4 rounded-md font-mono text-[11px] leading-relaxed overflow-x-auto">
-            <div className="text-white/60">{'// Composite Score (0-100)'}</div>
-            <div>composite_score =</div>
-            <div className="pl-4">0.30 × MarketPotential      <span className="text-[#FFB3B3]">{'// population, density, income'}</span></div>
-            <div className="pl-4">0.15 × Accessibility         <span className="text-[#FFB3B3]">{'// transit, road density'}</span></div>
-            <div className="pl-4">0.20 × FootTraffic           <span className="text-[#FFB3B3]">{'// mall proximity, POI, tourist'}</span></div>
-            <div className="pl-4">0.15 × Competition           <span className="text-[#FFB3B3]">{'// same-brand cannibalization'}</span></div>
-            <div className="pl-4">0.10 × Socioeconomic         <span className="text-[#FFB3B3]">{'// income-brand fit, HDI'}</span></div>
-            <div className="pl-4">0.10 × NetworkSynergy        <span className="text-[#FFB3B3]">{'// cluster effect'}</span></div>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="bg-[var(--brand-cream)] p-3 rounded-md">
-              <Users className="w-4 h-4 text-[var(--brand-red)] mb-1" />
-              <div className="text-[12px] font-bold text-[var(--brand-ink)] mb-1">Market Potential (30%)</div>
-              <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug">
-                Population × 1.4 trade-area catchment, density, GDRP per capita, tourist multiplier for coastal zones.
-              </div>
-            </div>
-            <div className="bg-[var(--brand-cream)] p-3 rounded-md">
-              <MapPin className="w-4 h-4 text-[var(--brand-red)] mb-1" />
-              <div className="text-[12px] font-bold text-[var(--brand-ink)] mb-1">Foot Traffic (20%)</div>
-              <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug">
-                Mall proximity (decay at 5km), POI density (tourist + beach + hotel + office + university), tourist index.
-              </div>
-            </div>
-            <div className="bg-[var(--brand-cream)] p-3 rounded-md">
-              <Building2 className="w-4 h-4 text-[var(--brand-red)] mb-1" />
-              <div className="text-[12px] font-bold text-[var(--brand-ink)] mb-1">Competition (15%)</div>
-              <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug">
-                Same-brand within 2km: −60pts (1 store), −100pts (2+ stores). Other-brand saturation: −5pts/store.
-              </div>
-            </div>
+            <WorkflowStage
+              stage="1"
+              title="Market Identification"
+              desc="Find areas with strong demand signals — population density, income, tourist traffic, and competitor gaps. Bali's 573 kelurahan are scored and tiered."
+            />
+            <WorkflowStage
+              stage="2"
+              title="Site-Level Evaluation"
+              desc="Score each candidate using 6-factor composite analysis + Huff Gravity Model for market share + GBR for revenue prediction. SHAP-style explanations per site."
+            />
+            <WorkflowStage
+              stage="3"
+              title="Post-Selection Monitoring"
+              desc="Track performance, adjust model weights via A/B Simulator, and re-score as new data arrives. Daily cron keeps competitor and POI data fresh from OSM."
+            />
+          </div>
+          <div className="mt-3 p-3 bg-[var(--brand-cream)] rounded-md text-[12px] text-[var(--brand-ink)]/80">
+            <BookOpen className="w-3.5 h-3.5 inline mr-1 text-[var(--brand-red)]" />
+            For the detailed scoring formula, factor weights, and model hyperparameters, see the <strong>Methodology</strong> page.
           </div>
         </CardContent>
       </Card>
@@ -209,7 +221,7 @@ export function About() {
             <Capability
               icon={MapPin}
               title="Interactive Map Explorer"
-              desc="Real GADM admin boundaries (kabupaten + kecamatan) choropleth + point heat. Brand/category/parent filters."
+              desc="Real GADM admin boundaries (kabupaten + kecamatan) choropleth + point heat. Advanced layers: competitors, tourist POIs, income heatmap, crowd density."
             />
             <Capability
               icon={Target}
@@ -229,12 +241,12 @@ export function About() {
             <Capability
               icon={Activity}
               title="Competitor Intel"
-              desc="26 competitor brands tracked (Indomaret, Alfamart, MCD, KFC, etc.). Density heatmap + review-then-save scraper."
+              desc="833+ competitor outlets tracked (Indomaret, Alfamart, MCD, KFC, etc.). Density heatmap + review-then-save scraper."
             />
             <Capability
               icon={Cpu}
               title="ML / AI Engine"
-              desc="Pure-TS Gradient-Boosted Regression (Friedman 2001). Training run audit + per-prediction SHAP contributions."
+              desc="Python Gradient-Boosted Regression (Friedman 2001) running in-browser via Pyodide/HuggingFace Space. Training run audit + per-prediction SHAP contributions."
             />
             <Capability
               icon={Network}
@@ -244,7 +256,7 @@ export function About() {
             <Capability
               icon={Database}
               title="Data Manager"
-              desc="Full CRUD + Excel-like spreadsheet editor. CSV/XLSX import/export with templates."
+              desc="Full CRUD + Excel-like spreadsheet editor for all 8 entity types. CSV/XLSX import/export with templates."
             />
             <Capability
               icon={GitBranch}
@@ -267,10 +279,10 @@ export function About() {
             <TechItem label="Map" value="React-Leaflet + GADM GeoJSON + heatmap" />
             <TechItem label="UI" value="Tailwind CSS 4 + shadcn/ui" />
             <TechItem label="Backend" value="Next.js API Routes (serverless)" />
-            <TechItem label="Database" value="Supabase Postgres + Prisma ORM" />
+            <TechItem label="Database" value="Supabase Postgres + Prisma ORM + PostGIS" />
+            <TechItem label="ML Engine" value="Python GBR via Pyodide (HuggingFace Space)" />
             <TechItem label="Scoring" value="Composite + Huff Gravity + competitor-aware" />
-            <TechItem label="ML" value="Gradient-Boosted Regression (Friedman 2001)" />
-            <TechItem label="Deployment" value="Vercel + Hugging Face Spaces" />
+            <TechItem label="Deployment" value="Vercel (frontend) + HF Spaces (ML) + Supabase (DB)" />
           </div>
         </CardContent>
       </Card>
@@ -286,6 +298,27 @@ export function About() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function UseCase({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="bg-[var(--brand-cream)] rounded-md p-3">
+      <div className="text-[12px] font-bold text-[var(--brand-ink)] mb-1">{title}</div>
+      <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug">{desc}</div>
+    </div>
+  )
+}
+
+function WorkflowStage({ stage, title, desc }: { stage: string; title: string; desc: string }) {
+  return (
+    <div className="border border-[var(--brand-border)] rounded-md p-3">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="w-6 h-6 rounded-full bg-[var(--brand-red)] text-white text-[11px] font-bold flex items-center justify-center">{stage}</span>
+        <span className="text-[12px] font-bold text-[var(--brand-ink)]">{title}</span>
+      </div>
+      <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug">{desc}</div>
     </div>
   )
 }

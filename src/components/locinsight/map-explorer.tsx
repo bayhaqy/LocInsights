@@ -89,6 +89,9 @@ export function MapExplorer({
   const [competitors, setCompetitors] = useState<any[]>([])
   const [competitorBrandFilter, setCompetitorBrandFilter] = useState<string>('all')
 
+  // Kelurahan data for income heatmap (loaded from DB via API)
+  const [kelurahanPoints, setKelurahanPoints] = useState<Array<{ lat: number; lng: number; income_index: number; name: string; kab: string }>>([])
+
   // Load competitors on mount
   useEffect(() => {
     fetch('/api/locinsight/competitors?all=true')
@@ -96,6 +99,28 @@ export function MapExplorer({
       .then(j => { if (j.success) setCompetitors(j.data || []) })
       .catch(() => {})
   }, [])
+
+  // Load kelurahan data for income heatmap (lazy — only when income layer is toggled on)
+  useEffect(() => {
+    if (!showIncomeHeat || kelurahanPoints.length > 0) return
+    fetch('/api/locinsight/kelurahan?all=true')
+      .then(r => r.json())
+      .then(j => {
+        if (j.success && j.data) {
+          const pts = j.data
+            .filter((k: any) => k.lat && k.lng && k.income_index != null)
+            .map((k: any) => ({
+              lat: k.lat,
+              lng: k.lng,
+              income_index: k.income_index,
+              name: k.name,
+              kab: k.kab_name || '',
+            }))
+          setKelurahanPoints(pts)
+        }
+      })
+      .catch(() => {})
+  }, [showIncomeHeat, kelurahanPoints.length])
 
   // Filters
   const [tierFilter, setTierFilter] = useState<1 | 2 | 3 | 'all'>('all')
@@ -199,6 +224,13 @@ export function MapExplorer({
             heatMetric={heatMetric}
             tierFilter={tierFilter}
             recommendationFilter={recFilter}
+            showCompetitors={showCompetitors}
+            showTouristPOIs={showTouristPOIs}
+            showIncomeHeat={showIncomeHeat}
+            showCrowdDensity={showCrowdDensity}
+            competitors={competitors}
+            competitorBrandFilter={competitorBrandFilter}
+            kelurahanPoints={kelurahanPoints}
             height="calc(100vh - 220px)"
           />
         </div>

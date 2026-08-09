@@ -24,6 +24,8 @@ interface CompetitorRow {
   is_in_mall: boolean
   mall_name: string | null
   source: string
+  source_url: string | null
+  last_crawled_at: string | null
 }
 
 interface Props {
@@ -34,7 +36,7 @@ interface Props {
 export function CompetitorIntel({ onScrapeMore }: Props) {
   const [competitors, setCompetitors] = useState<CompetitorRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState({ brand: '', kab: '' })
+  const [filter, setFilter] = useState({ brand: '', kab: '', category: '' })
 
   useEffect(() => {
     loadExisting()
@@ -74,15 +76,30 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
 
   const filtered = competitors.filter(c => {
     if (filter.brand && c.brand_name !== filter.brand) return false
+    if (filter.category && c.brand_category !== filter.category) return false
     if (filter.kab && !c.kab.toLowerCase().includes(filter.kab.toLowerCase())) return false
     return true
   })
 
   const brandsInDb = Array.from(new Set(competitors.map(c => c.brand_name)))
+  const categoriesInDb = Array.from(new Set(competitors.map(c => c.brand_category)))
   const byBrand = brandsInDb.map(b => ({
     brand: b,
     count: competitors.filter(c => c.brand_name === b).length,
   })).sort((a, b) => b.count - a.count)
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    convenience_store: 'Convenience Store',
+    fast_food: 'Fast Food',
+    coffee: 'Coffee',
+    fashion: 'Fashion',
+    beauty: 'Beauty',
+    supermarket: 'Supermarket',
+    pharmacy: 'Pharmacy',
+    department_store: 'Department Store',
+    sports: 'Sports',
+    other: 'Other',
+  }
 
   return (
     <div className="space-y-5">
@@ -91,7 +108,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
           Competitor Intelligence
         </h2>
         <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          View competitor store presence (Indomaret, Alfamart, McDonald's, etc.) scraped from OpenStreetMap. To scrape new data, use the unified Data Scraper — it routes scraped brands automatically: MAA/MAP brands go to the master stores table, all other brands land here.
+          View competitor store presence (Indomaret, Alfamart, McDonald's, etc.) scraped from OpenStreetMap. To edit competitor records (add, update, bulk import/export), use the <strong>Data Manager → Competitors</strong> tab. To scrape new data, use the unified Data Scraper.
         </p>
       </div>
 
@@ -163,6 +180,17 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
             </select>
           </div>
           <div>
+            <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">Category</label>
+            <select
+              value={filter.category}
+              onChange={e => setFilter(f => ({ ...f, category: e.target.value }))}
+              className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded"
+            >
+              <option value="">All categories</option>
+              {categoriesInDb.sort().map(c => <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">Kabupaten</label>
             <input
               type="text"
@@ -205,10 +233,12 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                 <thead className="bg-[var(--brand-cream)] sticky top-0">
                   <tr className="text-left text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/70">
                     <th className="p-2">Brand</th>
-                    <th className="p-2">Outlet</th>
+                    <th className="p-2">Category</th>
+                    <th className="p-2">Outlet Name</th>
+                    <th className="p-2">Kecamatan</th>
                     <th className="p-2">Kabupaten</th>
-                    <th className="p-2">City</th>
-                    <th className="p-2">Mall</th>
+                    <th className="p-2">In Mall</th>
+                    <th className="p-2">Mall Name</th>
                     <th className="p-2">Coords</th>
                     <th className="p-2">Source</th>
                     <th className="p-2"></th>
@@ -217,13 +247,15 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                 <tbody>
                   {filtered.slice(0, 500).map(c => (
                     <tr key={c.id} className="border-t border-[var(--brand-border)] hover:bg-[var(--brand-cream)]/50">
-                      <td className="p-2 font-medium">{c.brand_name}</td>
+                      <td className="p-2 font-medium text-[var(--brand-red)]">{c.brand_name}</td>
+                      <td className="p-2"><Badge variant="outline" className="text-[9px]">{CATEGORY_LABELS[c.brand_category] || c.brand_category}</Badge></td>
                       <td className="p-2">{c.name}</td>
+                      <td className="p-2">{c.kec || '—'}</td>
                       <td className="p-2">{c.kab}</td>
-                      <td className="p-2">{c.city}</td>
+                      <td className="p-2">{c.is_in_mall ? <Badge className="text-[9px] bg-[var(--brand-ink)]">Yes</Badge> : '—'}</td>
                       <td className="p-2">{c.is_in_mall ? c.mall_name : '—'}</td>
                       <td className="p-2 font-mono text-[10px] text-[var(--brand-ink)]/60">{c.lat.toFixed(4)}, {c.lng.toFixed(4)}</td>
-                      <td className="p-2 text-[10px] text-[var(--brand-ink)]/60 truncate max-w-[120px]">{c.source}</td>
+                      <td className="p-2 text-[10px] text-[var(--brand-ink)]/60">{c.source}</td>
                       <td className="p-2">
                         <button
                           onClick={() => deleteRow(c.id)}

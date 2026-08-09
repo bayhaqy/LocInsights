@@ -148,25 +148,25 @@ export const ENTITY_CONFIG: Record<EntityType, EntityConfig> = {
       { key: 'id', label: 'ID', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
       { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'kec_code', label: 'Kec Code', type: 'text' },
-      { key: 'kec_name', label: 'Kecamatan', type: 'text' },
-      { key: 'kab_code', label: 'Kab Code', type: 'text' },
-      { key: 'kab_name', label: 'Kabupaten', type: 'text' },
+      { key: 'kec_code', label: 'Kecamatan Code', type: 'text' },
+      { key: 'kec_name', label: 'Kecamatan Name', type: 'text' },
+      { key: 'kab_code', label: 'Kabupaten Code', type: 'text' },
+      { key: 'kab_name', label: 'Kabupaten Name', type: 'text' },
       { key: 'city', label: 'City', type: 'text' },
       { key: 'country', label: 'Country', type: 'text', default: 'Indonesia' },
-      { key: 'tier', label: 'Tier', type: 'select', options: ['1','2','3'] },
+      { key: 'tier', label: 'Tier (1=Metropolitan, 2=Urban, 3=Rural)', type: 'select', options: ['tier_1','tier_2','tier_3'] },
       { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
       { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
-      { key: 'population', label: 'Population', type: 'number' },
-      { key: 'area_km2', label: 'Area km²', type: 'number', step: '0.1' },
-      { key: 'density', label: 'Density', type: 'number' },
-      { key: 'urban_index', label: 'Urban Idx', type: 'number' },
-      { key: 'income_index', label: 'Income Idx', type: 'number' },
-      { key: 'tourist_index', label: 'Tourist Idx', type: 'number' },
-      { key: 'transport_index', label: 'Transport Idx', type: 'number' },
-      { key: 'poi_density_index', label: 'POI Idx', type: 'number' },
-      { key: 'is_coastal', label: 'Coastal', type: 'boolean', default: false },
-      { key: 'source', label: 'Source', type: 'text', default: 'manual' },
+      { key: 'population', label: 'Population (people)', type: 'number' },
+      { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
+      { key: 'density', label: 'Population Density (per km²)', type: 'number' },
+      { key: 'urban_index', label: 'Urbanization Index (0-100)', type: 'number' },
+      { key: 'income_index', label: 'Income Index (0-100)', type: 'number' },
+      { key: 'tourist_index', label: 'Tourist Index (0-100)', type: 'number' },
+      { key: 'transport_index', label: 'Transport Index (0-100)', type: 'number' },
+      { key: 'poi_density_index', label: 'POI Density Index (0-100)', type: 'number' },
+      { key: 'is_coastal', label: 'Is Coastal Area?', type: 'boolean', default: false },
+      { key: 'source', label: 'Data Source', type: 'text', default: 'manual' },
     ],
   },
   pois: {
@@ -193,24 +193,24 @@ export const ENTITY_CONFIG: Record<EntityType, EntityConfig> = {
     label: 'Kabupaten',
     model: db.kabupaten,
     fields: [
-      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'code', label: 'Code (BPS 4-digit)', type: 'text', required: true },
       { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'type', label: 'Type', type: 'select', options: ['Kabupaten','Kota'] },
-      { key: 'capital', label: 'Capital', type: 'text' },
+      { key: 'type', label: 'Type (Kabupaten/Kota)', type: 'select', options: ['Kabupaten','Kota'] },
+      { key: 'capital', label: 'Capital City', type: 'text' },
       { key: 'city', label: 'City', type: 'text' },
       { key: 'country', label: 'Country', type: 'text', default: 'Indonesia' },
       { key: 'province', label: 'Province', type: 'text', default: 'Bali' },
       { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
       { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
-      { key: 'tier', label: 'Tier', type: 'select', options: ['1','2','3'] },
-      { key: 'population_2024', label: 'Population 2024', type: 'number' },
-      { key: 'area_km2', label: 'Area km²', type: 'number', step: '0.1' },
-      { key: 'population_density', label: 'Density', type: 'number' },
-      { key: 'gdrp_per_capita_juta', label: 'GDRP/cap (jt)', type: 'number', step: '0.1' },
-      { key: 'hdmi_2024', label: 'HDMI', type: 'number', step: '0.001' },
-      { key: 'tourist_hotels', label: 'Hotels', type: 'number' },
+      { key: 'tier', label: 'Tier (1=Metropolitan, 2=Urban, 3=Rural)', type: 'select', options: ['tier_1','tier_2','tier_3'] },
+      { key: 'population_2024', label: 'Population 2024 (people)', type: 'number' },
+      { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
+      { key: 'population_density', label: 'Population Density (per km²)', type: 'number' },
+      { key: 'gdrp_per_capita_juta', label: 'GDRP per Capita (Juta Rp / million IDR)', type: 'number', step: '0.1' },
+      { key: 'hdmi_2024', label: 'HDI Score 2024 (0-1, Human Development Index)', type: 'number', step: '0.001' },
+      { key: 'tourist_hotels', label: 'Tourist Hotels (count)', type: 'number' },
       { key: 'notes', label: 'Notes', type: 'text', fullWidth: true },
-      { key: 'source', label: 'Source', type: 'text', default: 'manual' },
+      { key: 'source', label: 'Data Source', type: 'text', default: 'manual' },
     ],
   },
   kecamatan: {
@@ -218,20 +218,20 @@ export const ENTITY_CONFIG: Record<EntityType, EntityConfig> = {
     label: 'Kecamatan',
     model: db.kecamatan,
     fields: [
-      { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'code', label: 'Code (BPS 6-digit)', type: 'text', required: true },
       { key: 'name', label: 'Name', type: 'text', required: true },
-      { key: 'kabupaten_code', label: 'Kab Code', type: 'text' },
+      { key: 'kabupaten_code', label: 'Kabupaten Code', type: 'text' },
       { key: 'city', label: 'City', type: 'text' },
       { key: 'country', label: 'Country', type: 'text', default: 'Indonesia' },
       { key: 'province', label: 'Province', type: 'text', default: 'Bali' },
       { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
       { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
-      { key: 'tier', label: 'Tier', type: 'select', options: ['1','2','3'] },
-      { key: 'population_2024', label: 'Population 2024', type: 'number' },
-      { key: 'area_km2', label: 'Area km²', type: 'number', step: '0.1' },
-      { key: 'urban_score', label: 'Urban Score', type: 'number' },
-      { key: 'is_capital', label: 'Capital', type: 'boolean', default: false },
-      { key: 'source', label: 'Source', type: 'text', default: 'manual' },
+      { key: 'tier', label: 'Tier (1=Metropolitan, 2=Urban, 3=Rural)', type: 'select', options: ['tier_1','tier_2','tier_3'] },
+      { key: 'population_2024', label: 'Population 2024 (people)', type: 'number' },
+      { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
+      { key: 'urban_score', label: 'Urbanization Score (0-100)', type: 'number' },
+      { key: 'is_capital', label: 'Is Kabupaten Capital?', type: 'boolean', default: false },
+      { key: 'source', label: 'Data Source', type: 'text', default: 'manual' },
     ],
   },
 }
@@ -239,6 +239,8 @@ export const ENTITY_CONFIG: Record<EntityType, EntityConfig> = {
 /** Convert a row from import (all strings) into the proper typed shape for Prisma. */
 function coerceRow(row: Record<string, any>, fields: FieldDef[]): Record<string, any> {
   const out: Record<string, any> = {}
+  // Tier enum mapping: accept "1","2","3" and "tier_1","tier_2","tier_3"
+  const tierMap: Record<string, string> = { '1': 'tier_1', '2': 'tier_2', '3': 'tier_3' }
   for (const f of fields) {
     let v = row[f.key]
     if (v === undefined || v === null || v === '') {
@@ -252,7 +254,12 @@ function coerceRow(row: Record<string, any>, fields: FieldDef[]): Record<string,
     } else if (f.type === 'boolean') {
       out[f.key] = ['true','yes','1','y','t'].includes(String(v).toLowerCase())
     } else {
-      out[f.key] = String(v)
+      // Special handling: tier field — map "1" → "tier_1" for enum compatibility
+      if (f.key === 'tier' && tierMap[String(v)]) {
+        out[f.key] = tierMap[String(v)]
+      } else {
+        out[f.key] = String(v)
+      }
     }
   }
   return out
