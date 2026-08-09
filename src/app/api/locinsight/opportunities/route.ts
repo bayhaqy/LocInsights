@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTopOpportunities, type ScoringConfig, type ScoringWeights, DEFAULT_WEIGHTS } from '@/lib/scoring/engine'
-import { buildScoringConfig } from '@/lib/scoring/db-engine'
+import { buildScoringConfig, loadKelurahanFromDB } from '@/lib/scoring/db-engine'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +8,9 @@ export const dynamic = 'force-dynamic'
  * GET /api/locinsight/opportunities?brand_id=&tier=&limit=&min_score=&useTravelTime=
  *      &w_market=&w_access=&w_foot=&w_comp=&w_soc=&w_synergy=
  * Returns sorted list of expansion opportunities. Supports custom weights (Phase 2 A/B).
+ *
+ * Phase 5 update: Uses DB-loaded 716 real villages (with migration 0009 demographic indices)
+ * instead of static BALI_KELURAHAN (~161 fake villages).
  */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -40,7 +43,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const baseConfig: ScoringConfig = { brand_id: brandId, weights: hasCustomWeights ? customWeights : undefined }
+  const kelurahanList = await loadKelurahanFromDB()
+  const baseConfig: ScoringConfig = {
+    brand_id: brandId,
+    weights: hasCustomWeights ? customWeights : undefined,
+    kelurahanList,
+  }
   const config = await buildScoringConfig(baseConfig, { useTravelTime })
 
   let opps = getTopOpportunities(limit, config, tier)

@@ -403,7 +403,9 @@ export function DataManager() {
     }
   }
 
-  const tableColumns = fieldConfig.slice(0, 6)
+  // Show ALL columns in the table view (was sliced to first 6, which hid useful fields).
+  // The table has overflow-x-auto so horizontal scroll handles wide tables.
+  const tableColumns = fieldConfig
   const hasChanges = draft && Object.keys(draft).length > 0
 
   return (

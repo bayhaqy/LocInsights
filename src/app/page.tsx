@@ -77,7 +77,7 @@ export default function Home() {
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-[var(--brand-red)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <div className="text-[14px] text-[var(--brand-ink)]/70 font-medium">Loading LocInsight…</div>
-            <div className="text-[11px] text-[var(--brand-ink)]/50 mt-1">Computing scores for 172 kelurahan + competitor data…</div>
+            <div className="text-[11px] text-[var(--brand-ink)]/50 mt-1">Computing scores for 716 kelurahan + competitor data…</div>
           </div>
         </div>
       </div>

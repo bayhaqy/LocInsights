@@ -95,6 +95,8 @@ export interface ScoringConfig {
   competitorStores?: CompetitorStoreLite[]
   stores?: StoreLite[]
   malls?: MallLite[]
+  /** Injected kelurahan list (DB-loaded). Falls back to static BALI_KELURAHAN if undefined. */
+  kelurahanList?: Kelurahan[]
   useTravelTime?: boolean
 }
 
@@ -409,7 +411,10 @@ function buildWhiteSpaceSummary(params: {
 }
 
 export function scoreAllKelurahan(config: ScoringConfig = {}): OpportunityScore[] {
-  return BALI_KELURAHAN
+  const kelList = config.kelurahanList && config.kelurahanList.length > 0
+    ? config.kelurahanList
+    : BALI_KELURAHAN
+  return kelList
     .map(k => scoreKelurahan(k, config))
     .sort((a, b) => b.composite_score - a.composite_score)
 }
@@ -448,9 +453,11 @@ export interface DashboardStats {
 export function getDashboardStats(
   competitorStores: CompetitorStoreLite[] = [],
   storesInput?: any[],
+  kelurahanInput?: Kelurahan[],
 ): DashboardStats {
   const stores = storesInput && storesInput.length > 0 ? storesInput : BALI_STORES
-  const allScores = scoreAllKelurahan({ competitorStores })
+  const kelList = kelurahanInput && kelurahanInput.length > 0 ? kelurahanInput : BALI_KELURAHAN
+  const allScores = kelList.map(k => scoreKelurahan(k, { competitorStores, kelurahanList: kelList })).sort((a, b) => b.composite_score - a.composite_score)
 
   const KAB_TIER: Record<string, 1 | 2 | 3> = {
     'Badung': 1, 'Denpasar': 1,
@@ -480,7 +487,7 @@ export function getDashboardStats(
   }
 
   return {
-    total_kelurahan: BALI_KELURAHAN.length,
+    total_kelurahan: kelList.length,
     total_stores: stores.length,
     total_malls: BALI_MALLS.length,
     total_competitor_stores: competitorStores.length,

@@ -5,7 +5,7 @@ import { BALI_MALLS } from '@/lib/data/bali-malls'
 import { BALI_KELURAHAN } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { BALI_POIS } from '@/lib/data/bali-poi'
-import { loadCompetitorStores, loadStoresFromDB } from '@/lib/scoring/db-engine'
+import { loadCompetitorStores, loadStoresFromDB, loadKelurahanFromDB } from '@/lib/scoring/db-engine'
 import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +14,11 @@ export const dynamic = 'force-dynamic'
  * GET /api/locinsight/overview
  * Returns dashboard overview data: stats, top opportunities, store list, mall list, kelurahan list, brand list, POIs
  *
- * Phase 4 update: Now loads stores + competitor_stores from DB (Supabase) instead of
- * static BALI_STORES. Falls back to static data if DB is unavailable.
+ * Phase 4 update: Now loads stores + competitor_stores + kelurahan from DB (Supabase)
+ * instead of static BALI_STORES / BALI_KELURAHAN. Falls back to static data if DB is unavailable.
+ *
+ * Phase 5 (migration 0009): All 716 real villages now have backfilled demographic indices
+ * (income, urban, tourist, transport, poi_density, coastal) — opportunity scoring uses these.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -23,22 +26,27 @@ export async function GET(req: NextRequest) {
     const brandId = searchParams.get('brand_id') || undefined
     const tierFilter = searchParams.get('tier') ? Number(searchParams.get('tier')) as 1 | 2 | 3 : undefined
 
-    // Phase 2: load competitor stores from DB
-    const competitors = await loadCompetitorStores()
-
-    // Phase 4: load stores from DB (falls back to static if DB fails)
-    let dbStores: any[] = []
-    try {
-      dbStores = await loadStoresFromDB()
-    } catch (e) {
-      console.warn('[overview] DB stores load failed, falling back to static:', e)
-    }
+    // Phase 2 + 5: load competitor + kelurahan + stores from DB in parallel
+    const [competitors, dbStores, dbKelurahan] = await Promise.all([
+      loadCompetitorStores(),
+      loadStoresFromDB().catch((e) => {
+        console.warn('[overview] DB stores load failed, falling back to static:', e)
+        return [] as any[]
+      }),
+      loadKelurahanFromDB(),
+    ])
 
     // Use DB stores if available, otherwise static
     const storesSource = dbStores.length > 0 ? dbStores : BALI_STORES
+    const kelurahanSource = dbKelurahan.length > 0 ? dbKelurahan : BALI_KELURAHAN
 
-    const stats = getDashboardStats(competitors, storesSource)
-    const topOpps = getTopOpportunities(50, { brand_id: brandId, competitorStores: competitors, useTravelTime: true }, tierFilter)
+    const stats = getDashboardStats(competitors, storesSource, kelurahanSource)
+    const topOpps = getTopOpportunities(100, {
+      brand_id: brandId,
+      competitorStores: competitors,
+      kelurahanList: kelurahanSource,
+      useTravelTime: true,
+    }, tierFilter)
 
     // Phase 3: count of field surveys + training runs
     const [pendingSurveys, latestTrainingRun, competitorBrands] = await Promise.all([
@@ -94,7 +102,7 @@ export async function GET(req: NextRequest) {
           class: m.class,
           visitor_estimate_daily: m.visitor_estimate_daily,
         })),
-        kelurahan: BALI_KELURAHAN.map(k => ({
+        kelurahan: kelurahanSource.map(k => ({
           id: k.id,
           name: k.name,
           kec_code: k.kec_code,
