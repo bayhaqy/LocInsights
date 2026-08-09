@@ -12,6 +12,7 @@ import {
   Shield, Clock, Brain, Navigation, HelpCircle, ArrowRight, Zap,
 } from 'lucide-react'
 import type { OpportunityScore, Brand, KelurahanLite, Store, Mall, POI } from './types'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 interface AnalysisProps {
   kelurahanList: KelurahanLite[]
@@ -21,6 +22,7 @@ interface AnalysisProps {
 }
 
 export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectKelurahan }: AnalysisProps) {
+  const { t } = useLanguage()
   const [brandId, setBrandId] = useState<string>('')
   const [data, setData] = useState<null | {
     kelurahan: KelurahanLite & { mall_proximity_index: number; existing_store_density: number }
@@ -64,15 +66,15 @@ export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectK
       <div className="flex items-start justify-between">
         <div>
           <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-            Location Deep Analysis
+            {t('analysis.deep_title')}
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-            Trade area, competition, isochrones, ML revenue prediction & actionable recommendation per kelurahan
+            {t('analysis.deep_subtitle')}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setShowHelp(s => !s)}>
           <HelpCircle className="w-4 h-4 mr-1" />
-          {showHelp ? 'Hide Guide' : 'How to Use'}
+          {showHelp ? t('analysis.hide_guide') : t('analysis.how_to_use')}
         </Button>
       </div>
 
@@ -83,22 +85,21 @@ export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectK
             <div className="flex items-start gap-2 mb-3">
               <Lightbulb className="w-5 h-5 text-[var(--brand-red)] flex-shrink-0 mt-0.5" />
               <div>
-                <div className="text-[13px] font-bold text-[var(--brand-ink)] mb-1">How to Use This Page</div>
+                <div className="text-[13px] font-bold text-[var(--brand-ink)] mb-1">{t('analysis.how_to_use_title')}</div>
                 <div className="text-[11.5px] text-[var(--brand-ink)]/70 leading-relaxed">
-                  This page gives you a complete site-selection analysis for any kelurahan in Bali. Use it to validate
-                  expansion candidates identified in the Opportunities tab, or to do ad-hoc research.
+                  {t('analysis.how_to_use_desc')}
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <GuideStep n={1} title="Pick a kelurahan" desc="Use the dropdown above — group by tier (Tier 1 = urban, Tier 3 = rural). Tier 1 = Denpasar/Badung, etc." />
-              <GuideStep n={2} title="Optionally pick a target brand" desc="Filters the analysis for a specific MAP/MAA brand (e.g., Starbucks) — affects cannibalization + revenue projection." />
-              <GuideStep n={3} title="Read the Composite Score" desc="0-100 weighted score across 6 factors. ≥70 = high_priority, 55-69 = priority, 40-54 = monitor, <40 = avoid." />
-              <GuideStep n={4} title="Check the Recommendation Action" desc="The blue 'Recommended Action' card tells you exactly what to do next: open store / wait / avoid / survey further." />
-              <GuideStep n={5} title="Review competition" desc="Nearby MAP stores + competitor outlets (Indomaret, MCD, etc.) within 5km. Higher competitor density = lower competition score." />
-              <GuideStep n={6} title="Use travel-time isochrones" desc="5/10/15-min motorbike reach polygon — realistic catchment area accounting for road network friction." />
-              <GuideStep n={7} title="Compare heuristic vs ML revenue" desc="The GBR model predicts revenue from features. Disagreement with heuristic = signal to investigate." />
-              <GuideStep n={8} title="Export via Reports tab" desc="When ready, use the Reports tab to generate PDF/CSV for stakeholder presentation." />
+              <GuideStep n={1} title={t('analysis.step1_title')} desc={t('analysis.step1_desc')} />
+              <GuideStep n={2} title={t('analysis.step2_title')} desc={t('analysis.step2_desc')} />
+              <GuideStep n={3} title={t('analysis.step3_title')} desc={t('analysis.step3_desc')} />
+              <GuideStep n={4} title={t('analysis.step4_title')} desc={t('analysis.step4_desc')} />
+              <GuideStep n={5} title={t('analysis.step5_title')} desc={t('analysis.step5_desc')} />
+              <GuideStep n={6} title={t('analysis.step6_title')} desc={t('analysis.step6_desc')} />
+              <GuideStep n={7} title={t('analysis.step7_title')} desc={t('analysis.step7_desc')} />
+              <GuideStep n={8} title={t('analysis.step8_title')} desc={t('analysis.step8_desc')} />
             </div>
           </CardContent>
         </Card>
@@ -110,15 +111,15 @@ export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectK
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                Kelurahan / Desa
+                {t('analysis.kelurahan_desa')}
               </label>
               <Select value={selectedKelurahanId || '__none__'} onValueChange={(v) => v !== '__none__' && onSelectKelurahan(v)}>
-                <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder="Pilih kelurahan…" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder={t('analysis.search_kelurahan')} /></SelectTrigger>
                 <SelectContent className="max-h-80">
                   {[1, 2, 3].map(tier => (
                     <SelectGroup key={tier}>
                       <SelectLabel className="text-[10px] uppercase tracking-wider text-[var(--brand-red)] font-bold">
-                        Tier {tier} ({kelByTier[tier].length} kelurahan)
+                        {t('analysis.tier_label', { tier, count: kelByTier[tier].length })}
                       </SelectLabel>
                       {kelByTier[tier].map(k => (
                         <SelectItem key={k.id} value={k.id} className="text-[12px]">
@@ -132,20 +133,20 @@ export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectK
             </div>
             <div>
               <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                Target Brand (optional)
+                {t('analysis.target_brand')}
               </label>
               <Select value={brandId || '__none__'} onValueChange={(v) => setBrandId(v === '__none__' ? '' : v)}>
-                <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder="Generic (no brand filter)" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder={t('analysis.generic_no_brand')} /></SelectTrigger>
                 <SelectContent className="max-h-80">
-                  <SelectItem value="__none__">Generic (no brand filter)</SelectItem>
+                  <SelectItem value="__none__">{t('analysis.generic_no_brand')}</SelectItem>
                   <SelectGroup>
-                    <SelectLabel className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 font-bold">MAP Brands</SelectLabel>
+                    <SelectLabel className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 font-bold">{t('analysis.map_brands')}</SelectLabel>
                     {brands.filter(b => b.parent === 'MAP').map(b => (
                       <SelectItem key={b.id} value={b.id} className="text-[12px]">{b.name} ({b.category.replace('_', ' ')})</SelectItem>
                     ))}
                   </SelectGroup>
                   <SelectGroup>
-                    <SelectLabel className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 font-bold">MAP Active Brands</SelectLabel>
+                    <SelectLabel className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 font-bold">{t('analysis.map_active_brands')}</SelectLabel>
                     {brands.filter(b => b.parent === 'MAA').map(b => (
                       <SelectItem key={b.id} value={b.id} className="text-[12px]">{b.name} ({b.category.replace('_', ' ')})</SelectItem>
                     ))}
@@ -162,10 +163,10 @@ export function Analysis({ kelurahanList, brands, selectedKelurahanId, onSelectK
           <CardContent className="py-12 text-center">
             <Crosshair className="w-8 h-8 mx-auto text-[var(--brand-ink)]/30 mb-3" />
             <div className="text-[14px] text-[var(--brand-ink)]/60">
-              Pilih kelurahan di atas untuk memulai analisis mendalam
+              {t('analysis.empty_prompt')}
             </div>
             <div className="text-[11px] text-[var(--brand-ink)]/40 mt-1">
-              Tip: Klik "How to Use" untuk panduan singkat
+              {t('analysis.empty_hint')}
             </div>
           </CardContent>
         </Card>
@@ -207,10 +208,11 @@ function GuideStep({ n, title, desc }: { n: number; title: string; desc: string 
 }
 
 function AnalysisView({ data }: { data: any }) {
+  const { t } = useLanguage()
   const { kelurahan, score, nearby_stores, nearby_competitors, nearby_malls, nearby_pois, isochrones, ml_prediction } = data
 
   // Compute recommended action
-  const recommendedAction = computeRecommendedAction(score, kelurahan, nearby_stores, nearby_competitors || [])
+  const recommendedAction = computeRecommendedAction(score, kelurahan, nearby_stores, nearby_competitors || [], t)
 
   return (
     <div className="space-y-4">
@@ -220,12 +222,12 @@ function AnalysisView({ data }: { data: any }) {
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-medium">Tier {kelurahan.tier}</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-medium">{t('analysis.tier_label_short', { tier: kelurahan.tier })}</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{
                   background: score.recommendation === 'high_priority' ? 'var(--brand-red)' :
                              score.recommendation === 'priority' ? '#D45F4A' : '#A08070'
                 }}>
-                  {score.recommendation.replace('_', ' ').toUpperCase()}
+                  {t('analysis.recommendation.' + score.recommendation)}
                 </span>
               </div>
               <h3 className="font-display text-[28px] font-bold leading-tight">{kelurahan.name}</h3>
@@ -233,16 +235,20 @@ function AnalysisView({ data }: { data: any }) {
                 {kelurahan.kec_name} · {kelurahan.kab_name}
               </div>
               <div className="text-[11px] text-white/50 mt-1">
-                {kelurahan.population.toLocaleString()} penduduk · {kelurahan.area_km2} km² · density {kelurahan.density}/km²
-                {kelurahan.is_coastal && ' · coastal area'}
+                {t('analysis.kelurahan_summary', {
+                  pop: kelurahan.population.toLocaleString(),
+                  area: kelurahan.area_km2,
+                  density: kelurahan.density,
+                })}
+                {kelurahan.is_coastal && t('analysis.coastal_suffix')}
               </div>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <BigStat label="Composite" value={score.composite_score.toString()} suffix="/100" icon={Target} />
-              <BigStat label="Market Share" value={(score.potential_market_share * 100).toFixed(1)} suffix="%" icon={Activity} />
-              <BigStat label="Daily Cust." value={score.estimated_daily_customers.toString()} icon={Users} />
-              <BigStat label="Rev/mo" value={`${score.projected_monthly_revenue_juta}`} suffix="jt" icon={DollarSign} accent="red" />
+              <BigStat label={t('analysis.stat_composite')} value={score.composite_score.toString()} suffix="/100" icon={Target} />
+              <BigStat label={t('analysis.market_share')} value={(score.potential_market_share * 100).toFixed(1)} suffix="%" icon={Activity} />
+              <BigStat label={t('analysis.stat_daily_cust')} value={score.estimated_daily_customers.toString()} icon={Users} />
+              <BigStat label={t('analysis.stat_rev_mo')} value={`${score.projected_monthly_revenue_juta}`} suffix="jt" icon={DollarSign} accent="red" />
             </div>
           </div>
         </CardContent>
@@ -257,7 +263,7 @@ function AnalysisView({ data }: { data: any }) {
             </div>
             <div className="flex-1">
               <div className="text-[12px] font-bold text-[var(--brand-ink)] uppercase tracking-wider mb-1.5">
-                Recommended Action: {recommendedAction.title}
+                {t('analysis.recommended_action_label', { title: recommendedAction.title })}
               </div>
               <div className="text-[12.5px] text-[var(--brand-ink)]/85 leading-relaxed mb-2">
                 {recommendedAction.description}
@@ -281,32 +287,32 @@ function AnalysisView({ data }: { data: any }) {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[12px] font-bold text-[var(--brand-ink)] uppercase tracking-wider">
-                    ML Revenue Prediction (GBR)
+                    {t('analysis.ml_revenue_prediction')}
                   </div>
-                  <Badge variant="outline" className="text-[9px]">{(ml_prediction.confidence * 100).toFixed(0)}% confidence</Badge>
+                  <Badge variant="outline" className="text-[9px]">{t('analysis.confidence_pct', { n: (ml_prediction.confidence * 100).toFixed(0) })}</Badge>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">ML Predicted</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">{t('analysis.ml_predicted')}</div>
                     <div className="text-[20px] font-bold text-purple-700">{ml_prediction.predicted_revenue_juta} jt</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">Heuristic</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">{t('analysis.heuristic')}</div>
                     <div className="text-[20px] font-bold text-[var(--brand-ink)]">{score.projected_monthly_revenue_juta} jt</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">Delta</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">{t('analysis.delta')}</div>
                     <div className={`text-[20px] font-bold ${ml_prediction.predicted_revenue_juta > score.projected_monthly_revenue_juta ? 'text-green-600' : 'text-amber-600'}`}>
                       {ml_prediction.predicted_revenue_juta > score.projected_monthly_revenue_juta ? '+' : ''}
                       {ml_prediction.predicted_revenue_juta - score.projected_monthly_revenue_juta} jt
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">Model</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55">{t('analysis.model')}</div>
                     <div className="text-[12px] font-mono text-[var(--brand-ink)]/70">{ml_prediction.model_name}</div>
                   </div>
                 </div>
-                <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55 mb-1">Top Driving Features (SHAP-style)</div>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55 mb-1">{t('analysis.top_driving_features')}</div>
                 <div className="flex flex-wrap gap-1">
                   {ml_prediction.top_features.map((f: any, i: number) => (
                     <span key={i} className="text-[10px] bg-[var(--brand-cream)] px-1.5 py-0.5 rounded">
@@ -326,7 +332,7 @@ function AnalysisView({ data }: { data: any }) {
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Navigation className="w-4 h-4 text-[var(--brand-red)]" />
-              Travel-Time Isochrones (friction-based)
+              {t('analysis.isochrones_friction')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -337,18 +343,18 @@ function AnalysisView({ data }: { data: any }) {
                   <div key={i} className="bg-[var(--brand-cream)] p-3 rounded-md">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Clock className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider">{iso.minutes} min by {iso.mode}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider">{t('analysis.min_by_mode', { min: iso.minutes, mode: iso.mode })}</span>
                     </div>
                     <div className="font-display text-[24px] font-bold text-[var(--brand-ink)] num-tabular">{area.toFixed(1)}<span className="text-[12px] text-[var(--brand-ink)]/60 ml-1">km²</span></div>
-                    <div className="text-[10px] text-[var(--brand-ink)]/55 mt-1">Reachable catchment area</div>
+                    <div className="text-[10px] text-[var(--brand-ink)]/55 mt-1">{t('analysis.reachable_catchment')}</div>
                   </div>
                 )
               })}
             </div>
             <div className="mt-3 text-[10.5px] text-[var(--brand-ink)]/60 leading-relaxed">
-              Approximation: Haversine × road friction factor (Tier {kelurahan.tier === 1 ? '1.3×' : kelurahan.tier === 2 ? '1.55×' : '1.8×'}),
-              aligned to Bali road network (NNW-SSE axis).
-              Production can swap to OSRM/Valhalla isochrones for true road-network accuracy.
+              {t('analysis.isochrones_approx', { tier: kelurahan.tier === 1 ? '1.3×' : kelurahan.tier === 2 ? '1.55×' : '1.8×' })}
+              {' '}
+              {t('analysis.isochrones_production_note')}
             </div>
           </CardContent>
         </Card>
@@ -359,7 +365,7 @@ function AnalysisView({ data }: { data: any }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <Activity className="w-4 h-4 text-[var(--brand-red)]" />
-            Composite Score Breakdown
+            {t('analysis.composite_score_breakdown')}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
@@ -369,7 +375,7 @@ function AnalysisView({ data }: { data: any }) {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-[var(--brand-ink)]">{f.name}</span>
                   <span className="text-[10px] text-[var(--brand-ink)]/40 uppercase tracking-wider">
-                    weight {(f.weight * 100).toFixed(0)}%
+                    {t('analysis.weight_pct', { n: (f.weight * 100).toFixed(0) })}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 num-tabular">
@@ -389,7 +395,7 @@ function AnalysisView({ data }: { data: any }) {
             </div>
           ))}
           <div className="pt-3 border-t border-[var(--brand-border)] flex items-center justify-between">
-            <span className="text-[12px] font-medium text-[var(--brand-ink)]">Composite Score</span>
+            <span className="text-[12px] font-medium text-[var(--brand-ink)]">{t('analysis.composite_score')}</span>
             <span className="font-display text-[24px] font-bold text-[var(--brand-red)] num-tabular">{score.composite_score}</span>
           </div>
         </CardContent>
@@ -401,7 +407,7 @@ function AnalysisView({ data }: { data: any }) {
           <div className="flex items-start gap-3">
             <Info className="w-4 h-4 text-[var(--brand-red)] flex-shrink-0 mt-0.5" />
             <div>
-              <div className="text-[12px] font-bold text-[var(--brand-ink)] uppercase tracking-wider mb-1.5">Insight & Recommendation</div>
+              <div className="text-[12px] font-bold text-[var(--brand-ink)] uppercase tracking-wider mb-1.5">{t('analysis.insight_recommendation')}</div>
               <div className="text-[12.5px] text-[var(--brand-ink)]/80 leading-relaxed">
                 {score.white_space_summary}
               </div>
@@ -412,18 +418,18 @@ function AnalysisView({ data }: { data: any }) {
 
       {/* Demographic + index grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <IndexCard label="Urban Index" value={kelurahan.urban_index} />
-        <IndexCard label="Income Index" value={kelurahan.income_index} />
-        <IndexCard label="Tourist Index" value={kelurahan.tourist_index} />
-        <IndexCard label="Transport Index" value={kelurahan.transport_index} />
-        <IndexCard label="POI Density" value={kelurahan.poi_density_index} />
-        <IndexCard label="Mall Proximity" value={kelurahan.mall_proximity_index || Math.max(0, 100 - score.nearest_mall_distance_km * 20)} />
+        <IndexCard label={t('analysis.urban_index')} value={kelurahan.urban_index} />
+        <IndexCard label={t('analysis.income_index')} value={kelurahan.income_index} />
+        <IndexCard label={t('analysis.tourist_index')} value={kelurahan.tourist_index} />
+        <IndexCard label={t('analysis.transport_index')} value={kelurahan.transport_index} />
+        <IndexCard label={t('analysis.poi_density')} value={kelurahan.poi_density_index} />
+        <IndexCard label={t('analysis.mall_proximity')} value={kelurahan.mall_proximity_index || Math.max(0, 100 - score.nearest_mall_distance_km * 20)} />
       </div>
 
       {/* Nearby stores / competitors / malls / POIs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <NearbyCard
-          title="Nearby MAP Stores (5km)"
+          title={t('analysis.nearby_map_stores')}
           icon={StoreIcon}
           accent="red"
           count={nearby_stores.length}
@@ -441,13 +447,13 @@ function AnalysisView({ data }: { data: any }) {
           ))}
           {nearby_stores.length === 0 && (
             <div className="text-[11px] text-[var(--brand-ink)]/50 py-2 text-center">
-              Tidak ada toko MAP dalam 5km — first-mover opportunity
+              {t('analysis.no_map_stores')}
             </div>
           )}
         </NearbyCard>
 
         <NearbyCard
-          title="Nearby Competitors (5km)"
+          title={t('analysis.nearby_competitors')}
           icon={Shield}
           accent="amber"
           count={nearby_competitors?.length || 0}
@@ -463,13 +469,13 @@ function AnalysisView({ data }: { data: any }) {
           ))}
           {(!nearby_competitors || nearby_competitors.length === 0) && (
             <div className="text-[11px] text-[var(--brand-ink)]/50 py-2 text-center">
-              No competitors in DB for this area. Use Competitor Intel tab to scrape.
+              {t('analysis.no_competitors_db')}
             </div>
           )}
         </NearbyCard>
 
         <NearbyCard
-          title="Nearby Malls (10km)"
+          title={t('analysis.nearby_malls')}
           icon={Building2}
           accent="ink"
           count={nearby_malls.length}
@@ -487,13 +493,13 @@ function AnalysisView({ data }: { data: any }) {
           ))}
           {nearby_malls.length === 0 && (
             <div className="text-[11px] text-[var(--brand-ink)]/50 py-2 text-center">
-              Tidak ada mall dalam 10km — street-location strategy
+              {t('analysis.no_malls_nearby')}
             </div>
           )}
         </NearbyCard>
 
         <NearbyCard
-          title="Nearby POIs (10km)"
+          title={t('analysis.nearby_pois')}
           icon={MapPin}
           accent="ink"
           count={nearby_pois.length}
@@ -510,7 +516,7 @@ function AnalysisView({ data }: { data: any }) {
             </div>
           ))}
           {nearby_pois.length === 0 && (
-            <div className="text-[11px] text-[var(--brand-ink)]/50 py-2 text-center">Tidak ada POI dalam 10km</div>
+            <div className="text-[11px] text-[var(--brand-ink)]/50 py-2 text-center">{t('analysis.no_pois_nearby')}</div>
           )}
         </NearbyCard>
       </div>
@@ -520,24 +526,24 @@ function AnalysisView({ data }: { data: any }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-[var(--brand-red)]" />
-            Risk Assessment
+            {t('analysis.risk_assessment')}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 grid grid-cols-1 md:grid-cols-3 gap-3">
           <RiskItem
-            label="Cannibalization Risk"
+            label={t('analysis.cannibalization_risk')}
             value={score.cannibalization_risk}
-            desc={`${score.nearby_existing_stores} MAP stores within 2km${score.nearby_competitor_stores ? ` + ${score.nearby_competitor_stores} competitors` : ''}`}
+            desc={t('analysis.cannibalization_desc', { map: score.nearby_existing_stores }) + (score.nearby_competitor_stores ? t('analysis.competitors_suffix', { count: score.nearby_competitor_stores }) : '')}
           />
           <RiskItem
-            label="Tier Saturation"
+            label={t('analysis.tier_saturation')}
             value={kelurahan.tier === 1 ? 'high' : kelurahan.tier === 2 ? 'medium' : 'low'}
-            desc={kelurahan.tier === 1 ? 'Tier-1 already saturated' : kelurahan.tier === 2 ? 'Moderate density' : 'Untapped market'}
+            desc={kelurahan.tier === 1 ? t('analysis.tier1_saturation_desc') : kelurahan.tier === 2 ? t('analysis.tier2_saturation_desc') : t('analysis.tier3_saturation_desc')}
           />
           <RiskItem
-            label="Mall Dependency"
+            label={t('analysis.mall_dependency')}
             value={score.nearest_mall_distance_km < 1.5 ? 'high' : score.nearest_mall_distance_km < 5 ? 'medium' : 'low'}
-            desc={score.nearest_mall_name ? `Nearest: ${score.nearest_mall_name}` : 'No mall nearby'}
+            desc={score.nearest_mall_name ? t('analysis.nearest_mall', { name: score.nearest_mall_name }) : t('analysis.no_mall_nearby')}
           />
         </CardContent>
       </Card>
@@ -545,40 +551,56 @@ function AnalysisView({ data }: { data: any }) {
   )
 }
 
-function computeRecommendedAction(score: any, kelurahan: any, nearbyStores: any[], nearbyCompetitors: any[]) {
+function computeRecommendedAction(score: any, kelurahan: any, nearbyStores: any[], nearbyCompetitors: any[], t: (key: string, params?: Record<string, string | number>) => string) {
   const composite = score.composite_score
   const cannibalization = score.cannibalization_risk
   const competitorDensity = nearbyCompetitors.length
 
   if (composite >= 70 && cannibalization !== 'high') {
     return {
-      title: 'PROCEED — Open Store',
+      title: t('analysis.action_proceed_title'),
       color: 'green',
-      description: `Strong composite score (${composite}/100) with ${cannibalization} cannibalization risk. This kelurahan is a high-priority expansion candidate. Initiate site survey and lease negotiation.`,
-      nextSteps: ['Schedule field visit', 'Check lease availability', 'Run brand-specific Huff model', 'Prepare business case'],
+      description: t('analysis.action_proceed_desc', { score: composite, risk: cannibalization }),
+      nextSteps: [
+        t('analysis.action_step_visit'),
+        t('analysis.action_step_lease'),
+        t('analysis.action_step_huff'),
+        t('analysis.action_step_bizcase'),
+      ],
     }
   }
   if (composite >= 55 && cannibalization !== 'high') {
     return {
-      title: 'PRIORITY — Detailed Feasibility',
+      title: t('analysis.action_priority_title'),
       color: 'red',
-      description: `Favorable composite score (${composite}/100). Proceed with detailed feasibility: foot-traffic survey, lease-cost analysis, and brand-specific revenue projection.`,
-      nextSteps: ['Foot-traffic survey (PWA)', 'Lease cost benchmarking', 'Brand-specific scenario analysis'],
+      description: t('analysis.action_priority_desc', { score: composite }),
+      nextSteps: [
+        t('analysis.action_step_foottraffic'),
+        t('analysis.action_step_leasecost'),
+        t('analysis.action_step_scenario'),
+      ],
     }
   }
   if (composite >= 40) {
     return {
-      title: 'MONITOR — Wait for Market Maturity',
+      title: t('analysis.action_monitor_title'),
       color: 'amber',
-      description: `Moderate score (${composite}/100). Market not yet ready for expansion. Re-evaluate quarterly as population density and infrastructure mature.`,
-      nextSteps: ['Add to watchlist', 'Quarterly re-scoring', 'Monitor competitor movements'],
+      description: t('analysis.action_monitor_desc', { score: composite }),
+      nextSteps: [
+        t('analysis.action_step_watchlist'),
+        t('analysis.action_step_rescore'),
+        t('analysis.action_step_monitor'),
+      ],
     }
   }
   return {
-    title: 'AVOID — Not Viable Now',
+    title: t('analysis.action_avoid_title'),
     color: 'red',
-    description: `Low composite score (${composite}/100). Insufficient market potential, accessibility, or foot traffic. Do not invest in this location.`,
-    nextSteps: ['Skip this site', 'Focus on Tier 1-2 candidates'],
+    description: t('analysis.action_avoid_desc', { score: composite }),
+    nextSteps: [
+      t('analysis.action_step_skip'),
+      t('analysis.action_step_focus'),
+    ],
   }
 }
 
@@ -647,6 +669,7 @@ function NearbyCard({ title, icon: Icon, accent, count, children }: { title: str
 }
 
 function RiskItem({ label, value, desc }: { label: string; value: string; desc: string }) {
+  const { t } = useLanguage()
   const colors: Record<string, string> = {
     low: 'bg-green-100 text-green-700',
     medium: 'bg-amber-100 text-amber-700',
@@ -655,7 +678,7 @@ function RiskItem({ label, value, desc }: { label: string; value: string; desc: 
   return (
     <div className="bg-[var(--brand-cream)] rounded-md p-3">
       <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55 font-medium mb-1">{label}</div>
-      <span className={`text-[11px] px-2 py-0.5 rounded font-bold capitalize mb-1.5 inline-block ${colors[value] || colors.medium}`}>{value}</span>
+      <span className={`text-[11px] px-2 py-0.5 rounded font-bold mb-1.5 inline-block ${colors[value] || colors.medium}`}>{t('common.' + value)}</span>
       <div className="text-[11px] text-[var(--brand-ink)]/70">{desc}</div>
     </div>
   )

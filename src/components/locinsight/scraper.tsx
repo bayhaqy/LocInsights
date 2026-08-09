@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { COMPETITOR_BRANDS } from '@/lib/data/competitor-brands'
 import { BRANDS } from '@/lib/data/brands'
 import { classifyScrapedBrand, type SaveTarget } from '@/lib/brand-classifier'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 // ============================================================================
 // Types
@@ -77,6 +78,7 @@ interface LocationOption {
 // ============================================================================
 
 export function Scraper() {
+  const { t } = useLanguage()
   // Mode + query state
   const [mode, setMode] = useState<Mode>('keyword')
   const [query, setQuery] = useState('')
@@ -163,8 +165,8 @@ export function Scraper() {
       const k = kabupatenList.find(x => x.code === selKab)
       return k ? `${k.type === 'Kota' ? 'Kota' : 'Kab.'} ${k.name}` : 'Kabupaten'
     }
-    return 'Bali (all)'
-  }, [selKab, selKec, selKel, kabupatenList, kecamatanList, kelurahanList])
+    return t('scraper.location_bali_all')
+  }, [selKab, selKec, selKel, kabupatenList, kecamatanList, kelurahanList, t])
 
   // Filtered kecamatan/kelurahan based on parent selection
   const filteredKecamatan = useMemo(() => {
@@ -183,7 +185,7 @@ export function Scraper() {
 
   async function scrape() {
     if (mode === 'keyword' && !query.trim()) {
-      toast.error('Enter a search query first')
+      toast.error(t('scraper.toast_enter_query'))
       return
     }
     setLoading(true)
@@ -202,7 +204,7 @@ export function Scraper() {
         body.radius_km = Number(radius)
         body.kinds = (['store', 'mall', 'poi'] as const).filter(k => kinds[k])
         if (body.kinds.length === 0) {
-          toast.error('Select at least one type (store/mall/poi)')
+          toast.error(t('scraper.toast_select_type'))
           setLoading(false)
           return
         }
@@ -227,10 +229,10 @@ export function Scraper() {
         })
         setSelected(defaultSelected)
         const foundN = json.total_found || (json.results || []).length
-        toast.success(`Found ${foundN} items in ${json.meta?.location_label || locationLabel} — review and select which to save`)
+        toast.success(t('scraper.toast_found', { count: foundN, location: json.meta?.location_label || locationLabel }))
         fetchHistory()
       } else {
-        toast.error(json.error || 'Scrape failed')
+        toast.error(json.error || t('scraper.toast_scrape_failed'))
       }
     } catch (e: any) {
       toast.error(e.message)
@@ -289,7 +291,7 @@ export function Scraper() {
 
   async function saveSelected() {
     if (selected.size === 0) {
-      toast.warning('No items selected')
+      toast.warning(t('scraper.toast_no_selected'))
       return
     }
     setSaving(true)
@@ -308,14 +310,15 @@ export function Scraper() {
       if (json.success) {
         const s = json.saved
         const parts: string[] = []
-        if (s.stores) parts.push(`${s.stores} MAA/MAP stores`)
-        if (s.competitors) parts.push(`${s.competitors} competitors`)
-        if (s.malls) parts.push(`${s.malls} malls`)
-        if (s.pois) parts.push(`${s.pois} POIs`)
+        if (s.stores) parts.push(t('scraper.saved_maa_stores', { count: s.stores }))
+        if (s.competitors) parts.push(t('scraper.saved_competitors', { count: s.competitors }))
+        if (s.malls) parts.push(t('scraper.saved_malls', { count: s.malls }))
+        if (s.pois) parts.push(t('scraper.saved_pois', { count: s.pois }))
+        const duplicates = json.skipped ? t('scraper.toast_duplicates', { count: json.skipped }) : ''
+        const errors = json.error_count ? t('scraper.toast_errors', { count: json.error_count }) : ''
         toast.success(
-          `Saved ${s.total} records (${parts.join(', ') || 'none'})` +
-          (json.skipped ? ` · ${json.skipped} duplicates skipped` : '') +
-          (json.error_count ? ` · ${json.error_count} errors` : '')
+          t('scraper.toast_saved', { total: s.total, parts: parts.join(', ') || t('scraper.saved_none') }) +
+          duplicates + errors
         )
         if (json.error_count > 0) {
           console.warn('Save errors:', json.errors)
@@ -323,7 +326,7 @@ export function Scraper() {
         setSelected(new Set())
         fetchHistory()
       } else {
-        toast.error(json.error || 'Save failed')
+        toast.error(json.error || t('scraper.toast_save_failed'))
       }
     } catch (e: any) {
       toast.error(e.message)
@@ -396,10 +399,10 @@ export function Scraper() {
       {/* Header */}
       <div>
         <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-          Data Scraper
+          {t('scraper.title')}
         </h2>
         <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          Discover stores, malls, and POIs from OpenStreetMap. Two modes: keyword search (specific name/area) or brand sweep (predefined competitor catalog). Hierarchical location filter scopes results to a kabupaten / kecamatan / kelurahan. Review results first, then save — nothing is auto-saved.
+          {t('scraper.subtitle_full')}
         </p>
       </div>
 
@@ -412,7 +415,7 @@ export function Scraper() {
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Search className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                Search & Scrape
+                {t('scraper.search_scrape')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -423,14 +426,14 @@ export function Scraper() {
                   className={`flex-1 px-3 py-1.5 text-[12px] font-medium rounded ${mode === 'keyword' ? 'bg-white shadow-sm text-[var(--brand-red)]' : 'text-[var(--brand-ink)]/60'}`}
                 >
                   <Search className="w-3 h-3 inline mr-1.5" />
-                  Keyword Search
+                  {t('scraper.keyword_search')}
                 </button>
                 <button
                   onClick={() => setMode('brand')}
                   className={`flex-1 px-3 py-1.5 text-[12px] font-medium rounded ${mode === 'brand' ? 'bg-white shadow-sm text-[var(--brand-red)]' : 'text-[var(--brand-ink)]/60'}`}
                 >
                   <Shield className="w-3 h-3 inline mr-1.5" />
-                  Brand Sweep ({COMPETITOR_BRANDS.length} brands)
+                  {t('scraper.brand_sweep', { count: COMPETITOR_BRANDS.length })}
                 </button>
               </div>
 
@@ -438,7 +441,7 @@ export function Scraper() {
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block flex items-center gap-1">
                   <Globe2 className="w-3 h-3" />
-                  Location Scope: <span className="text-[var(--brand-red)] font-medium normal-case tracking-normal">{locationLabel}</span>
+                  {t('scraper.location_scope')} <span className="text-[var(--brand-red)] font-medium normal-case tracking-normal">{locationLabel}</span>
                 </Label>
                 <div className="grid grid-cols-3 gap-1.5">
                   <select
@@ -446,7 +449,7 @@ export function Scraper() {
                     onChange={(e) => onKabChange(e.target.value)}
                     className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white"
                   >
-                    <option value="">All Kabupaten</option>
+                    <option value="">{t('scraper.all_kabupaten')}</option>
                     {kabupatenList.map(k => (
                       <option key={k.code} value={k.code}>
                         {k.type === 'Kota' ? 'Kota ' : 'Kab. '}{k.name}
@@ -459,7 +462,7 @@ export function Scraper() {
                     disabled={!selKab}
                     className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white disabled:opacity-50"
                   >
-                    <option value="">All Kecamatan</option>
+                    <option value="">{t('scraper.all_kecamatan')}</option>
                     {filteredKecamatan.map(k => (
                       <option key={k.code} value={k.code}>{k.name}</option>
                     ))}
@@ -470,14 +473,14 @@ export function Scraper() {
                     disabled={!selKec}
                     className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white disabled:opacity-50"
                   >
-                    <option value="">All Kelurahan</option>
+                    <option value="">{t('scraper.all_kelurahan')}</option>
                     {filteredKelurahan.map(k => (
                       <option key={k.code} value={k.code}>{k.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="text-[10px] text-[var(--brand-ink)]/50 mt-1">
-                  Province: Bali · Country: Indonesia. Narrowing to a kelurahan scopes the scrape to a ~1.5km radius.
+                  {t('scraper.location_hint')}
                 </div>
               </div>
 
@@ -486,19 +489,19 @@ export function Scraper() {
                 <>
                   <div>
                     <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                      Query (store name, brand, or area)
+                      {t('scraper.query_label')}
                     </Label>
                     <Input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && scrape()}
-                      placeholder="e.g., Starbucks Kuta, Mall Denpasar, Canggu cafe"
+                      placeholder={t('scraper.query_placeholder')}
                       className="h-10 text-[13px]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Types</Label>
+                      <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('scraper.types')}</Label>
                       <div className="flex gap-2 text-[12px]">
                         {(['store', 'mall', 'poi'] as const).map(k => (
                           <label key={k} className="flex items-center gap-1 cursor-pointer">
@@ -514,7 +517,7 @@ export function Scraper() {
                       </div>
                     </div>
                     <div>
-                      <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Radius (km)</Label>
+                      <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('scraper.radius')}</Label>
                       <Input
                         type="number"
                         value={radius}
@@ -541,7 +544,7 @@ export function Scraper() {
               ) : (
                 <div>
                   <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                    Brands to Scrape {selectedBrands.length > 0 && <span className="text-[var(--brand-red)]">({selectedBrands.length} selected)</span>}
+                    {t('scraper.brands_to_scrape')} {selectedBrands.length > 0 && <span className="text-[var(--brand-red)]">{t('scraper.brands_selected', { count: selectedBrands.length })}</span>}
                   </Label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 max-h-[200px] overflow-y-auto p-2 border border-[var(--brand-border)] rounded bg-white">
                     {COMPETITOR_BRANDS.map(b => (
@@ -559,9 +562,9 @@ export function Scraper() {
                     ))}
                   </div>
                   <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="outline" onClick={() => setSelectedBrands([])}>Clear</Button>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedBrands(COMPETITOR_BRANDS.slice(0, 5).map(b => b.name))}>Top 5</Button>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedBrands(COMPETITOR_BRANDS.map(b => b.name))}>All</Button>
+                    <Button size="sm" variant="outline" onClick={() => setSelectedBrands([])}>{t('scraper.clear')}</Button>
+                    <Button size="sm" variant="outline" onClick={() => setSelectedBrands(COMPETITOR_BRANDS.slice(0, 5).map(b => b.name))}>{t('scraper.top_5')}</Button>
+                    <Button size="sm" variant="outline" onClick={() => setSelectedBrands(COMPETITOR_BRANDS.map(b => b.name))}>{t('common.all')}</Button>
                   </div>
                 </div>
               )}
@@ -574,12 +577,12 @@ export function Scraper() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Scraping OSM…
+                    {t('scraper.scraping')}
                   </>
                 ) : (
                   <>
                     <Search className="w-4 h-4 mr-2" />
-                    {mode === 'keyword' ? 'Scrape Now (review only)' : `Sweep ${selectedBrands.length || COMPETITOR_BRANDS.length} Brands (review only)`}
+                    {mode === 'keyword' ? t('scraper.scrape_now') : t('scraper.sweep_brands', { count: selectedBrands.length || COMPETITOR_BRANDS.length })}
                   </>
                 )}
               </Button>
@@ -593,13 +596,13 @@ export function Scraper() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                    Results for Review
+                    {t('scraper.results_review')}
                   </CardTitle>
                   <div className="text-[11px] text-[var(--brand-ink)]/60 flex items-center gap-2">
-                    <Badge variant="outline" className="text-[9px] h-4">{counts.total} found</Badge>
-                    <Badge variant="outline" className="text-[9px] h-4 text-green-700 border-green-300">{counts.onLand} on land</Badge>
+                    <Badge variant="outline" className="text-[9px] h-4">{t('scraper.found_count', { count: counts.total })}</Badge>
+                    <Badge variant="outline" className="text-[9px] h-4 text-green-700 border-green-300">{t('scraper.on_land_count', { count: counts.onLand })}</Badge>
                     {counts.offLand > 0 && (
-                      <Badge variant="outline" className="text-[9px] h-4 text-amber-700 border-amber-300">{counts.offLand} sea</Badge>
+                      <Badge variant="outline" className="text-[9px] h-4 text-amber-700 border-amber-300">{t('scraper.sea_count', { count: counts.offLand })}</Badge>
                     )}
                   </div>
                 </div>
@@ -607,10 +610,10 @@ export function Scraper() {
               <CardContent className="space-y-3">
                 {scrapeMeta && (
                   <div className="p-2 rounded-md bg-[var(--brand-cream)] border border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/70 flex flex-wrap gap-3">
-                    <span><strong>Mode:</strong> {scrapeMeta.mode === 'keyword' ? 'Keyword search' : 'Brand sweep'}</span>
-                    <span><strong>Scope:</strong> {scrapeMeta.location_label}</span>
+                    <span><strong>{t('scraper.mode_label')}</strong> {scrapeMeta.mode === 'keyword' ? t('scraper.mode_keyword') : t('scraper.mode_brand')}</span>
+                    <span><strong>{t('scraper.scope_label')}</strong> {scrapeMeta.location_label}</span>
                     {scrapeMeta.brands_with_data != null && (
-                      <span><strong>Brands with data:</strong> {scrapeMeta.brands_with_data} / {(scrapeMeta.brands_scraped || []).length}</span>
+                      <span><strong>{t('scraper.brands_with_data')}</strong> {scrapeMeta.brands_with_data} / {(scrapeMeta.brands_scraped || []).length}</span>
                     )}
                   </div>
                 )}
@@ -619,7 +622,7 @@ export function Scraper() {
                     <div className="font-semibold">{geo.display_name}</div>
                     <div className="text-[11px] text-[var(--brand-ink)]/60 mt-0.5 flex items-center gap-2 flex-wrap">
                       <Badge variant={geo.is_in_bali ? 'default' : 'secondary'} className="text-[9px] h-4">
-                        {geo.is_in_bali ? 'In Bali' : 'Outside Bali'}
+                        {geo.is_in_bali ? t('scraper.in_bali') : t('scraper.outside_bali')}
                       </Badge>
                       <span className="font-mono">{geo.lat.toFixed(4)}, {geo.lng.toFixed(4)}</span>
                     </div>
@@ -629,30 +632,30 @@ export function Scraper() {
                 {/* Save-routing summary */}
                 {results.length > 0 && (
                   <div className="p-2 rounded-md border border-[var(--brand-border)] bg-white text-[11px] flex flex-wrap gap-3 items-center">
-                    <span className="font-medium text-[var(--brand-ink)]/70">On save, items will be routed to:</span>
+                    <span className="font-medium text-[var(--brand-ink)]/70">{t('scraper.save_routing')}</span>
                     {counts.maaStores > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-blue-700 border-blue-300 bg-blue-50">
-                        <StoreIcon className="w-2.5 h-2.5 mr-1" /> {counts.maaStores} → stores table (MAA/MAP)
+                        <StoreIcon className="w-2.5 h-2.5 mr-1" /> {t('scraper.route_stores', { count: counts.maaStores })}
                       </Badge>
                     )}
                     {counts.competitors > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-purple-700 border-purple-300 bg-purple-50">
-                        <Shield className="w-2.5 h-2.5 mr-1" /> {counts.competitors} → competitor_stores
+                        <Shield className="w-2.5 h-2.5 mr-1" /> {t('scraper.route_competitors', { count: counts.competitors })}
                       </Badge>
                     )}
                     {counts.others > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-gray-700 border-gray-300 bg-gray-50">
-                        <HelpCircle className="w-2.5 h-2.5 mr-1" /> {counts.others} → competitor_stores (other)
+                        <HelpCircle className="w-2.5 h-2.5 mr-1" /> {t('scraper.route_other', { count: counts.others })}
                       </Badge>
                     )}
                     {counts.malls > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-amber-700 border-amber-300 bg-amber-50">
-                        <Building2 className="w-2.5 h-2.5 mr-1" /> {counts.malls} → malls table
+                        <Building2 className="w-2.5 h-2.5 mr-1" /> {t('scraper.route_malls', { count: counts.malls })}
                       </Badge>
                     )}
                     {counts.pois > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-green-700 border-green-300 bg-green-50">
-                        <MapPin className="w-2.5 h-2.5 mr-1" /> {counts.pois} → pois table
+                        <MapPin className="w-2.5 h-2.5 mr-1" /> {t('scraper.route_pois', { count: counts.pois })}
                       </Badge>
                     )}
                   </div>
@@ -663,16 +666,16 @@ export function Scraper() {
                   <div className="flex items-center justify-between gap-2 p-2 rounded-md border border-[var(--brand-border)] bg-white">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[11px] text-[var(--brand-ink)]/60">
-                        <strong className="text-[var(--brand-red)]">{selected.size}</strong> selected
+                        <strong className="text-[var(--brand-red)]">{selected.size}</strong> {t('scraper.selected_word')}
                       </span>
                       <Button size="sm" variant="ghost" onClick={selectAllOnLand} className="h-6 text-[10px] px-2">
-                        <CheckSquare className="w-3 h-3 mr-1" /> All on-land
+                        <CheckSquare className="w-3 h-3 mr-1" /> {t('scraper.all_on_land')}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={selectAllVisible} className="h-6 text-[10px] px-2">
-                        <CheckSquare className="w-3 h-3 mr-1" /> All visible
+                        <CheckSquare className="w-3 h-3 mr-1" /> {t('scraper.all_visible')}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={clearSelection} className="h-6 text-[10px] px-2">
-                        <Square className="w-3 h-3 mr-1" /> Clear
+                        <Square className="w-3 h-3 mr-1" /> {t('scraper.clear')}
                       </Button>
                     </div>
                     <Button
@@ -682,7 +685,7 @@ export function Scraper() {
                       className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
                     >
                       {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
-                      Save Selected ({selected.size})
+                      {t('scraper.save_selected', { count: selected.size })}
                     </Button>
                   </div>
                 )}
@@ -693,12 +696,12 @@ export function Scraper() {
                     <Filter className="w-3 h-3 text-[var(--brand-ink)]/40" />
                     {(['all','store','mall','poi','on_land','off_land'] as const).map(f => {
                       const labels: Record<string, string> = {
-                        all: `All (${counts.total})`,
-                        store: `Stores (${counts.stores})`,
-                        mall: `Malls (${counts.malls})`,
-                        poi: `POIs (${counts.pois})`,
-                        on_land: `On land (${counts.onLand})`,
-                        off_land: `Sea (${counts.offLand})`,
+                        all: t('scraper.filter_all', { count: counts.total }),
+                        store: t('scraper.filter_stores', { count: counts.stores }),
+                        mall: t('scraper.filter_malls', { count: counts.malls }),
+                        poi: t('scraper.filter_pois', { count: counts.pois }),
+                        on_land: t('scraper.filter_on_land', { count: counts.onLand }),
+                        off_land: t('scraper.filter_sea', { count: counts.offLand }),
                       }
                       const isOff = f === 'off_land' && counts.offLand === 0
                       return (
@@ -745,7 +748,7 @@ export function Scraper() {
                                 ? 'bg-[var(--brand-red)] border-[var(--brand-red)]'
                                 : 'border-[var(--brand-border)] bg-white hover:border-[var(--brand-red)]'
                           }`}
-                          title={r.on_land ? (isSelected ? 'Selected' : 'Click to select') : 'Cannot save — location in sea'}
+                          title={r.on_land ? (isSelected ? t('scraper.tooltip_selected') : t('scraper.tooltip_click_select')) : t('scraper.tooltip_cannot_save')}
                         >
                           {isSelected && r.on_land && <CheckCircle2 className="w-3 h-3 text-white" />}
                           {!r.on_land && <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />}
@@ -755,7 +758,7 @@ export function Scraper() {
                           <div className="text-[10.5px] text-[var(--brand-ink)]/60">{r.category}</div>
                           <div className="text-[10px] text-[var(--brand-ink)]/40 mt-0.5 font-mono">
                             {r.lat.toFixed(4)}, {r.lng.toFixed(4)}
-                            {!r.on_land && <span className="text-amber-700 ml-1">· in sea — cannot save</span>}
+                            {!r.on_land && <span className="text-amber-700 ml-1">{t('scraper.in_sea_cannot_save')}</span>}
                             {r.address && <span className="ml-1">· {r.address.slice(0, 50)}</span>}
                           </div>
                           {/* Classification badge for store items */}
@@ -763,17 +766,17 @@ export function Scraper() {
                             <div className="text-[9.5px] mt-0.5">
                               {cls.target === 'maa_store' && (
                                 <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                                  <StoreIcon className="w-2.5 h-2.5" /> → stores table (MAA/MAP)
+                                  <StoreIcon className="w-2.5 h-2.5" /> {t('scraper.route_stores_badge')}
                                 </span>
                               )}
                               {cls.target === 'competitor' && (
                                 <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                                  <Shield className="w-2.5 h-2.5" /> → competitor_stores
+                                  <Shield className="w-2.5 h-2.5" /> {t('scraper.route_competitors_badge')}
                                 </span>
                               )}
                               {cls.target === 'other' && (
                                 <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-gray-50 text-gray-700 border border-gray-200">
-                                  <HelpCircle className="w-2.5 h-2.5" /> → competitor_stores (other)
+                                  <HelpCircle className="w-2.5 h-2.5" /> {t('scraper.route_other_badge')}
                                 </span>
                               )}
                             </div>
@@ -784,7 +787,7 @@ export function Scraper() {
                     )
                   })}
                   {results.length > 0 && filteredResults.length === 0 && (
-                    <div className="text-[12px] text-[var(--brand-ink)]/40 py-6 text-center">No results match this filter</div>
+                    <div className="text-[12px] text-[var(--brand-ink)]/40 py-6 text-center">{t('scraper.no_results')}</div>
                   )}
                 </div>
               </CardContent>
@@ -800,12 +803,12 @@ export function Scraper() {
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-[var(--brand-ink)]" />
-                Scrape History
+                {t('scraper.history')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {history.length === 0 ? (
-                <div className="text-[12px] text-[var(--brand-ink)]/40 py-6 text-center">No scrapes yet</div>
+                <div className="text-[12px] text-[var(--brand-ink)]/40 py-6 text-center">{t('scraper.no_scrapes')}</div>
               ) : (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {history.map(h => (
@@ -817,7 +820,7 @@ export function Scraper() {
                         </Badge>
                       </div>
                       <div className="text-[10px] text-[var(--brand-ink)]/50">
-                        {new Date(h.startedAt).toLocaleString()} · Found {h.found_count} · Saved {h.saved_count}
+                        {new Date(h.startedAt).toLocaleString()} · {t('scraper.history_found', { count: h.found_count })} · {t('scraper.history_saved', { count: h.saved_count })}
                       </div>
                     </div>
                   ))}
@@ -830,28 +833,28 @@ export function Scraper() {
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Database className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                How It Works
+                {t('scraper.how_it_works')}
               </CardTitle>
             </CardHeader>
             <CardContent className="text-[11.5px] text-[var(--brand-ink)]/70 space-y-2">
               <div className="flex items-start gap-2">
                 <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[var(--brand-red)] text-white text-[10px] font-bold flex items-center justify-center">1</span>
-                <div><strong>Pick a mode:</strong> Keyword search (specific name/area, geocoded via Nominatim) or Brand sweep (predefined competitor catalog, full-bbox Overpass).</div>
+                <div><strong>{t('scraper.step_1_label')}</strong> {t('scraper.step_1_body')}</div>
               </div>
               <div className="flex items-start gap-2">
                 <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[var(--brand-red)] text-white text-[10px] font-bold flex items-center justify-center">2</span>
-                <div><strong>Scope the location:</strong> All Bali, or narrow to a kabupaten → kecamatan → kelurahan (cascading dropdowns). Narrower scope = faster scrape + fewer false positives.</div>
+                <div><strong>{t('scraper.step_2_label')}</strong> {t('scraper.step_2_body')}</div>
               </div>
               <div className="flex items-start gap-2">
                 <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[var(--brand-red)] text-white text-[10px] font-bold flex items-center justify-center">3</span>
-                <div><strong>Review results:</strong> Each row shows land status, classification (MAA store / competitor / other), and where it will be saved. Items marked <span className="text-amber-700 font-medium">"in sea"</span> cannot be saved.</div>
+                <div><strong>{t('scraper.step_3_label')}</strong> {t('scraper.step_3_body_pre')}<span className="text-amber-700 font-medium">{t('scraper.in_sea_quote')}</span>{t('scraper.step_3_body_post')}</div>
               </div>
               <div className="flex items-start gap-2">
                 <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[var(--brand-red)] text-white text-[10px] font-bold flex items-center justify-center">4</span>
-                <div><strong>Save Selected:</strong> MAA/MAP brands → master <code>stores</code> table (with proper brand_id + parent). Competitors & unknown brands → <code>competitor_stores</code> table. Malls → <code>malls</code>. POIs → <code>pois</code>.</div>
+                <div><strong>{t('scraper.step_4_label')}</strong> {t('scraper.step_4_body_1')} <code>stores</code> {t('scraper.step_4_body_2')} <code>competitor_stores</code> {t('scraper.step_4_body_3')} <code>malls</code>{t('scraper.step_4_body_4')} <code>pois</code>.</div>
               </div>
               <div className="pt-2 mt-2 border-t border-[var(--brand-border)] text-[10px] text-[var(--brand-ink)]/50">
-                Rate-limited to 1 req/sec per Nominatim usage policy. All data is open (ODbL license). Source attribution preserved in the <code>source</code> field of each saved record.
+                {t('scraper.rate_limit_note_pre')} <code>source</code> {t('scraper.rate_limit_note_post')}
               </div>
             </CardContent>
           </Card>

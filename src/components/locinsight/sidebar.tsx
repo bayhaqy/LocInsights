@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { LucideIcon, PanelLeftOpen } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 export interface NavItem {
   id: string
@@ -37,6 +38,7 @@ export interface SidebarProps {
  * avoiding the duplicate-button confusion reported by users.
  */
 export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, onToggleCollapse }: SidebarProps) {
+  const { t } = useLanguage()
   return (
     <aside
       className={cn(
@@ -47,15 +49,20 @@ export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, o
       {/* Logo / brand — no internal toggle button */}
       <div className={cn(
         'border-b border-white/10 flex items-center',
-        collapsed ? 'px-2 py-4 justify-center' : 'px-5 pt-6 pb-5 gap-2.5'
+        collapsed ? 'px-2 py-4 justify-center' : 'px-5 pt-5 pb-4 gap-2.5'
       )}>
-        <div className="w-9 h-9 rounded-md bg-[var(--brand-red)] flex items-center justify-center font-bold text-lg flex-shrink-0">
-          L
-        </div>
+        {/* New logo: full PNG with transparent background, white-version for dark sidebar */}
+        <img
+          src="/logo-white.png"
+          alt="LocInsight"
+          className="flex-shrink-0 object-contain"
+          style={{ width: collapsed ? '32px' : '36px', height: collapsed ? '32px' : '36px' }}
+          draggable={false}
+        />
         {!collapsed && (
           <div className="flex-1 min-w-0">
             <div className="font-display font-bold text-[17px] leading-tight">LocInsight</div>
-            <div className="text-[10px] text-white/50 uppercase tracking-wider">Location Intelligence</div>
+            <div className="text-[10px] text-white/50 uppercase tracking-wider">{t('common.location_intelligence')}</div>
           </div>
         )}
       </div>
@@ -80,11 +87,14 @@ export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, o
         {items.map(item => {
           const Icon = item.icon
           const isActive = item.id === activeId
+          // Labels are stored as i18n keys (e.g. 'nav.dashboard') — translate at render time
+          const labelText = t(item.label)
+          const descText = t(item.description)
           return (
             <button
               key={item.id}
               onClick={() => onSelect(item.id)}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? labelText : undefined}
               className={cn(
                 'w-full flex items-center rounded-md text-left transition-all duration-150 group relative',
                 collapsed ? 'justify-center p-2.5' : 'items-start gap-3 px-3 py-2.5 mb-0.5',
@@ -96,12 +106,12 @@ export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, o
               <Icon className={cn('w-4 h-4 flex-shrink-0', collapsed ? 'mx-auto' : 'mt-0.5')} />
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium leading-tight">{item.label}</div>
+                  <div className="text-[13px] font-medium leading-tight">{labelText}</div>
                   <div className={cn(
                     'text-[10.5px] leading-snug mt-0.5',
                     isActive ? 'text-white/80' : 'text-white/40'
                   )}>
-                    {item.description}
+                    {descText}
                   </div>
                 </div>
               )}
@@ -117,7 +127,7 @@ export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, o
       {!collapsed && (
         <div className="border-t border-white/10 px-4 py-3">
           <div className="text-[9.5px] text-white/40 leading-relaxed">
-            Powered by <span className="text-white/70 font-medium">MAP Active Data Team</span>
+            {t('common.powered_by')} <span className="text-white/70 font-medium">MAP Active Data Team</span>
           </div>
         </div>
       )}

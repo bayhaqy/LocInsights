@@ -17,7 +17,10 @@ import { CompetitorIntel } from '@/components/locinsight/competitor-intel'
 import { ABTestSimulator } from '@/components/locinsight/ab-test-simulator'
 import { MallTenants } from '@/components/locinsight/mall-tenants'
 import { About } from '@/components/locinsight/about'
-import { ChatWidget } from '@/components/locinsight/chat-widget'
+import { AIChat } from '@/components/locinsight/ai-chat'
+import { LanguageSwitcher } from '@/components/locinsight/language-switcher'
+import { InstallPrompt } from '@/components/locinsight/install-prompt'
+import { useLanguage } from '@/lib/i18n/language-provider'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
@@ -26,24 +29,25 @@ import {
 } from 'lucide-react'
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & KPI' },
-  { id: 'map', label: 'Map Explorer', icon: Map, description: 'Peta interaktif + heatmap' },
-  { id: 'opportunities', label: 'Opportunities', icon: Target, description: 'Top expansion sites' },
-  { id: 'analysis', label: 'Deep Analysis', icon: Crosshair, description: 'Per-kelurahan detail + isochrones' },
-  { id: 'brands', label: 'Brand Coverage', icon: Store, description: 'MAP & MAA portfolio' },
-  { id: 'malls', label: 'Mall Network', icon: Building2, description: 'Mall tenant coverage' },
-  { id: 'competitors', label: 'Competitor Intel', icon: Shield, description: 'Competitor scraping + density' },
-  { id: 'ab', label: 'A/B Simulator', icon: GitCompareArrows, description: 'Weight comparison' },
-  { id: 'ml', label: 'ML / AI Engine', icon: Brain, description: 'GBR revenue predictor + training' },
-  { id: 'mall_tenants', label: 'Mall Tenants', icon: StoreIcon, description: 'Live tenant audit' },
-  { id: 'reports', label: 'Reports', icon: FileText, description: 'Export PDF/CSV/JSON' },
-  { id: 'data', label: 'Data Manager', icon: Database, description: 'CRUD master data' },
-  { id: 'scraper', label: 'Data Scraper', icon: Search, description: 'Auto-scrape OSM data' },
-  { id: 'methodology', label: 'Methodology', icon: BookOpen, description: 'Scoring framework & math' },
-  { id: 'about', label: 'About', icon: Info, description: 'Project overview & data sources' },
+  { id: 'dashboard', label: 'nav.dashboard', icon: LayoutDashboard, description: 'nav.dashboard.desc' },
+  { id: 'map', label: 'nav.map', icon: Map, description: 'nav.map.desc' },
+  { id: 'opportunities', label: 'nav.opportunities', icon: Target, description: 'nav.opportunities.desc' },
+  { id: 'analysis', label: 'nav.analysis', icon: Crosshair, description: 'nav.analysis.desc' },
+  { id: 'brands', label: 'nav.brands', icon: Store, description: 'nav.brands.desc' },
+  { id: 'malls', label: 'nav.malls', icon: Building2, description: 'nav.malls.desc' },
+  { id: 'competitors', label: 'nav.competitors', icon: Shield, description: 'nav.competitors.desc' },
+  { id: 'ab', label: 'nav.ab', icon: GitCompareArrows, description: 'nav.ab.desc' },
+  { id: 'ml', label: 'nav.ml', icon: Brain, description: 'nav.ml.desc' },
+  { id: 'mall_tenants', label: 'nav.mall_tenants', icon: StoreIcon, description: 'nav.mall_tenants.desc' },
+  { id: 'reports', label: 'nav.reports', icon: FileText, description: 'nav.reports.desc' },
+  { id: 'data', label: 'nav.data', icon: Database, description: 'nav.data.desc' },
+  { id: 'scraper', label: 'nav.scraper', icon: Search, description: 'nav.scraper.desc' },
+  { id: 'methodology', label: 'nav.methodology', icon: BookOpen, description: 'nav.methodology.desc' },
+  { id: 'about', label: 'nav.about', icon: Info, description: 'nav.about.desc' },
 ]
 
 export default function Home() {
+  const { t } = useLanguage()
   const [activeView, setActiveView] = useState('dashboard')
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -77,7 +81,7 @@ export default function Home() {
       <div className="flex min-h-screen bg-[var(--brand-cream)]">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
-            <div className="text-[var(--brand-red)] text-[14px] font-medium mb-2">Failed to load data</div>
+            <div className="text-[var(--brand-red)] text-[14px] font-medium mb-2">{t('common.error')}</div>
             <div className="text-[12px] text-[var(--brand-ink)]/60">{error}</div>
           </div>
         </div>
@@ -109,24 +113,28 @@ export default function Home() {
 
       <main className="flex-1 overflow-x-hidden min-w-0">
         <header className="bg-white border-b border-[var(--brand-border)] px-4 sm:px-6 py-3 sticky top-0 z-30 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {/* SINGLE sidebar toggle button — only in page header */}
             <button
               onClick={() => setSidebarCollapsed(c => !c)}
-              className="p-1.5 rounded-md hover:bg-[var(--brand-cream)] text-[var(--brand-ink)]/70 hover:text-[var(--brand-ink)] transition-colors"
-              title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-              aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+              className="p-1.5 rounded-md hover:bg-[var(--brand-cream)] text-[var(--brand-ink)]/70 hover:text-[var(--brand-ink)] transition-colors flex-shrink-0"
+              title={sidebarCollapsed ? t('header.show_sidebar') : t('header.hide_sidebar')}
+              aria-label={sidebarCollapsed ? t('header.show_sidebar') : t('header.hide_sidebar')}
             >
               {sidebarCollapsed
                 ? <PanelLeftOpen className="w-4 h-4" />
                 : <PanelLeftClose className="w-4 h-4" />}
             </button>
-            <div className="text-[12px] text-[var(--brand-ink)]/60">
+            <div className="text-[12px] text-[var(--brand-ink)]/60 truncate">
               <span className="text-[var(--brand-ink)]/40">LocInsight /</span>{' '}
-              <span className="font-medium text-[var(--brand-ink)] capitalize">
-                {NAV_ITEMS.find(n => n.id === activeView)?.label}
+              <span className="font-medium text-[var(--brand-ink)]">
+                {t(NAV_ITEMS.find(n => n.id === activeView)?.label || '')}
               </span>
             </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <InstallPrompt />
+            <LanguageSwitcher />
           </div>
         </header>
 
@@ -195,8 +203,9 @@ export default function Home() {
 
         <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <strong className="text-white">LocInsight</strong> — Location Intelligence for MAP Active Adiperkasa
+            <div className="flex items-center gap-2">
+              <img src="/logo-white.png" alt="LocInsight" className="w-5 h-5 object-contain" />
+              <strong className="text-white">LocInsight</strong> — {t('common.location_intelligence')} for MAP Active Adiperkasa
             </div>
             <div className="text-white/45">
               © {new Date().getFullYear()} · Built by{' '}
@@ -213,8 +222,8 @@ export default function Home() {
         </footer>
       </main>
 
-      {/* Floating AI chat — visible on all tabs */}
-      <ChatWidget />
+      {/* Floating AI Chat — visible on ALL tabs */}
+      <AIChat />
     </div>
   )
 }
@@ -224,6 +233,7 @@ export default function Home() {
  * Pure CSS animations, shows a rotating globe SVG + brand wordmark.
  * ---------------------------------------------------------------- */
 function LoadingScreen() {
+  const { t } = useLanguage()
   return (
     <div className="flex min-h-screen bg-[var(--brand-cream)] items-center justify-center">
       <style>{`
@@ -269,13 +279,12 @@ function LoadingScreen() {
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <div
-              className="li-globe-core w-14 h-14 rounded-full flex items-center justify-center font-bold text-[22px] text-white shadow-lg"
+              className="li-globe-core w-16 h-16 rounded-full flex items-center justify-center shadow-lg overflow-hidden bg-white"
               style={{
-                background: 'radial-gradient(circle at 35% 30%, #E8324A 0%, #C8102E 45%, #7A0A1A 100%)',
                 boxShadow: '0 8px 24px -8px rgba(200, 16, 46, 0.5), inset 0 -6px 12px rgba(0,0,0,0.25)',
               }}
             >
-              L
+              <img src="/logo-icon.png" alt="LocInsight" className="w-12 h-12 object-contain" draggable={false} />
             </div>
           </div>
         </div>
@@ -286,7 +295,7 @@ function LoadingScreen() {
             LocInsight
           </div>
           <div className="text-[12px] text-[var(--brand-ink)]/55 mt-1.5 flex items-center justify-center gap-1">
-            <span>Loading Location Insights</span>
+            <span>{t('loading.message')}</span>
             <span className="li-dot" style={{ animationDelay: '0s'   }}>.</span>
             <span className="li-dot" style={{ animationDelay: '0.2s' }}>.</span>
             <span className="li-dot" style={{ animationDelay: '0.4s' }}>.</span>

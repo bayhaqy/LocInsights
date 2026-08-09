@@ -1,17 +1,62 @@
 {
-  "name": "LocInsight Field Surveyor",
-  "short_name": "LocInsight Survey",
-  "description": "Offline-capable field survey form for LocInsight location intelligence",
-  "start_url": "/survey",
+  "name": "LocInsight — Location Intelligence for MAP Active",
+  "short_name": "LocInsight",
+  "description": "Data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali using composite ML scoring, Huff gravity modeling, competitor intel, and GBR revenue prediction.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#FAF7F2",
   "theme_color": "#7A0A1A",
-  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgZmlsbD0iIzdBMEExQSIvPjx0ZXh0IHg9Ijk2IiB5PSIxMjgiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjgwIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+TDwvdGV4dD48L3N2Zz4=",
+      "src": "/logo-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open the LocInsight Dashboard",
+      "url": "/?view=dashboard"
+    },
+    {
+      "name": "Map Explorer",
+      "short_name": "Map",
+      "description": "Open the interactive map",
+      "url": "/?view=map"
+    },
+    {
+      "name": "Opportunities",
+      "short_name": "Opportunities",
+      "description": "View top expansion opportunities",
+      "url": "/?view=opportunities"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }

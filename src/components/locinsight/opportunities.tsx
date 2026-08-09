@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Target, Search, TrendingUp, AlertTriangle, MapPin, ArrowUpRight } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-provider'
 import type { OpportunityScore, Brand } from './types'
 
 interface OpportunitiesProps {
@@ -18,6 +19,7 @@ interface OpportunitiesProps {
 export function Opportunities({
   opportunities, brands, selectedKelurahanId, onSelectKelurahan,
 }: OpportunitiesProps) {
+  const { t } = useLanguage()
   const [brandFilter, setBrandFilter] = useState<string>('all')
   const [tierFilter, setTierFilter] = useState<string>('all')
   const [recFilter, setRecFilter] = useState<string>('all')
@@ -60,20 +62,26 @@ export function Opportunities({
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-          Expansion Opportunities
+          {t('opportunities.title')}
         </h2>
         <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          {filtered.length} kelurahan diurutkan berdasarkan {sortBy === 'score' ? 'composite score' : sortBy === 'revenue' ? 'proyeksi revenue' : 'market share'} ·
-          peluang ekspansi MAP/MAA di Bali
+          {t('opportunities.count_subtitle', {
+            count: filtered.length,
+            sort_label: sortBy === 'score'
+              ? t('opportunities.sort_by_score')
+              : sortBy === 'revenue'
+                ? t('opportunities.sort_by_revenue')
+                : t('opportunities.sort_by_marketshare'),
+          })}
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard label="Sites Shown" value={summary.total.toString()} icon={Target} accent="ink" />
-        <SummaryCard label="High Priority" value={summary.high_priority.toString()} icon={TrendingUp} accent="red" />
-        <SummaryCard label="Avg Score" value={`${summary.avg_score}/100`} icon={Target} accent="ink" />
-        <SummaryCard label="Total Monthly Rev" value={`Rp ${(summary.total_revenue / 1000).toFixed(1)}M`} icon={TrendingUp} accent="red" />
+        <SummaryCard label={t('opportunities.sites_shown')} value={summary.total.toString()} icon={Target} accent="ink" />
+        <SummaryCard label={t('dashboard.rec_high_priority')} value={summary.high_priority.toString()} icon={TrendingUp} accent="red" />
+        <SummaryCard label={t('opportunities.avg_score')} value={`${summary.avg_score}/100`} icon={Target} accent="ink" />
+        <SummaryCard label={t('opportunities.total_monthly_rev')} value={`Rp ${(summary.total_revenue / 1000).toFixed(1)}M`} icon={TrendingUp} accent="red" />
       </div>
 
       {/* Filters */}
@@ -81,23 +89,23 @@ export function Opportunities({
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="lg:col-span-2">
-              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Search</label>
+              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('common.search')}</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--brand-ink)]/40" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Kelurahan, kecamatan, kabupaten…"
+                  placeholder={t('opportunities.search_placeholder')}
                   className="pl-8 h-9 text-[12px]"
                 />
               </div>
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Brand</label>
+              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('opportunities.brand_label')}</label>
               <Select value={brandFilter} onValueChange={setBrandFilter}>
                 <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Brands (Generic)</SelectItem>
+                  <SelectItem value="all">{t('opportunities.all_brands_generic')}</SelectItem>
                   {brands.map(b => (
                     <SelectItem key={b.id} value={b.id}>{b.name} · {b.parent}</SelectItem>
                   ))}
@@ -105,25 +113,25 @@ export function Opportunities({
               </Select>
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Tier</label>
+              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('opportunities.tier_label')}</label>
               <Select value={tierFilter} onValueChange={setTierFilter}>
                 <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Tiers</SelectItem>
-                  <SelectItem value="1">Tier 1</SelectItem>
-                  <SelectItem value="2">Tier 2</SelectItem>
-                  <SelectItem value="3">Tier 3</SelectItem>
+                  <SelectItem value="all">{t('opportunities.all_tiers')}</SelectItem>
+                  <SelectItem value="1">{t('opportunities.tier_n', { n: 1 })}</SelectItem>
+                  <SelectItem value="2">{t('opportunities.tier_n', { n: 2 })}</SelectItem>
+                  <SelectItem value="3">{t('opportunities.tier_n', { n: 3 })}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Sort By</label>
+              <label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('opportunities.sort_by')}</label>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
                 <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="score">Composite Score</SelectItem>
-                  <SelectItem value="revenue">Projected Revenue</SelectItem>
-                  <SelectItem value="marketshare">Market Share</SelectItem>
+                  <SelectItem value="score">{t('opportunities.score')}</SelectItem>
+                  <SelectItem value="revenue">{t('opportunities.projected_revenue')}</SelectItem>
+                  <SelectItem value="marketshare">{t('opportunities.market_share')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -131,10 +139,10 @@ export function Opportunities({
           {brandFilter !== 'all' && (
             <div className="mt-3 pt-3 border-t border-[var(--brand-border)] flex items-center gap-2">
               <Badge className="bg-[var(--brand-red-light)] text-[var(--brand-red)] border-[var(--brand-red)]/30">
-                {brands.find(b => b.id === brandFilter)?.name || 'Brand'}
+                {brands.find(b => b.id === brandFilter)?.name || t('opportunities.brand_label')}
               </Badge>
               <span className="text-[11px] text-[var(--brand-ink)]/60">
-                Note: brand-specific scoring would re-run Huff model with brand attractiveness — display uses generic scores (re-fetch via API for brand-tailored analysis).
+                {t('opportunities.brand_filter_note')}
               </span>
             </div>
           )}
@@ -156,7 +164,7 @@ export function Opportunities({
       {filtered.length === 0 && (
         <div className="text-center py-12 text-[var(--brand-ink)]/50">
           <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <div className="text-[13px]">Tidak ada opportunity yang cocok dengan filter</div>
+          <div className="text-[13px]">{t('opportunities.no_match')}</div>
         </div>
       )}
     </div>
@@ -186,18 +194,26 @@ function OpportunityCard({
   isSelected: boolean
   onClick: () => void
 }) {
+  const { t } = useLanguage()
   const recColor: Record<string, string> = {
     high_priority: 'var(--brand-red)',
     priority: '#D45F4A',
     monitor: '#A08070',
     avoid: '#B0B0B0',
   }
-  const recLabel: Record<string, string> = {
-    high_priority: 'HIGH PRIORITY',
-    priority: 'PRIORITY',
-    monitor: 'MONITOR',
-    avoid: 'AVOID',
+  const recKeyMap: Record<string, string> = {
+    high_priority: 'dashboard.rec_high_priority',
+    priority: 'dashboard.rec_priority',
+    monitor: 'dashboard.rec_monitor',
+    avoid: 'dashboard.rec_avoid',
   }
+  const riskKeyMap: Record<string, string> = {
+    low: 'dashboard.risk_low',
+    medium: 'dashboard.risk_medium',
+    high: 'dashboard.risk_high',
+  }
+  const recKey = recKeyMap[opp.recommendation] || recKeyMap.monitor
+  const riskKey = riskKeyMap[opp.cannibalization_risk] || opp.cannibalization_risk
   return (
     <Card
       className={`card-premium cursor-pointer transition-all ${isSelected ? 'border-[var(--brand-red)] border-2' : 'hover:border-[var(--brand-red)]/30'}`}
@@ -209,12 +225,12 @@ function OpportunityCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white"
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white uppercase"
                 style={{ background: recColor[opp.recommendation] }}
               >
-                {recLabel[opp.recommendation]}
+                {t(recKey)}
               </span>
-              <span className="text-[10px] text-[var(--brand-ink)]/50 uppercase tracking-wider">Tier {opp.tier}</span>
+              <span className="text-[10px] text-[var(--brand-ink)]/50 uppercase tracking-wider">{t('opportunities.tier_n', { n: opp.tier })}</span>
             </div>
             <div className="font-display font-bold text-[15px] text-[var(--brand-ink)] leading-tight">
               {opp.kelurahan_name}
@@ -228,7 +244,7 @@ function OpportunityCard({
             <div className="font-display text-[28px] font-bold leading-none num-tabular" style={{ color: recColor[opp.recommendation] }}>
               {opp.composite_score}
             </div>
-            <div className="text-[9px] text-[var(--brand-ink)]/50 uppercase tracking-wider">score</div>
+            <div className="text-[9px] text-[var(--brand-ink)]/50 uppercase tracking-wider">{t('opportunities.score_label')}</div>
           </div>
         </div>
 
@@ -243,36 +259,36 @@ function OpportunityCard({
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px] mb-3">
           <div className="flex justify-between">
-            <span className="text-[var(--brand-ink)]/55">Mkt Share</span>
+            <span className="text-[var(--brand-ink)]/55">{t('dashboard.mkt_share')}</span>
             <strong className="num-tabular">{(opp.potential_market_share * 100).toFixed(1)}%</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-[var(--brand-ink)]/55">Daily Cust</span>
+            <span className="text-[var(--brand-ink)]/55">{t('dashboard.daily_customers')}</span>
             <strong className="num-tabular">{opp.estimated_daily_customers}</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-[var(--brand-ink)]/55">Rev/mo</span>
+            <span className="text-[var(--brand-ink)]/55">{t('dashboard.rev_per_month')}</span>
             <strong className="num-tabular text-[var(--brand-red)]">Rp {opp.projected_monthly_revenue_juta}jt</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-[var(--brand-ink)]/55">Risk</span>
-            <span className="capitalize text-[10px] font-medium">{opp.cannibalization_risk}</span>
+            <span className="text-[var(--brand-ink)]/55">{t('dashboard.risk')}</span>
+            <span className="capitalize text-[10px] font-medium">{t(riskKey)}</span>
           </div>
         </div>
 
         {/* Nearest mall */}
         <div className="pt-2.5 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/70 leading-snug">
           {opp.nearest_mall_name ? (
-            <><strong className="text-[var(--brand-ink)]">{opp.nearest_mall_name}</strong> · {opp.nearest_mall_distance_km}km · {opp.nearby_existing_stores} MAP stores in 2km</>
+            <><strong className="text-[var(--brand-ink)]">{opp.nearest_mall_name}</strong> · {opp.nearest_mall_distance_km}km · {t('opportunities.map_stores_within_2km', { count: opp.nearby_existing_stores })}</>
           ) : (
-            <>No mall nearby · street-location strategy</>
+            <>{t('opportunities.no_mall_nearby')}</>
           )}
         </div>
 
         {/* Factor breakdown mini bars */}
         <div className="mt-3 pt-2.5 border-t border-[var(--brand-border)] grid grid-cols-6 gap-1.5">
           {opp.factors.map(f => (
-            <div key={f.name} title={`${f.name}: ${f.raw_value}/100 (weight ${(f.weight * 100).toFixed(0)}%)`} className="text-center">
+            <div key={f.name} title={t('opportunities.factor_tooltip', { name: f.name, value: f.raw_value, weight: (f.weight * 100).toFixed(0) })} className="text-center">
               <div className="h-1.5 bg-[var(--brand-cream)] rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full rounded-full"

@@ -16,6 +16,7 @@ import { Store as StoreIcon } from 'lucide-react'
 import type { OpportunityScore, Store, Mall, POI } from './types'
 import { Button } from '@/components/ui/button'
 import type { DemoMetric, DemoGranularity, DemoRegionRow } from './choropleth-demographics-layer'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 interface MapExplorerProps {
   opportunities: OpportunityScore[]
@@ -31,16 +32,20 @@ interface MapExplorerProps {
 }
 
 // Dynamic import with ssr:false to avoid Leaflet's window reference during SSR
-const LocInsightMap = dynamic(
-  () => import('./locinsight-map').then(mod => ({ default: mod.LocInsightMap })),
-  { ssr: false, loading: () => (
+function MapLoadingState() {
+  const { t } = useLanguage()
+  return (
     <div className="w-full h-full flex items-center justify-center bg-[var(--brand-cream)] rounded-lg border border-[var(--brand-border)]">
       <div className="text-center">
         <div className="w-8 h-8 border-4 border-[var(--brand-red)] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-        <div className="text-[12px] text-[var(--brand-ink)]/60">Loading map…</div>
+        <div className="text-[12px] text-[var(--brand-ink)]/60">{t('map.loading_map')}</div>
       </div>
     </div>
-  ) }
+  )
+}
+const LocInsightMap = dynamic(
+  () => import('./locinsight-map').then(mod => ({ default: mod.LocInsightMap })),
+  { ssr: false, loading: () => <MapLoadingState /> }
 )
 
 // ===== Unified layer type =====
@@ -58,33 +63,33 @@ type VizMode = 'choropleth' | 'point'
 type RegionLevel = 'kabupaten' | 'kecamatan' | 'kelurahan'
 
 const BRAND_CATEGORY_OPTIONS = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'sports', label: 'Sports' },
-  { value: 'fashion', label: 'Fashion' },
-  { value: 'food_beverage', label: 'Food & Beverage' },
-  { value: 'department_store', label: 'Department Store' },
-  { value: 'kids', label: 'Kids' },
-  { value: 'lifestyle', label: 'Lifestyle' },
-  { value: 'beauty', label: 'Beauty' },
-  { value: 'athleisure', label: 'Athleisure' },
-  { value: 'footwear', label: 'Footwear' },
+  { value: 'all', labelKey: 'map.cat.all' },
+  { value: 'sports', labelKey: 'map.cat.sports' },
+  { value: 'fashion', labelKey: 'map.cat.fashion' },
+  { value: 'food_beverage', labelKey: 'map.cat.food_beverage' },
+  { value: 'department_store', labelKey: 'map.cat.department_store' },
+  { value: 'kids', labelKey: 'map.cat.kids' },
+  { value: 'lifestyle', labelKey: 'map.cat.lifestyle' },
+  { value: 'beauty', labelKey: 'map.cat.beauty' },
+  { value: 'athleisure', labelKey: 'map.cat.athleisure' },
+  { value: 'footwear', labelKey: 'map.cat.footwear' },
 ]
 
 const PARENT_OPTIONS = [
-  { value: 'all', label: 'MAP & MAA (All)' },
-  { value: 'MAP', label: 'MAP only (PT Mitra Adiperkasa)' },
-  { value: 'MAA', label: 'MAA only (MAP Active Adiperkasa)' },
+  { value: 'all', labelKey: 'map.parent.all' },
+  { value: 'MAP', labelKey: 'map.parent.map' },
+  { value: 'MAA', labelKey: 'map.parent.maa' },
 ]
 
 // Demographics metric options
-const DEMO_METRIC_OPTIONS: { value: DemoMetric; label: string; icon: any; color: string }[] = [
-  { value: 'income_index', label: 'Income Index', icon: Banknote, color: '#31a354' },
-  { value: 'urban_index', label: 'Urbanization Index', icon: Building2, color: '#fd8d3c' },
-  { value: 'tourist_index', label: 'Tourist Index', icon: Sparkles, color: '#41ae76' },
-  { value: 'transport_index', label: 'Transport Index', icon: Bus, color: '#8856a7' },
-  { value: 'poi_density_index', label: 'POI Density Index', icon: MapPin, color: '#ec7014' },
-  { value: 'population_density', label: 'Population Density', icon: Users, color: '#ef3b2c' },
-  { value: 'population', label: 'Population', icon: Users, color: '#3182bd' },
+const DEMO_METRIC_OPTIONS: { value: DemoMetric; labelKey: string; icon: any; color: string }[] = [
+  { value: 'income_index', labelKey: 'map.demo.income_index', icon: Banknote, color: '#31a354' },
+  { value: 'urban_index', labelKey: 'map.demo.urban_index', icon: Building2, color: '#fd8d3c' },
+  { value: 'tourist_index', labelKey: 'map.demo.tourist_index', icon: Sparkles, color: '#41ae76' },
+  { value: 'transport_index', labelKey: 'map.demo.transport_index', icon: Bus, color: '#8856a7' },
+  { value: 'poi_density_index', labelKey: 'map.demo.poi_density_index', icon: MapPin, color: '#ec7014' },
+  { value: 'population_density', labelKey: 'map.demo.population_density', icon: Users, color: '#ef3b2c' },
+  { value: 'population', labelKey: 'map.demo.population', icon: Users, color: '#3182bd' },
 ]
 
 // Layers that support choropleth + point visualization
@@ -93,6 +98,7 @@ const CHOROPLETH_CAPABLE_LAYERS: LayerId[] = ['opportunity', 'demographics']
 export function MapExplorer({
   opportunities, stores, malls, pois, selectedKelurahanId, onSelectKelurahan, onOpenOpportunities, onOpenAnalysis,
 }: MapExplorerProps) {
+  const { t } = useLanguage()
   // ===== Layer visibility + visualization config =====
   const [layerOn, setLayerOn] = useState<Record<LayerId, boolean>>({
     opportunity: true,
@@ -467,16 +473,20 @@ export function MapExplorer({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-            Interactive Map Explorer
+            {t('map.explorer_title')}
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-            {filteredOpps.length} kelurahan · {filteredStores.length} stores · {filteredMalls.length} malls ditampilkan
+            {t('map.results_summary', {
+              kelurahan: filteredOpps.length,
+              stores: filteredStores.length,
+              malls: filteredMalls.length,
+            })}
           </p>
         </div>
         {isFilterActive && (
           <Button size="sm" variant="outline" onClick={resetFilters} className="text-[11px] h-8">
             <RotateCcw className="w-3 h-3 mr-1" />
-            Reset Filters
+            {t('map.reset_filters')}
           </Button>
         )}
       </div>
@@ -528,9 +538,9 @@ export function MapExplorer({
               <CardHeader className="pb-2">
                 <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-red)] flex items-center gap-2">
                   <Crosshair className="w-3.5 h-3.5" />
-                  Selected
+                  {t('map.selected')}
                   <span className="ml-auto text-[9.5px] normal-case tracking-normal text-[var(--brand-ink)]/45 font-normal flex items-center gap-0.5 group-hover:text-[var(--brand-red)] transition-colors">
-                    Open in Opportunities →
+                    {t('map.selected.open_opportunities')}
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -539,31 +549,35 @@ export function MapExplorer({
                   {selected.kelurahan_name}
                 </div>
                 <div className="text-[11.5px] text-[var(--brand-ink)]/60 mb-3">
-                  {selected.kec_name}, {selected.kab_name} · Tier {selected.tier}
+                  {t('map.selected.region_tier', {
+                    kec: selected.kec_name,
+                    kab: selected.kab_name,
+                    tier: selected.tier,
+                  })}
                 </div>
                 <div className="space-y-1.5 text-[12px]">
                   <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Composite Score</span>
+                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.composite_score')}</span>
                     <strong className="text-[var(--brand-red)] num-tabular">{selected.composite_score}/100</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Market Share</span>
+                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.market_share')}</span>
                     <strong className="num-tabular">{(selected.potential_market_share * 100).toFixed(1)}%</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Daily Customers</span>
+                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.daily_customers')}</span>
                     <strong className="num-tabular">{selected.estimated_daily_customers}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Monthly Revenue</span>
-                    <strong className="num-tabular">Rp {selected.projected_monthly_revenue_juta}jt</strong>
+                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.monthly_revenue')}</span>
+                    <strong className="num-tabular">{t('map.selected.revenue_format', { amount: selected.projected_monthly_revenue_juta })}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Nearest Mall</span>
+                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.nearest_mall')}</span>
                     <span className="text-right text-[11px]">{selected.nearest_mall_name?.split(' ')[0] || '—'} ({selected.nearest_mall_distance_km}km)</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Cannibalization</span>
+                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.cannibalization')}</span>
                     <span className="capitalize text-[11px]">{selected.cannibalization_risk}</span>
                   </div>
                 </div>
@@ -587,10 +601,10 @@ export function MapExplorer({
               <CardContent className="py-6 text-center">
                 <Crosshair className="w-6 h-6 mx-auto text-[var(--brand-ink)]/30 mb-2" />
                 <div className="text-[12px] text-[var(--brand-ink)]/60">
-                  Klik marker atau wilayah di peta untuk melihat detail kelurahan
+                  {t('map.selected.empty')}
                 </div>
                 <div className="text-[10.5px] text-[var(--brand-ink)]/40 mt-1">
-                  Panel ini akan otomatis ter-update saat wilayah dipilih
+                  {t('map.selected.empty_hint')}
                 </div>
               </CardContent>
             </Card>
@@ -600,22 +614,22 @@ export function MapExplorer({
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Filter className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                Region & Filters
+                {t('map.region_filters')}
                 <span className="ml-auto text-[10px] normal-case tracking-normal text-[var(--brand-ink)]/50 font-normal">
-                  affects all layers
+                  {t('map.affects_all_layers')}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
               {/* Search */}
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Search</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('common.search')}</Label>
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-[var(--brand-ink)]/40" />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Kelurahan, kecamatan, store, mall…"
+                    placeholder={t('map.search_placeholder')}
                     className="h-9 text-[12px] pl-8"
                   />
                 </div>
@@ -623,11 +637,11 @@ export function MapExplorer({
 
               {/* Cascading region filter */}
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Region (cascading)</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.region_cascading')}</Label>
                 <Select value={kabFilter} onValueChange={(v) => { setKabFilter(v); setKecFilter('all'); setKelurahanFilter('all'); }}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Kabupaten/Kota (9)</SelectItem>
+                    <SelectItem value="all">{t('map.all_kabupaten_kota')}</SelectItem>
                     {kabOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -635,12 +649,12 @@ export function MapExplorer({
 
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                  Kecamatan {kabFilter !== 'all' ? `(${kecOptions.length})` : '— pick kabupaten first'}
+                  {t('map.kecamatan')} {kabFilter !== 'all' ? `(${kecOptions.length})` : t('map.pick_kabupaten_first')}
                 </Label>
                 <Select value={kecFilter} onValueChange={(v) => { setKecFilter(v); setKelurahanFilter('all'); }} disabled={kabFilter === 'all'}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Kecamatan</SelectItem>
+                    <SelectItem value="all">{t('map.all_kecamatan')}</SelectItem>
                     {kecOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -648,12 +662,12 @@ export function MapExplorer({
 
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                  Kelurahan/Desa {kecFilter !== 'all' ? `(${kelurahanOptions.length})` : '— pick kecamatan first'}
+                  {t('map.kelurahan')} {kecFilter !== 'all' ? `(${kelurahanOptions.length})` : t('map.pick_kecamatan_first')}
                 </Label>
                 <Select value={kelurahanFilter} onValueChange={setKelurahanFilter} disabled={kecFilter === 'all'}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Kelurahan/Desa</SelectItem>
+                    <SelectItem value="all">{t('map.all_kelurahan')}</SelectItem>
                     {kelurahanOptions.slice(0, 200).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -661,27 +675,27 @@ export function MapExplorer({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Tier</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.tier')}</Label>
                   <Select value={tierFilter.toString()} onValueChange={(v) => setTierFilter(v === 'all' ? 'all' : Number(v) as any)}>
                     <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="1">Tier 1</SelectItem>
-                      <SelectItem value="2">Tier 2</SelectItem>
-                      <SelectItem value="3">Tier 3</SelectItem>
+                      <SelectItem value="all">{t('common.all')}</SelectItem>
+                      <SelectItem value="1">{t('map.tier_n', { n: 1 })}</SelectItem>
+                      <SelectItem value="2">{t('map.tier_n', { n: 2 })}</SelectItem>
+                      <SelectItem value="3">{t('map.tier_n', { n: 3 })}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Recommendation</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.recommendation')}</Label>
                   <Select value={recFilter} onValueChange={(v) => setRecFilter(v as any)}>
                     <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="high_priority">High Priority</SelectItem>
-                      <SelectItem value="priority">Priority</SelectItem>
-                      <SelectItem value="monitor">Monitor</SelectItem>
-                      <SelectItem value="avoid">Avoid</SelectItem>
+                      <SelectItem value="all">{t('common.all')}</SelectItem>
+                      <SelectItem value="high_priority">{t('map.rec.high_priority')}</SelectItem>
+                      <SelectItem value="priority">{t('map.rec.priority')}</SelectItem>
+                      <SelectItem value="monitor">{t('map.rec.monitor')}</SelectItem>
+                      <SelectItem value="avoid">{t('map.rec.avoid')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -689,7 +703,7 @@ export function MapExplorer({
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60">Score Range</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('map.score_range')}</Label>
                   <span className="text-[11px] text-[var(--brand-red)] font-semibold tabular-nums">
                     {scoreRange[0]} – {scoreRange[1]}
                   </span>
@@ -705,23 +719,23 @@ export function MapExplorer({
               </div>
 
               <div className="pt-2 border-t border-[var(--brand-border)]">
-                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">Store-only filters</Label>
+                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">{t('map.store_only_filters')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Brand Category</Label>
+                    <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.brand_category')}</Label>
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                       <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {BRAND_CATEGORY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        {BRAND_CATEGORY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Parent</Label>
+                    <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.parent')}</Label>
                     <Select value={parentFilter} onValueChange={(v) => setParentFilter(v as any)}>
                       <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {PARENT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        {PARENT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -735,9 +749,9 @@ export function MapExplorer({
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Compass className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                Map Layers
+                {t('map.layers')}
                 <span className="ml-auto text-[10px] normal-case tracking-normal text-[var(--brand-ink)]/50 font-normal">
-                  {Object.values(layerOn).filter(Boolean).length} active
+                  {t('map.n_active', { n: Object.values(layerOn).filter(Boolean).length })}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -745,8 +759,8 @@ export function MapExplorer({
 
               {/* ===== Opportunity Score ===== */}
               <LayerToggle
-                label="Opportunity Score"
-                desc={`${filteredOpps.length} kelurahan scored`}
+                label={t('map.opportunity')}
+                desc={t('map.kelurahan_scored', { n: filteredOpps.length })}
                 icon={Crosshair}
                 checked={layerOn.opportunity}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, opportunity: v })}
@@ -756,17 +770,17 @@ export function MapExplorer({
                 <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Visualization</Label>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.visualization')}</Label>
                       <Select value={layerVizMode.opportunity} onValueChange={(v) => setLayerVizMode({ ...layerVizMode, opportunity: v as VizMode })}>
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="choropleth">Choropleth (region fill)</SelectItem>
-                          <SelectItem value="point">Point (heatmap intensity)</SelectItem>
+                          <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
+                          <SelectItem value="point">{t('map.viz_point_heat')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Level</Label>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
                       <Select
                         value={layerRegion.opportunity}
                         onValueChange={(v) => setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel })}
@@ -774,10 +788,10 @@ export function MapExplorer({
                       >
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="kabupaten">Kabupaten (9 regions)</SelectItem>
-                          <SelectItem value="kecamatan">Kecamatan (57 regions)</SelectItem>
+                          <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
+                          <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
                           {layerVizMode.opportunity === 'point' && (
-                            <SelectItem value="kelurahan">Kelurahan/Desa (finest)</SelectItem>
+                            <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -785,21 +799,21 @@ export function MapExplorer({
                   </div>
                   {layerVizMode.opportunity === 'choropleth' && (
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Metric</Label>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.metric')}</Label>
                       <Select value={oppMetric} onValueChange={(v) => setOppMetric(v as any)}>
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="avg_score">Average composite score</SelectItem>
-                          <SelectItem value="max_score">Best score in region</SelectItem>
-                          <SelectItem value="high_priority_count"># high-priority sites</SelectItem>
-                          <SelectItem value="store_density"># kelurahan covered</SelectItem>
+                          <SelectItem value="avg_score">{t('map.metric_avg_score')}</SelectItem>
+                          <SelectItem value="max_score">{t('map.metric_max_score')}</SelectItem>
+                          <SelectItem value="high_priority_count">{t('map.metric_high_priority_count')}</SelectItem>
+                          <SelectItem value="store_density">{t('map.metric_store_density')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   )}
                   {layerVizMode.opportunity === 'point' && (
                     <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                      Point mode renders a heat intensity layer — each kelurahan/desa contributes its composite score as a point. Finest granularity.
+                      {t('map.point_mode_hint')}
                     </div>
                   )}
                 </div>
@@ -807,8 +821,8 @@ export function MapExplorer({
 
               {/* ===== Demographics ===== */}
               <LayerToggle
-                label="Demographics"
-                desc="Income, urbanization, tourism, transport, population"
+                label={t('map.demographics')}
+                desc={t('map.demographics_desc')}
                 icon={TrendingUp}
                 checked={layerOn.demographics}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, demographics: v })}
@@ -817,55 +831,55 @@ export function MapExplorer({
               {layerOn.demographics && (
                 <div className="pl-2 border-l-2 border-violet-500/30 space-y-2 ml-1">
                   <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Metric</Label>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.metric')}</Label>
                     <Select value={demoMetric} onValueChange={(v) => setDemoMetric(v as DemoMetric)}>
                       <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {DEMO_METRIC_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Visualization</Label>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.visualization')}</Label>
                       <Select
                         value={layerVizMode.demographics}
                         onValueChange={(v) => setLayerVizMode({ ...layerVizMode, demographics: v as VizMode })}
                       >
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="choropleth">Choropleth (region fill)</SelectItem>
-                          <SelectItem value="point">Point (per-village marker)</SelectItem>
+                          <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
+                          <SelectItem value="point">{t('map.viz_point_village')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Level</Label>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
                       <Select
                         value={layerRegion.demographics}
                         onValueChange={(v) => setLayerRegion({ ...layerRegion, demographics: v as RegionLevel })}
                       >
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="kabupaten">Kabupaten (9 regions)</SelectItem>
-                          <SelectItem value="kecamatan">Kecamatan (57 regions)</SelectItem>
-                          <SelectItem value="kelurahan">Kelurahan/Desa (~700+ villages)</SelectItem>
+                          <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
+                          <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
+                          <SelectItem value="kelurahan">{t('map.kelurahan_villages')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                    {demoData.length} regions aggregated · BPS + KEMENDAGRI source. Kelurahan level auto-renders as points (no village polygons).
+                    {t('map.demographics_hint', { n: demoData.length })}
                   </div>
                 </div>
               )}
 
               {/* ===== Stores ===== */}
               <LayerToggle
-                label="MAP / MAA Stores"
-                desc={`${filteredStores.length} of ${stores.length} stores`}
+                label={t('map.map_maa_stores')}
+                desc={t('map.n_of_m_stores', { shown: filteredStores.length, total: stores.length })}
                 icon={StoreIcon}
                 checked={layerOn.stores}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, stores: v })}
@@ -874,8 +888,8 @@ export function MapExplorer({
 
               {/* ===== Malls ===== */}
               <LayerToggle
-                label="Shopping Malls"
-                desc={`${filteredMalls.length} of ${malls.length} shopping centers`}
+                label={t('map.shopping_malls')}
+                desc={t('map.n_of_m_malls', { shown: filteredMalls.length, total: malls.length })}
                 icon={Building2}
                 checked={layerOn.malls}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, malls: v })}
@@ -884,8 +898,8 @@ export function MapExplorer({
 
               {/* ===== Competitor Stores ===== */}
               <LayerToggle
-                label="Competitor Stores"
-                desc={`${filteredCompetitors.length} of ${competitors.length} competitors`}
+                label={t('map.competitor_stores')}
+                desc={t('map.n_of_m_competitors', { shown: filteredCompetitors.length, total: competitors.length })}
                 icon={Shield}
                 checked={layerOn.competitors}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, competitors: v })}
@@ -894,11 +908,11 @@ export function MapExplorer({
               {layerOn.competitors && competitors.length > 0 && (
                 <div className="pl-2 border-l-2 border-red-500/30 space-y-2 ml-1">
                   <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Filter by Brand</Label>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.brand_filter')}</Label>
                     <Select value={competitorBrandFilter} onValueChange={setCompetitorBrandFilter}>
                       <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Brands ({competitors.length})</SelectItem>
+                        <SelectItem value="all">{t('map.all_brands', { n: competitors.length })}</SelectItem>
                         {Array.from(new Set(competitors.map(c => c.brand_name))).sort().map(b => (
                           <SelectItem key={b} value={b}>{b} ({competitors.filter(c => c.brand_name === b).length})</SelectItem>
                         ))}
@@ -910,8 +924,8 @@ export function MapExplorer({
 
               {/* ===== Tourist POIs ===== */}
               <LayerToggle
-                label="Tourist Attractions"
-                desc={`Beaches, temples, attractions, hotels (${filteredPOIs.filter(p => ['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length} shown)`}
+                label={t('map.tourist_attractions')}
+                desc={t('map.tourist_attractions_desc', { n: filteredPOIs.filter(p => ['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length })}
                 icon={Sparkles}
                 checked={layerOn.tourist_pois}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, tourist_pois: v })}
@@ -920,8 +934,8 @@ export function MapExplorer({
 
               {/* ===== Civic POIs ===== */}
               <LayerToggle
-                label="Civic POIs"
-                desc={`Universities, hospitals, transit, government (${filteredPOIs.filter(p => !['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length} shown)`}
+                label={t('map.civic_pois')}
+                desc={t('map.civic_pois_desc', { n: filteredPOIs.filter(p => !['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length })}
                 icon={MapPin}
                 checked={layerOn.civic_pois}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, civic_pois: v })}
@@ -930,8 +944,8 @@ export function MapExplorer({
 
               {/* ===== Crowd Density ===== */}
               <LayerToggle
-                label="Crowd Density"
-                desc="Foot traffic estimate (POI + mall + store density)"
+                label={t('map.crowd_density')}
+                desc={t('map.crowd_density_desc')}
                 icon={Activity}
                 checked={layerOn.crowd_density}
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, crowd_density: v })}

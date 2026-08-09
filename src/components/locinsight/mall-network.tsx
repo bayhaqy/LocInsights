@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Building2, Store as StoreIcon, AlertCircle, CheckCircle2, MapPin } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-provider'
 import type { Mall, Store, Brand } from './types'
 
 interface MallNetworkProps {
@@ -13,6 +14,7 @@ interface MallNetworkProps {
 }
 
 export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
+  const { t } = useLanguage()
   // Compute mall occupancy: which brands are in each mall
   const mallsWithTenants = malls.map(m => {
     const tenants = stores.filter(s => s.mall_id === m.id)
@@ -59,19 +61,19 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-          Mall Network Analysis
+          {t('malls.title_analysis')}
         </h2>
         <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          Coverage MAP & MAA di {malls.length} mall Bali · identifikasi mall under-penetrated
+          {t('malls.network_subtitle', { count: malls.length })}
         </p>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard label="Total Malls" value={malls.length.toString()} icon={Building2} accent="ink" />
-        <SummaryCard label="Untapped Malls" value={untapped.length.toString()} icon={AlertCircle} accent="red" />
-        <SummaryCard label="Malls w/o Anchor" value={noAnchor.length.toString()} icon={AlertCircle} accent="red" />
-        <SummaryCard label="Saturated (5+ stores)" value={saturated.length.toString()} icon={CheckCircle2} accent="ink" />
+        <SummaryCard label={t('malls.total_malls')} value={malls.length.toString()} icon={Building2} accent="ink" />
+        <SummaryCard label={t('malls.untapped_malls')} value={untapped.length.toString()} icon={AlertCircle} accent="red" />
+        <SummaryCard label={t('malls.no_anchor')} value={noAnchor.length.toString()} icon={AlertCircle} accent="red" />
+        <SummaryCard label={t('malls.saturated')} value={saturated.length.toString()} icon={CheckCircle2} accent="ink" />
       </div>
 
       {/* Untapped malls highlight */}
@@ -80,7 +82,7 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-red)] flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
-              Untapped Malls — High Priority Expansion Targets
+              {t('malls.untapped_priority')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -90,9 +92,9 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
                   <div className="font-bold text-[13px] text-[var(--brand-ink)]">{m.name}</div>
                   <div className="text-[11px] text-[var(--brand-ink)]/60 mt-0.5">{m.kec}, {m.kab}</div>
                   <div className="text-[11px] text-[var(--brand-ink)]/70 mt-2">
-                    GLA: <strong>{(m.gla_m2 / 1000).toFixed(0)}k m²</strong> · Est. <strong>{m.visitor_estimate_daily.toLocaleString()}</strong> visitors/day
+                    {t('malls.gla')}: <strong>{(m.gla_m2 / 1000).toFixed(0)}k m²</strong> · {t('malls.visitors_estimate')} <strong>{m.visitor_estimate_daily.toLocaleString()}</strong> {t('malls.visitors_per_day')}
                   </div>
-                  <div className="text-[10px] text-[var(--brand-ink)]/50 mt-1">Class: {m.class.replace('_', ' ')}</div>
+                  <div className="text-[10px] text-[var(--brand-ink)]/50 mt-1">{t('malls.class')}: {m.class.replace('_', ' ')}</div>
                 </div>
               ))}
             </div>
@@ -106,12 +108,12 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Building2 className="w-4 h-4 text-[var(--brand-red)]" />
-              Upcoming Malls (Under Construction)
+              {t('malls.upcoming_title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="text-[12px] text-[var(--brand-ink)]/70 mb-3">
-              Mall dalam tahap pembangunan — penting untuk early engagement dengan developer untuk slot anchor/premium
+              {t('malls.upcoming_desc')}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {upcoming.map(m => (
@@ -119,7 +121,7 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
                   <div className="font-bold text-[13px] text-[var(--brand-ink)]">{m.name}</div>
                   <div className="text-[11px] text-[var(--brand-ink)]/60 mt-0.5">{m.kec}, {m.kab}</div>
                   <div className="text-[11px] text-[var(--brand-ink)]/70 mt-2">
-                    Expected GLA: <strong>{(m.gla_m2 / 1000).toFixed(0)}k m²</strong> · Target open: <strong>{m.opened_year}</strong>
+                    {t('malls.expected_gla')}: <strong>{(m.gla_m2 / 1000).toFixed(0)}k m²</strong> · {t('malls.target_open')}: <strong>{m.opened_year}</strong>
                   </div>
                 </div>
               ))}
@@ -133,7 +135,7 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <StoreIcon className="w-4 h-4 text-[var(--brand-red)]" />
-            Mall Tenant Map (sorted by GLA)
+            {t('malls.tenant_map')}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -141,13 +143,13 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="border-b border-[var(--brand-border)] text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">
-                  <th className="text-left py-2.5 px-2 font-medium">Mall</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Area</th>
-                  <th className="text-right py-2.5 px-2 font-medium">GLA (m²)</th>
-                  <th className="text-right py-2.5 px-2 font-medium">Visitors/day</th>
-                  <th className="text-center py-2.5 px-2 font-medium">Stores</th>
-                  <th className="text-center py-2.5 px-2 font-medium">Anchor</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Tenant Brands</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('malls.col_mall')}</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('malls.col_area')}</th>
+                  <th className="text-right py-2.5 px-2 font-medium">{t('malls.col_gla')}</th>
+                  <th className="text-right py-2.5 px-2 font-medium">{t('malls.col_visitors')}</th>
+                  <th className="text-center py-2.5 px-2 font-medium">{t('malls.col_stores')}</th>
+                  <th className="text-center py-2.5 px-2 font-medium">{t('malls.col_anchor')}</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('malls.col_tenant_brands')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -155,7 +157,7 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
                   <tr key={m.id} className="border-b border-[var(--brand-border)] last:border-0 hover:bg-[var(--brand-cream)]">
                     <td className="py-2.5 px-2">
                       <div className="font-medium text-[var(--brand-ink)]">{m.name}</div>
-                      <div className="text-[10px] text-[var(--brand-ink)]/50">{m.class.replace('_', ' ')} · opened {m.opened_year}</div>
+                      <div className="text-[10px] text-[var(--brand-ink)]/50">{m.class.replace('_', ' ')} · {t('malls.opened_in', { year: m.opened_year })}</div>
                     </td>
                     <td className="py-2.5 px-2 text-[var(--brand-ink)]/70">
                       <div className="text-[11px]">{m.kec}</div>
@@ -192,10 +194,10 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
                           <span className="text-[9px] text-[var(--brand-ink)]/50 px-1">+{m.tenantBrands.length - 5}</span>
                         )}
                         {m.tenantBrands.length === 0 && m.visitor_estimate_daily > 0 && (
-                          <span className="text-[10px] text-[var(--brand-red)] font-medium">No MAP presence</span>
+                          <span className="text-[10px] text-[var(--brand-red)] font-medium">{t('malls.no_map_presence')}</span>
                         )}
                         {m.tenantBrands.length === 0 && m.visitor_estimate_daily === 0 && (
-                          <span className="text-[10px] text-[var(--brand-ink)]/40 italic">Upcoming</span>
+                          <span className="text-[10px] text-[var(--brand-ink)]/40 italic">{t('malls.upcoming')}</span>
                         )}
                       </div>
                     </td>
@@ -212,12 +214,12 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <MapPin className="w-4 h-4 text-[var(--brand-red)]" />
-            Brand Channel Mix — Mall vs Street
+            {t('malls.channel_mix')}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="text-[11px] text-[var(--brand-ink)]/60 mb-3">
-            Persentase kehadiran brand di mall vs street location. Brand dengan mall_pct tinggi = strategi ekspansi mall-first.
+            {t('malls.channel_mix_desc')}
           </div>
           <div className="space-y-2.5">
             {brandMallPresence.map(b => (
@@ -229,16 +231,16 @@ export function MallNetwork({ malls, stores, brands }: MallNetworkProps) {
                   <div className="h-full bg-[var(--brand-ink)]" style={{ width: `${100 - b.mall_pct}%` }} />
                 </div>
                 <div className="w-32 text-[11px] text-[var(--brand-ink)]/70 num-tabular">
-                  <span className="text-[var(--brand-red)] font-medium">{b.in_mall_count} mall</span>
+                  <span className="text-[var(--brand-red)] font-medium">{b.in_mall_count} {t('malls.mall_unit')}</span>
                   {' / '}
-                  <span className="text-[var(--brand-ink)] font-medium">{b.street_count} street</span>
+                  <span className="text-[var(--brand-ink)] font-medium">{b.street_count} {t('malls.street_unit')}</span>
                 </div>
               </div>
             ))}
           </div>
           <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[var(--brand-border)] text-[10px] text-[var(--brand-ink)]/60">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--brand-red)] rounded-sm" />In Mall</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--brand-ink)] rounded-sm" />Street / Standalone</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--brand-red)] rounded-sm" />{t('malls.in_mall')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--brand-ink)] rounded-sm" />{t('malls.street_standalone')}</span>
           </div>
         </CardContent>
       </Card>

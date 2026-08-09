@@ -1,0 +1,67 @@
+{
+  "packageId": "id.my.bayhaqy.locinsight",
+  "host": "locinsights.bayhaqy.my.id",
+  "name": "LocInsight",
+  "launcherName": "LocInsight",
+  "display": "standalone",
+  "orientation": "default",
+  "themeColor": "#7A0A1A",
+  "themeColorDark": "#1A1815",
+  "navigationColor": "#1A1815",
+  "navigationColorDark": "#1A1815",
+  "navigationDividerColor": "#1A1815",
+  "navigationDividerColorDark": "#1A1815",
+  "backgroundColor": "#FAF7F2",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://locinsights.bayhaqy.my.id/logo-512.png",
+  "maskableIconUrl": "https://locinsights.bayhaqy.my.id/logo-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "4.1.0",
+  "appVersionCode": 41,
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "shortName": "Dashboard",
+      "url": "/?view=dashboard",
+      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
+    },
+    {
+      "name": "Map Explorer",
+      "shortName": "Map",
+      "url": "/?view=map",
+      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
+    },
+    {
+      "name": "Opportunities",
+      "shortName": "Opportunities",
+      "url": "/?view=opportunities",
+      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://locinsights.bayhaqy.my.id/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playDigitalAssetLinks": {
+      "enabled": true,
+      "ttl": "86400"
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://locinsights.bayhaqy.my.id/",
+  "minSdkVersion": 24,
+  "_comment": "Run `bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json` to regenerate this file from the live PWA, then `bubblewrap build` to produce the APK."
+}

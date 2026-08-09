@@ -12,6 +12,7 @@ import {
   GitCompareArrows, Play, Loader2, ArrowUp, ArrowDown, Plus, Minus,
   TrendingUp, Award,
 } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 interface WeightKey {
   market_potential: number
@@ -32,12 +33,12 @@ const DEFAULT_WEIGHTS: WeightKey = {
 }
 
 const WEIGHT_LABELS: Record<keyof WeightKey, string> = {
-  market_potential: 'Market Potential',
-  accessibility: 'Accessibility',
-  foot_traffic: 'Foot Traffic',
-  competition: 'Competition',
-  socioeconomic: 'Socioeconomic',
-  network_synergy: 'Network Synergy',
+  market_potential: 'ab.market_potential',
+  accessibility: 'ab.accessibility',
+  foot_traffic: 'ab.foot_traffic',
+  competition: 'ab.competition',
+  socioeconomic: 'ab.socioeconomic',
+  network_synergy: 'ab.network_synergy',
 }
 
 interface ABResult {
@@ -54,6 +55,7 @@ interface ABResult {
 }
 
 export function ABTestSimulator() {
+  const { t } = useLanguage()
   const [weightsA, setWeightsA] = useState<WeightKey>({ ...DEFAULT_WEIGHTS })
   const [weightsB, setWeightsB] = useState<WeightKey>({
     ...DEFAULT_WEIGHTS,
@@ -108,23 +110,22 @@ export function ABTestSimulator() {
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-          A/B Test Simulator — Scoring Weights
+          {t('ab.title_full')}
         </h2>
         <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          Compare two scoring-weight configurations side-by-side. See how top-N opportunity ranking changes.
-          Best practice for iterative site selection (cf. Placer.ai 2024).
+          {t('ab.subtitle_full')}
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WeightCard
-          title="Configuration A (Baseline)"
+          title={t('ab.config_a')}
           color="ink"
           weights={weightsA}
           onChange={setWeightsA}
         />
         <WeightCard
-          title="Configuration B (Challenger)"
+          title={t('ab.config_b')}
           color="red"
           weights={weightsB}
           onChange={setWeightsB}
@@ -136,40 +137,40 @@ export function ABTestSimulator() {
       <Card className="card-premium">
         <CardContent className="p-4 flex flex-wrap items-end gap-3">
           <div>
-            <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60">Tier Filter</Label>
+            <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('ab.tier_filter')}</Label>
             <select
               value={tier ?? ''}
               onChange={e => setTier(e.target.value ? Number(e.target.value) : undefined)}
               className="block text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded mt-1"
             >
-              <option value="">All tiers</option>
-              <option value="1">Tier 1 (Badung, Denpasar)</option>
-              <option value="2">Tier 2 (Gianyar, Buleleng, Tabanan)</option>
-              <option value="3">Tier 3 (rural)</option>
+              <option value="">{t('ab.all_tiers')}</option>
+              <option value="1">{t('ab.tier_1')}</option>
+              <option value="2">{t('ab.tier_2')}</option>
+              <option value="3">{t('ab.tier_3')}</option>
             </select>
           </div>
           <div>
-            <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60">Top N</Label>
+            <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('ab.top_n')}</Label>
             <select
               value={limit}
               onChange={e => setLimit(Number(e.target.value))}
               className="block text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded mt-1"
             >
-              <option value={10}>Top 10</option>
-              <option value={20}>Top 20</option>
-              <option value={30}>Top 30</option>
-              <option value={50}>Top 50</option>
+              <option value={10}>{t('ab.top_n_value', { n: 10 })}</option>
+              <option value={20}>{t('ab.top_n_value', { n: 20 })}</option>
+              <option value={30}>{t('ab.top_n_value', { n: 30 })}</option>
+              <option value={50}>{t('ab.top_n_value', { n: 50 })}</option>
             </select>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <div className="text-[11px] text-[var(--brand-ink)]/60">
-              Sum A: <strong style={{ color: Math.abs(sumWeights(weightsA) - 1) < 0.05 ? 'green' : 'red' }}>{(sumWeights(weightsA) * 100).toFixed(1)}%</strong>
+              {t('ab.sum_a')}: <strong style={{ color: Math.abs(sumWeights(weightsA) - 1) < 0.05 ? 'green' : 'red' }}>{(sumWeights(weightsA) * 100).toFixed(1)}%</strong>
               {' · '}
-              Sum B: <strong style={{ color: Math.abs(sumWeights(weightsB) - 1) < 0.05 ? 'green' : 'red' }}>{(sumWeights(weightsB) * 100).toFixed(1)}%</strong>
+              {t('ab.sum_b')}: <strong style={{ color: Math.abs(sumWeights(weightsB) - 1) < 0.05 ? 'green' : 'red' }}>{(sumWeights(weightsB) * 100).toFixed(1)}%</strong>
             </div>
             <Button onClick={runTest} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-              Run A/B Test
+              {t('ab.run_test')}
             </Button>
           </div>
         </CardContent>
@@ -186,29 +187,29 @@ export function ABTestSimulator() {
         <>
           {/* Stats comparison */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <StatsCard title="Config A — Baseline" stats={result.a.stats} weights={result.weights_a} color="ink" />
-            <StatsCard title="Config B — Challenger" stats={result.b.stats} weights={result.weights_b} color="red" />
+            <StatsCard title={t('ab.config_a_short')} stats={result.a.stats} weights={result.weights_a} color="ink" />
+            <StatsCard title={t('ab.config_b_short')} stats={result.b.stats} weights={result.weights_b} color="red" />
           </div>
 
           {/* Rank changes summary */}
           <Card className="card-premium">
             <CardHeader className="pb-2">
               <CardTitle className="text-[12px] uppercase tracking-wider flex items-center gap-2">
-                <GitCompareArrows className="w-4 h-4 text-[var(--brand-red)]" /> Rank Changes Summary
+                <GitCompareArrows className="w-4 h-4 text-[var(--brand-red)]" /> {t('ab.rank_changes_summary')}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatBox label="Total Changes" value={result.diff.summary.total_changes} />
-                <StatBox label="New in Top B" value={result.diff.new_in_top_b.length} accent="green" />
-                <StatBox label="Dropped from B" value={result.diff.dropped_from_top_b.length} accent="red" />
-                <StatBox label="Top N" value={limit} />
+                <StatBox label={t('ab.total_changes')} value={result.diff.summary.total_changes} />
+                <StatBox label={t('ab.new_in_top_b')} value={result.diff.new_in_top_b.length} accent="green" />
+                <StatBox label={t('ab.dropped_from_b')} value={result.diff.dropped_from_top_b.length} accent="red" />
+                <StatBox label={t('ab.top_n')} value={limit} />
               </div>
 
               {result.diff.summary.biggest_winner && (
                 <div className="mt-3 p-3 bg-green-50 rounded-md border border-green-200">
                   <div className="text-[11px] uppercase tracking-wider text-green-700 font-medium flex items-center gap-1 mb-1">
-                    <ArrowUp className="w-3 h-3" /> Biggest Winner (in B)
+                    <ArrowUp className="w-3 h-3" /> {t('ab.biggest_winner')}
                   </div>
                   <div className="text-[13px]">
                     <strong>{result.diff.summary.biggest_winner.kelurahan_name}</strong> ({result.diff.summary.biggest_winner.kab_name})
@@ -221,7 +222,7 @@ export function ABTestSimulator() {
               {result.diff.summary.biggest_loser && (
                 <div className="mt-2 p-3 bg-red-50 rounded-md border border-red-200">
                   <div className="text-[11px] uppercase tracking-wider text-red-700 font-medium flex items-center gap-1 mb-1">
-                    <ArrowDown className="w-3 h-3" /> Biggest Loser (in B)
+                    <ArrowDown className="w-3 h-3" /> {t('ab.biggest_loser')}
                   </div>
                   <div className="text-[13px]">
                     <strong>{result.diff.summary.biggest_loser.kelurahan_name}</strong> ({result.diff.summary.biggest_loser.kab_name})
@@ -238,7 +239,7 @@ export function ABTestSimulator() {
           <Card className="card-premium">
             <CardHeader className="pb-2">
               <CardTitle className="text-[12px] uppercase tracking-wider flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[var(--brand-red)]" /> All Rank Changes
+                <TrendingUp className="w-4 h-4 text-[var(--brand-red)]" /> {t('ab.all_rank_changes')}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
@@ -246,13 +247,13 @@ export function ABTestSimulator() {
                 <table className="w-full text-[11.5px]">
                   <thead className="bg-[var(--brand-cream)] sticky top-0">
                     <tr className="text-left text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/70">
-                      <th className="p-2">Kelurahan</th>
-                      <th className="p-2">Kabupaten</th>
-                      <th className="p-2">Rank A</th>
-                      <th className="p-2">Rank B</th>
+                      <th className="p-2">{t('ab.kelurahan_col')}</th>
+                      <th className="p-2">{t('ab.kabupaten_col')}</th>
+                      <th className="p-2">{t('ab.rank_a')}</th>
+                      <th className="p-2">{t('ab.rank_b')}</th>
                       <th className="p-2">Δ</th>
-                      <th className="p-2">Score A</th>
-                      <th className="p-2">Score B</th>
+                      <th className="p-2">{t('ab.score_a')}</th>
+                      <th className="p-2">{t('ab.score_b')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -280,12 +281,12 @@ export function ABTestSimulator() {
             <Card className="card-premium border-l-4 border-l-green-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[12px] uppercase tracking-wider flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-green-600" /> New in Top B ({result.diff.new_in_top_b.length})
+                  <Plus className="w-4 h-4 text-green-600" /> {t('ab.new_in_top_b_count', { count: result.diff.new_in_top_b.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 max-h-64 overflow-y-auto">
                 {result.diff.new_in_top_b.length === 0 ? (
-                  <div className="text-[12px] text-[var(--brand-ink)]/50 py-4 text-center">No new entries</div>
+                  <div className="text-[12px] text-[var(--brand-ink)]/50 py-4 text-center">{t('ab.no_new_entries')}</div>
                 ) : (
                   result.diff.new_in_top_b.map((n, i) => (
                     <div key={i} className="py-1.5 border-b border-[var(--brand-border)] last:border-0">
@@ -293,7 +294,7 @@ export function ABTestSimulator() {
                         <strong className="text-[12px]">{n.kelurahan_name}</strong>
                         <Badge variant="outline" className="text-[9px]">#{n.rank_in_b}</Badge>
                       </div>
-                      <div className="text-[10px] text-[var(--brand-ink)]/55">{n.kab_name} · Score: {n.composite_b}</div>
+                      <div className="text-[10px] text-[var(--brand-ink)]/55">{n.kab_name} · {t('ab.score_value', { value: n.composite_b })}</div>
                     </div>
                   ))
                 )}
@@ -303,20 +304,20 @@ export function ABTestSimulator() {
             <Card className="card-premium border-l-4 border-l-red-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[12px] uppercase tracking-wider flex items-center gap-2">
-                  <Minus className="w-4 h-4 text-red-600" /> Dropped from Top B ({result.diff.dropped_from_top_b.length})
+                  <Minus className="w-4 h-4 text-red-600" /> {t('ab.dropped_from_top_b_count', { count: result.diff.dropped_from_top_b.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 max-h-64 overflow-y-auto">
                 {result.diff.dropped_from_top_b.length === 0 ? (
-                  <div className="text-[12px] text-[var(--brand-ink)]/50 py-4 text-center">No dropouts</div>
+                  <div className="text-[12px] text-[var(--brand-ink)]/50 py-4 text-center">{t('ab.no_dropouts')}</div>
                 ) : (
                   result.diff.dropped_from_top_b.map((n, i) => (
                     <div key={i} className="py-1.5 border-b border-[var(--brand-border)] last:border-0">
                       <div className="flex items-center justify-between">
                         <strong className="text-[12px]">{n.kelurahan_name}</strong>
-                        <Badge variant="outline" className="text-[9px]">was #{n.rank_in_a}</Badge>
+                        <Badge variant="outline" className="text-[9px]">{t('ab.was_rank', { n: n.rank_in_a })}</Badge>
                       </div>
-                      <div className="text-[10px] text-[var(--brand-ink)]/55">{n.kab_name} · Score: {n.composite_a}</div>
+                      <div className="text-[10px] text-[var(--brand-ink)]/55">{n.kab_name} · {t('ab.score_value', { value: n.composite_a })}</div>
                     </div>
                   ))
                 )}
@@ -339,6 +340,7 @@ function WeightCard({
   onReset?: () => void
   onCopyFromA?: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <Card className={`card-premium ${color === 'red' ? 'border-l-4 border-l-[var(--brand-red)]' : ''}`}>
       <CardHeader className="pb-3">
@@ -347,10 +349,10 @@ function WeightCard({
           {(onReset || onCopyFromA) && (
             <div className="flex gap-1">
               {onCopyFromA && (
-                <Button variant="outline" size="sm" className="text-[10px] h-6" onClick={onCopyFromA}>Copy A</Button>
+                <Button variant="outline" size="sm" className="text-[10px] h-6" onClick={onCopyFromA}>{t('ab.copy_a')}</Button>
               )}
               {onReset && (
-                <Button variant="outline" size="sm" className="text-[10px] h-6" onClick={onReset}>Reset</Button>
+                <Button variant="outline" size="sm" className="text-[10px] h-6" onClick={onReset}>{t('ab.reset')}</Button>
               )}
             </div>
           )}
@@ -360,7 +362,7 @@ function WeightCard({
         {(Object.keys(weights) as (keyof WeightKey)[]).map(key => (
           <div key={key}>
             <div className="flex items-center justify-between text-[11px] mb-1">
-              <Label className="font-medium">{WEIGHT_LABELS[key]}</Label>
+              <Label className="font-medium">{t(WEIGHT_LABELS[key])}</Label>
               <span className="num-tabular text-[var(--brand-red)] font-bold">{(weights[key] * 100).toFixed(0)}%</span>
             </div>
             <Slider
@@ -385,6 +387,7 @@ function StatsCard({
   weights: WeightKey
   color: 'ink' | 'red'
 }) {
+  const { t } = useLanguage()
   return (
     <Card className={`card-premium ${color === 'red' ? 'bg-[var(--brand-cream)]' : ''}`}>
       <CardHeader className="pb-2">
@@ -393,12 +396,12 @@ function StatsCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0 grid grid-cols-2 gap-3 text-[12px]">
-        <Stat label="Avg Composite" value={stats?.avg_score ?? 0} />
-        <Stat label="Avg Revenue (jt/mo)" value={stats?.avg_revenue ?? 0} />
-        <Stat label="Tier 1 in Top" value={stats?.by_tier?.[1] ?? 0} />
-        <Stat label="Tier 2 in Top" value={stats?.by_tier?.[2] ?? 0} />
-        <Stat label="Tier 3 in Top" value={stats?.by_tier?.[3] ?? 0} />
-        <Stat label="Kabupaten Span" value={Object.keys(stats?.by_kab ?? {}).length} />
+        <Stat label={t('ab.avg_composite')} value={stats?.avg_score ?? 0} />
+        <Stat label={t('ab.avg_revenue_jt')} value={stats?.avg_revenue ?? 0} />
+        <Stat label={t('ab.tier_n_in_top', { n: 1 })} value={stats?.by_tier?.[1] ?? 0} />
+        <Stat label={t('ab.tier_n_in_top', { n: 2 })} value={stats?.by_tier?.[2] ?? 0} />
+        <Stat label={t('ab.tier_n_in_top', { n: 3 })} value={stats?.by_tier?.[3] ?? 0} />
+        <Stat label={t('ab.kabupaten_span')} value={Object.keys(stats?.by_kab ?? {}).length} />
       </CardContent>
     </Card>
   )

@@ -1,0 +1,62 @@
+============================================================
+LocInsight Android APK — Build Instructions
+============================================================
+
+LocInsight is shipped as a PWA (Progressive Web App). To distribute
+it as a native .apk file for Android, we use Google's official
+Bubblewrap CLI (Trusted Web Activity wrapper).
+
+PREREQUISITES:
+  - Node.js 18+ and npm
+  - Java JDK 17+ (OpenJDK recommended)
+  - Android SDK (Bubblewrap will auto-install via sdkmanager)
+  - Internet connection
+
+STEP-BY-STEP BUILD:
+  1. Install Bubblewrap CLI globally:
+        npm install -g @bubblewrap/cli
+
+  2. Initialize the project from the live PWA manifest:
+        bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json
+
+     This will create:
+       - twa-manifest.json    (TWA configuration)
+       - android-project/     (Gradle Android project)
+       - signing-key.pem      (app signing key — KEEP SAFE)
+
+  3. (Optional) Edit twa-manifest.json to set:
+       - packageId: id.my.bayhaqy.locinsight
+       - name: LocInsight
+       - launcherName: LocInsight
+       - themeColor: #7A0A1A
+       - navigationColor: #1A1815
+       - backgroundColor: #FAF7F2
+       - appVersion: "4.1.0"
+       - maskableIconUrl: /logo-maskable-512.png
+
+  4. Build the signed APK:
+        bubblewrap build
+
+     Output: app-release-signed.apk (in ./app-release-signed.apk)
+
+  5. (Optional) Generate Android App Bundle for Play Store:
+        bubblewrap build --type bundle
+
+     Output: app-release-bundle.aab
+
+INSTALL ON DEVICE (sideload):
+  - Transfer app-release-signed.apk to your Android phone
+  - Enable "Install from unknown sources" in Settings
+  - Tap the .apk file to install
+  - Open LocInsight from your app drawer
+
+ALTERNATIVE: PWA INSTALL (no APK needed)
+  - Open https://locinsights.bayhaqy.my.id in Chrome on Android
+  - Tap the menu (⋮) → "Install app"
+  - LocInsight appears in your app drawer, runs full-screen
+  - Same features, same offline capability, no .apk needed
+
+DEVELOPER CONTACT:
+  Achmad Bayhaqy — https://bayhaqy.my.id
+
+============================================================

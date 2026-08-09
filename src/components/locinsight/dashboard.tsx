@@ -7,6 +7,7 @@ import {
   TrendingUp, MapPin, Store, Building2, Target, AlertCircle,
   ArrowUpRight, ArrowDownRight, Layers, Sparkles
 } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-provider'
 import type { DashboardStats, OpportunityScore } from './types'
 
 interface DashboardProps {
@@ -17,6 +18,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNavigate }: DashboardProps) {
+  const { t } = useLanguage()
   const tier1Pct = stats.total_stores > 0 ? Math.round((stats.tier_1_stores / stats.total_stores) * 100) : 0
   const tier2Pct = stats.total_stores > 0 ? Math.round((stats.tier_2_stores / stats.total_stores) * 100) : 0
   const tier3Pct = stats.total_stores > 0 ? Math.round((stats.tier_3_stores / stats.total_stores) * 100) : 0
@@ -31,16 +33,14 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-[var(--brand-red)]" />
-            <span className="text-[11px] uppercase tracking-[0.2em] text-white/60 font-medium">Location Intelligence</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-white/60 font-medium">{t('common.location_intelligence')}</span>
           </div>
           <h1 className="font-display text-[36px] leading-[1.1] font-bold mb-3 max-w-2xl">
-            Retail Expansion Intelligence<br />
-            <span className="text-[var(--brand-red)]">for MAP Active Adiperkasa</span>
+            {t('dashboard.hero_title')}<br />
+            <span className="text-[var(--brand-red)]">{t('dashboard.hero_title_accent')}</span>
           </h1>
           <p className="text-[14px] text-white/70 max-w-3xl leading-relaxed">
-            LocInsight menggabungkan composite ML scoring dengan Huff gravity market-share model untuk
-            mengidentifikasi peluang ekspansi toko di Tier 2–3. Sistem menganalisis kelurahan/desa
-            di 9 kabupaten/kota, mempertimbangkan demografi, foot traffic, kompetisi, dan sinergi jaringan existing.
+            {t('dashboard.hero_description')}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -49,21 +49,21 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
               className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)] text-white px-4 py-2 rounded-md text-[13px] font-medium transition-colors inline-flex items-center gap-1.5"
             >
               <Target className="w-4 h-4" />
-              Lihat Top Opportunities
+              {t('dashboard.cta_top_opportunities')}
             </button>
             <button
               onClick={() => onNavigate('map')}
               className="bg-white/10 hover:bg-white/15 text-white px-4 py-2 rounded-md text-[13px] font-medium transition-colors inline-flex items-center gap-1.5"
             >
               <MapPin className="w-4 h-4" />
-              Buka Peta Interaktif
+              {t('dashboard.cta_open_map')}
             </button>
             <button
               onClick={() => onNavigate('methodology')}
               className="bg-white/5 hover:bg-white/10 text-white/80 px-4 py-2 rounded-md text-[13px] font-medium transition-colors inline-flex items-center gap-1.5 border border-white/10"
             >
               <Layers className="w-4 h-4" />
-              Methodology
+              {t('nav.methodology')}
             </button>
           </div>
         </div>
@@ -72,30 +72,30 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label="Total Stores Bali"
+          label={t('dashboard.kpi_total_stores')}
           value={stats.total_stores.toString()}
-          subtext={`${stats.tier_1_stores} di Tier-1`}
+          subtext={t('dashboard.kpi_tier1_subtext', { count: stats.tier_1_stores })}
           icon={Store}
           accent="red"
         />
         <KpiCard
-          label="Total Malls"
+          label={t('dashboard.kpi_total_malls')}
           value={stats.total_malls.toString()}
-          subtext={`${stats.malls_without_map_anchor.length} tanpa MAP anchor`}
+          subtext={t('dashboard.kpi_no_map_anchor', { count: stats.malls_without_map_anchor.length })}
           icon={Building2}
           accent="ink"
         />
         <KpiCard
-          label="Kelurahan Dianalisis"
+          label={t('dashboard.kpi_kelurahan_analyzed')}
           value={stats.total_kelurahan.toString()}
-          subtext={`9 kab/kota, 47 kec`}
+          subtext={t('dashboard.kpi_kelurahan_subtext')}
           icon={MapPin}
           accent="ink"
         />
         <KpiCard
-          label="High-Priority Sites"
+          label={t('dashboard.kpi_high_priority')}
           value={stats.high_priority_count.toString()}
-          subtext={`${stats.priority_count} priority sites`}
+          subtext={t('dashboard.kpi_priority_subtext', { count: stats.priority_count })}
           icon={Target}
           accent="red"
           highlight
@@ -108,18 +108,16 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Store className="w-4 h-4 text-[var(--brand-red)]" />
-              Store Distribution by Tier
+              {t('dashboard.store_distribution')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-0">
-            <TierBar label="Tier 1 (Mature: Badung, Denpasar)" count={stats.tier_1_stores} pct={tier1Pct} color="var(--brand-red)" />
-            <TierBar label="Tier 2 (Growth: Tabanan, Gianyar, Buleleng)" count={stats.tier_2_stores} pct={tier2Pct} color="#0F0F12" />
-            <TierBar label="Tier 3 (Untapped: 4 kabupaten)" count={stats.tier_3_stores} pct={tier3Pct} color="#A08070" />
+            <TierBar label={t('dashboard.tier1_label')} count={stats.tier_1_stores} pct={tier1Pct} color="var(--brand-red)" />
+            <TierBar label={t('dashboard.tier2_label')} count={stats.tier_2_stores} pct={tier2Pct} color="#0F0F12" />
+            <TierBar label={t('dashboard.tier3_label')} count={stats.tier_3_stores} pct={tier3Pct} color="#A08070" />
 
             <div className="pt-3 border-t border-[var(--brand-border)] text-[12px] text-[var(--brand-ink)]/70 leading-relaxed">
-              <strong className="text-[var(--brand-red)]">{tier1Pct}%</strong> toko MAP berada di Tier-1
-              yang sudah saturated. Peluang ekspansi di Tier-2 dan Tier-3 masih sangat besar — {100 - tier1Pct}% area Bali
-              belum terlayani.
+              {t('dashboard.tier_distribution_summary', { pct: tier1Pct, remaining: 100 - tier1Pct })}
             </div>
           </CardContent>
         </Card>
@@ -128,19 +126,19 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Target className="w-4 h-4 text-[var(--brand-red)]" />
-              Recommendation Breakdown
+              {t('dashboard.recommendation_breakdown')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-0">
-            <RecommendationRow label="High Priority" count={stats.high_priority_count} total={stats.total_kelurahan} color="#C8102E" />
-            <RecommendationRow label="Priority" count={stats.priority_count} total={stats.total_kelurahan} color="#D45F4A" />
-            <RecommendationRow label="Monitor" count={stats.monitor_count} total={stats.total_kelurahan} color="#A08070" />
-            <RecommendationRow label="Avoid" count={stats.avoid_count} total={stats.total_kelurahan} color="#B0B0B0" />
+            <RecommendationRow label={t('dashboard.rec_high_priority')} count={stats.high_priority_count} total={stats.total_kelurahan} color="#C8102E" />
+            <RecommendationRow label={t('dashboard.rec_priority')} count={stats.priority_count} total={stats.total_kelurahan} color="#D45F4A" />
+            <RecommendationRow label={t('dashboard.rec_monitor')} count={stats.monitor_count} total={stats.total_kelurahan} color="#A08070" />
+            <RecommendationRow label={t('dashboard.rec_avoid')} count={stats.avoid_count} total={stats.total_kelurahan} color="#B0B0B0" />
 
             <div className="pt-3 border-t border-[var(--brand-border)] text-[12px] text-[var(--brand-ink)]/70 leading-relaxed">
-              Avg composite score across all kelurahan:{' '}
+              {t('dashboard.avg_score_label')}{' '}
               <strong className="text-[var(--brand-red)]">{stats.avg_composite_score}/100</strong>.
-              Sites dengan skor ≥55 layak dilanjutkan ke feasibility study.
+              {t('dashboard.avg_score_note')}
             </div>
           </CardContent>
         </Card>
@@ -149,12 +147,12 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-[var(--brand-red)]" />
-              Malls Tanpa MAP Anchor
+              {t('dashboard.malls_no_anchor')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 max-h-72 overflow-y-auto scroll-styled space-y-2">
             {stats.malls_without_map_anchor.length === 0 ? (
-              <div className="text-[12px] text-[var(--brand-ink)]/60 py-4 text-center">All major malls have MAP anchors</div>
+              <div className="text-[12px] text-[var(--brand-ink)]/60 py-4 text-center">{t('dashboard.all_malls_have_anchors')}</div>
             ) : (
               stats.malls_without_map_anchor.map(m => (
                 <div key={m.name} className="text-[12px] py-2 border-b border-[var(--brand-border)] last:border-0">
@@ -173,13 +171,13 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           <div className="flex items-center justify-between">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[var(--brand-red)]" />
-              Top 10 Expansion Opportunities — Bali
+              {t('dashboard.top_10_opportunities')}
             </CardTitle>
             <button
               onClick={() => onNavigate('opportunities')}
               className="text-[12px] text-[var(--brand-red)] hover:underline font-medium flex items-center gap-1"
             >
-              View all <ArrowUpRight className="w-3 h-3" />
+              {t('dashboard.view_all')} <ArrowUpRight className="w-3 h-3" />
             </button>
           </div>
         </CardHeader>
@@ -189,15 +187,15 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
               <thead>
                 <tr className="border-b border-[var(--brand-border)] text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">
                   <th className="text-left py-2.5 px-2 font-medium">#</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Kelurahan</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Area</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Tier</th>
-                  <th className="text-right py-2.5 px-2 font-medium">Score</th>
-                  <th className="text-right py-2.5 px-2 font-medium">Mkt Share</th>
-                  <th className="text-right py-2.5 px-2 font-medium">Daily Cust</th>
-                  <th className="text-right py-2.5 px-2 font-medium">Rev/mo</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Status</th>
-                  <th className="text-left py-2.5 px-2 font-medium">Risk</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('dashboard.kelurahan')}</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('dashboard.area')}</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('dashboard.tier')}</th>
+                  <th className="text-right py-2.5 px-2 font-medium">{t('dashboard.score')}</th>
+                  <th className="text-right py-2.5 px-2 font-medium">{t('dashboard.mkt_share')}</th>
+                  <th className="text-right py-2.5 px-2 font-medium">{t('dashboard.daily_customers')}</th>
+                  <th className="text-right py-2.5 px-2 font-medium">{t('dashboard.rev_per_month')}</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('dashboard.status')}</th>
+                  <th className="text-left py-2.5 px-2 font-medium">{t('dashboard.risk')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +229,7 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Building2 className="w-4 h-4 text-[var(--brand-red)]" />
-              Stores by Kabupaten/Kota
+              {t('dashboard.stores_by_kabupaten')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-2.5">
@@ -259,16 +257,16 @@ export function Dashboard({ stats, topOpportunities, onSelectKelurahan, onNaviga
           <CardHeader className="pb-3">
             <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Store className="w-4 h-4 text-[var(--brand-red)]" />
-              Brand Coverage in Bali
+              {t('dashboard.brand_coverage_bali')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 max-h-80 overflow-y-auto scroll-styled">
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="border-b border-[var(--brand-border)] text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">
-                  <th className="text-left py-2 px-1 font-medium">Brand</th>
-                  <th className="text-left py-2 px-1 font-medium">Category</th>
-                  <th className="text-right py-2 px-1 font-medium">Stores</th>
+                  <th className="text-left py-2 px-1 font-medium">{t('dashboard.brand')}</th>
+                  <th className="text-left py-2 px-1 font-medium">{t('dashboard.category')}</th>
+                  <th className="text-right py-2 px-1 font-medium">{t('dashboard.total_stores')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -359,21 +357,37 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
 }
 
 function RecBadge({ recommendation }: { recommendation: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    high_priority: { label: 'High', cls: 'bg-[var(--brand-red)] text-white' },
-    priority: { label: 'Priority', cls: 'bg-[#D45F4A] text-white' },
-    monitor: { label: 'Monitor', cls: 'bg-[#A08070] text-white' },
-    avoid: { label: 'Avoid', cls: 'bg-[#B0B0B0] text-white' },
+  const { t } = useLanguage()
+  const recKeyMap: Record<string, string> = {
+    high_priority: 'dashboard.rec_high_priority',
+    priority: 'dashboard.rec_priority',
+    monitor: 'dashboard.rec_monitor',
+    avoid: 'dashboard.rec_avoid',
   }
-  const { label, cls } = map[recommendation] || map.monitor
-  return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cls}`}>{label}</span>
+  const clsMap: Record<string, string> = {
+    high_priority: 'bg-[var(--brand-red)] text-white',
+    priority: 'bg-[#D45F4A] text-white',
+    monitor: 'bg-[#A08070] text-white',
+    avoid: 'bg-[#B0B0B0] text-white',
+  }
+  const key = recKeyMap[recommendation] || recKeyMap.monitor
+  const cls = clsMap[recommendation] || clsMap.monitor
+  return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cls}`}>{t(key)}</span>
 }
 
 function RiskBadge({ risk }: { risk: string }) {
-  const map: Record<string, string> = {
+  const { t } = useLanguage()
+  const riskKeyMap: Record<string, string> = {
+    low: 'dashboard.risk_low',
+    medium: 'dashboard.risk_medium',
+    high: 'dashboard.risk_high',
+  }
+  const clsMap: Record<string, string> = {
     low: 'bg-green-100 text-green-700',
     medium: 'bg-amber-100 text-amber-700',
     high: 'bg-red-100 text-red-700',
   }
-  return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium capitalize ${map[risk]}`}>{risk}</span>
+  const key = riskKeyMap[risk] || risk
+  const cls = clsMap[risk] || ''
+  return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium capitalize ${cls}`}>{t(key)}</span>
 }

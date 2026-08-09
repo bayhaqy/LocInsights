@@ -16,33 +16,35 @@ import {
   Shield, Globe, Flag, ArrowUp, ArrowDown, ArrowUpDown, Filter as FilterIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 type EntityType = 'stores' | 'malls' | 'brands' | 'competitors' | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan' | 'provinces' | 'countries'
 
 interface EntityMeta {
   id: EntityType
-  label: string
+  label: string // i18n key, e.g. 'data.stores'
   icon: any
   searchFields: string[]
 }
 
 const ENTITIES: EntityMeta[] = [
   // Geographic hierarchy: Country → Province → Kabupaten/Kota → Kecamatan → Kelurahan
-  { id: 'countries',    label: 'Countries',      icon: Globe,    searchFields: ['name'] },
-  { id: 'provinces',    label: 'Provinces',      icon: Flag,     searchFields: ['name', 'country'] },
-  { id: 'kabupaten',    label: 'Kabupaten/Kota', icon: Map,      searchFields: ['name', 'capital'] },
-  { id: 'kecamatan',    label: 'Kecamatan',      icon: Map,      searchFields: ['name'] },
-  { id: 'kelurahan',    label: 'Kelurahan',      icon: MapPin,   searchFields: ['name', 'kec_name', 'kab_name'] },
+  { id: 'countries',    label: 'data.countries',     icon: Globe,    searchFields: ['name'] },
+  { id: 'provinces',    label: 'data.provinces',     icon: Flag,     searchFields: ['name', 'country'] },
+  { id: 'kabupaten',    label: 'data.kabupaten_kota', icon: Map,      searchFields: ['name', 'capital'] },
+  { id: 'kecamatan',    label: 'data.kecamatan',     icon: Map,      searchFields: ['name'] },
+  { id: 'kelurahan',    label: 'data.kelurahan',     icon: MapPin,   searchFields: ['name', 'kec_name', 'kab_name'] },
   // Master data
-  { id: 'brands',       label: 'Brands',         icon: Tag,      searchFields: ['name'] },
-  { id: 'malls',        label: 'Malls',          icon: Building2, searchFields: ['name'] },
+  { id: 'brands',       label: 'data.brands',        icon: Tag,      searchFields: ['name'] },
+  { id: 'malls',        label: 'data.malls',         icon: Building2, searchFields: ['name'] },
   // Operational data
-  { id: 'stores',       label: 'Stores',         icon: StoreIcon, searchFields: ['name', 'brand_name'] },
-  { id: 'competitors',  label: 'Competitors',    icon: Shield,   searchFields: ['name', 'brand_name', 'kab'] },
-  { id: 'pois',         label: 'POIs',           icon: MapPin,   searchFields: ['name'] },
+  { id: 'stores',       label: 'data.stores',        icon: StoreIcon, searchFields: ['name', 'brand_name'] },
+  { id: 'competitors',  label: 'data.competitors',   icon: Shield,   searchFields: ['name', 'brand_name', 'kab'] },
+  { id: 'pois',         label: 'data.pois',          icon: MapPin,   searchFields: ['name'] },
 ]
 
 export function DataManager() {
+  const { t } = useLanguage()
   const [activeEntity, setActiveEntity] = useState<EntityType>('stores')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -140,7 +142,7 @@ export function DataManager() {
       })
       const json = await res.json()
       if (json.success) {
-        toast.success(isEdit ? 'Record updated' : 'Record created')
+        toast.success(isEdit ? t('data.record_updated') : t('data.record_created'))
         setShowDialog(false)
         setEditing(null)
         fetchData()
@@ -155,12 +157,12 @@ export function DataManager() {
   async function remove(row: any) {
     const codeKeyedEntities: EntityType[] = ['kabupaten', 'kecamatan', 'provinces', 'countries']
     const idField = codeKeyedEntities.includes(activeEntity) ? row.code : row.id
-    if (!confirm(`Delete "${row.name || row.code}"? This cannot be undone.`)) return
+    if (!confirm(t('data.delete_confirm', { name: row.name || row.code }))) return
     try {
       const res = await fetch(`/api/locinsight/${activeEntity}/${encodeURIComponent(idField)}`, { method: 'DELETE' })
       const json = await res.json()
       if (json.success) {
-        toast.success('Record deleted')
+        toast.success(t('data.record_deleted'))
         fetchData()
       } else {
         toast.error(json.error)
@@ -189,12 +191,12 @@ export function DataManager() {
   function discardChanges() {
     setDraft(null)
     fetchData()
-    toast.info('Changes discarded')
+    toast.info(t('data.changes_discarded'))
   }
 
   async function saveBulkChanges() {
     if (!draft || Object.keys(draft).length === 0) {
-      toast.info('No changes to save')
+      toast.info(t('data.no_changes_to_save'))
       return
     }
     setSavingBulk(true)
@@ -260,19 +262,19 @@ export function DataManager() {
           if (json.success) totalCreated++
           else {
             totalErrors++
-            errorList.push(`New row: ${json.error || 'unknown error'}`)
+            errorList.push(t('data.new_row_error', { error: json.error || 'unknown error' }))
           }
         } catch (e: any) {
           totalErrors++
-          errorList.push(`New row: ${e.message}`)
+          errorList.push(t('data.new_row_error', { error: e.message }))
         }
       }
 
       const parts: string[] = []
-      if (totalUpdated) parts.push(`${totalUpdated} updated`)
-      if (totalCreated) parts.push(`${totalCreated} created`)
-      if (totalErrors) parts.push(`${totalErrors} errors`)
-      const msg = parts.length ? `Saved: ${parts.join(' · ')}` : 'No changes needed'
+      if (totalUpdated) parts.push(t('data.row_updated', { count: totalUpdated }))
+      if (totalCreated) parts.push(t('data.row_created', { count: totalCreated }))
+      if (totalErrors) parts.push(t('data.row_errors', { count: totalErrors }))
+      const msg = parts.length ? t('data.bulk_saved', { summary: parts.join(' · ') }) : t('data.no_changes_needed')
       if (totalErrors > 0) {
         toast.warning(msg)
         console.warn('Bulk save errors:', errorList)
@@ -291,7 +293,7 @@ export function DataManager() {
   async function downloadExport(format: 'csv' | 'xlsx') {
     try {
       const res = await fetch(`/api/locinsight/bulk?entity=${activeEntity}&format=${format}`)
-      if (!res.ok) throw new Error('Export failed')
+      if (!res.ok) throw new Error(t('data.export_failed'))
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -301,7 +303,7 @@ export function DataManager() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success(`Exported ${activeEntity} as ${format.toUpperCase()}`)
+      toast.success(t('data.exported_as', { entity: activeEntity, format: format.toUpperCase() }))
     } catch (e: any) {
       toast.error(e.message)
     }
@@ -310,7 +312,7 @@ export function DataManager() {
   async function downloadTemplate(format: 'csv' | 'xlsx') {
     try {
       const res = await fetch(`/api/locinsight/bulk?entity=${activeEntity}&format=${format}&template=true`)
-      if (!res.ok) throw new Error('Template download failed')
+      if (!res.ok) throw new Error(t('data.template_download_failed'))
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -320,7 +322,7 @@ export function DataManager() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success(`Template downloaded (${format.toUpperCase()})`)
+      toast.success(t('data.template_downloaded', { format: format.toUpperCase() }))
     } catch (e: any) {
       toast.error(e.message)
     }
@@ -346,11 +348,11 @@ export function DataManager() {
   /** Export only the user-selected columns from the current filtered view. */
   function exportSelectedColumns() {
     if (selectedExportCols.size === 0) {
-      toast.error('Select at least one column to export')
+      toast.error(t('data.select_one_column'))
       return
     }
     const selectedFields = fieldConfig.filter(f => selectedExportCols.has(f.key))
-    const headers = selectedFields.map(f => f.label)
+    const headers = selectedFields.map(f => t(`data.field.${f.labelKey || f.key}`))
     const lines = [headers.join(',')]
     for (const r of processedData) {
       const cells = selectedFields.map(f => {
@@ -374,7 +376,7 @@ export function DataManager() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast.success(`Exported ${processedData.length} rows × ${selectedFields.length} columns`)
+    toast.success(t('data.exported_rows_cols', { rows: processedData.length, cols: selectedFields.length }))
     setShowExportDialog(false)
   }
 
@@ -457,11 +459,11 @@ export function DataManager() {
   // Export current filtered+sorted view as CSV
   function exportFilteredViewCSV() {
     if (processedData.length === 0) {
-      toast.info('No data to export')
+      toast.info(t('data.no_data_to_export'))
       return
     }
     const fields = fieldConfig
-    const headers = fields.map(f => f.label)
+    const headers = fields.map(f => t(`data.field.${f.labelKey || f.key}`))
     const lines = [headers.join(',')]
     for (const r of processedData) {
       const cells = fields.map(f => {
@@ -485,7 +487,7 @@ export function DataManager() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast.success(`Exported ${processedData.length} filtered rows to CSV`)
+    toast.success(t('data.exported_filtered', { count: processedData.length }))
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -502,7 +504,9 @@ export function DataManager() {
       })
       const json = await res.json()
       if (json.success) {
-        const msg = `Imported ${file.name}: ${json.created} created, ${json.updated} updated${json.error_count ? `, ${json.error_count} errors` : ''}`
+        const msg = json.error_count > 0
+          ? t('data.imported_summary', { file: file.name, created: json.created, updated: json.updated, errors: json.error_count })
+          : t('data.imported_summary_no_errors', { file: file.name, created: json.created, updated: json.updated })
         if (json.error_count > 0) {
           toast.warning(msg)
           console.warn('Import errors:', json.errors)
@@ -547,7 +551,7 @@ export function DataManager() {
       ...prev,
       0: { ...(prev?.[0] || {}), __isNew: true, ...blank },
     }))
-    toast.info('Blank row inserted at top — fill in fields, then click Save Changes')
+    toast.info(t('data.blank_row_inserted'))
   }
 
   return (
@@ -555,10 +559,10 @@ export function DataManager() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-            Data Manager
+            {t('data.title')}
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-            CRUD + bulk Excel-style editing + CSV/XLSX import/export with templates. All changes persist to the LocInsight database.
+            {t('data.subtitle_full')}
           </p>
         </div>
         <Button
@@ -569,7 +573,7 @@ export function DataManager() {
           disabled={loading}
         >
           <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -579,7 +583,7 @@ export function DataManager() {
           <CardHeader className="pb-3">
             <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Database className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-              Master Data
+              {t('data.master_data')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 pt-0">
@@ -597,7 +601,7 @@ export function DataManager() {
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="capitalize">{e.label}</span>
+                  <span className="capitalize">{t(e.label)}</span>
                 </button>
               )
             })}
@@ -610,7 +614,7 @@ export function DataManager() {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 {activeEntity}
-                <Badge variant="secondary" className="text-[10px]">{total} records</Badge>
+                <Badge variant="secondary" className="text-[10px]">{t('data.records', { count: total })}</Badge>
               </CardTitle>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Import/Export/Templates */}
@@ -622,39 +626,39 @@ export function DataManager() {
                   className="hidden"
                 />
                 <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={savingBulk} className="h-7 text-[11px]">
-                  <Upload className="w-3 h-3 mr-1" /> Import
+                  <Upload className="w-3 h-3 mr-1" /> {t('common.import')}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadExport('csv')} className="h-7 text-[11px]" title="Export ALL records (server-side)">
-                  <Download className="w-3 h-3 mr-1" /> CSV (All)
+                <Button size="sm" variant="outline" onClick={() => downloadExport('csv')} className="h-7 text-[11px]" title={t('data.export_all_tooltip')}>
+                  <Download className="w-3 h-3 mr-1" /> {t('data.csv_all')}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px]" title="Export ALL records (server-side)">
-                  <Download className="w-3 h-3 mr-1" /> XLSX (All)
+                <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px]" title={t('data.export_all_tooltip')}>
+                  <Download className="w-3 h-3 mr-1" /> {t('data.xlsx_all')}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => openExportDialog('csv')}
                   className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
-                  title="Pick which columns to include in the CSV export"
+                  title={t('data.custom_cols_tooltip')}
                 >
-                  <FilterIcon className="w-3 h-3 mr-1" /> Custom Cols
+                  <FilterIcon className="w-3 h-3 mr-1" /> {t('data.custom_cols')}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px]" title="Download empty template">
-                  <FileDown className="w-3 h-3 mr-1" /> Template
+                <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px]" title={t('data.template_tooltip')}>
+                  <FileDown className="w-3 h-3 mr-1" /> {t('data.template')}
                 </Button>
                 <Button
                   size="sm"
                   onClick={exportFilteredViewCSV}
                   disabled={viewMode !== 'table' || processedData.length === 0}
                   className="h-7 text-[11px] bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white"
-                  title={viewMode === 'table' ? `Export ${processedData.length} filtered/sorted rows on this page` : 'Switch to Table View to use filtered export'}
+                  title={viewMode === 'table' ? t('data.export_view_tooltip_enabled', { count: processedData.length }) : t('data.export_view_tooltip_disabled')}
                 >
-                  <Download className="w-3 h-3 mr-1" /> Export View ({viewMode === 'table' ? processedData.length : 0})
+                  <Download className="w-3 h-3 mr-1" /> {t('data.export_view')} ({viewMode === 'table' ? processedData.length : 0})
                 </Button>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--brand-ink)]/40" />
                   <Input
-                    placeholder={`Search ${activeEntity}…`}
+                    placeholder={t('data.search_entity', { entity: activeEntity })}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="h-7 pl-7 w-[180px] text-[12px]"
@@ -662,7 +666,7 @@ export function DataManager() {
                 </div>
                 <Button size="sm" onClick={openCreate} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
                   <Plus className="w-3 h-3 mr-1" />
-                  New
+                  {t('data.new_short')}
                 </Button>
               </div>
             </div>
@@ -672,10 +676,10 @@ export function DataManager() {
               <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
                 <TabsList className="h-7">
                   <TabsTrigger value="table" className="text-[11px] h-5 px-2">
-                    <Database className="w-3 h-3 mr-1" /> Table View
+                    <Database className="w-3 h-3 mr-1" /> {t('data.table_view')}
                   </TabsTrigger>
                   <TabsTrigger value="spreadsheet" className="text-[11px] h-5 px-2">
-                    <FileSpreadsheet className="w-3 h-3 mr-1" /> Spreadsheet (Bulk Edit)
+                    <FileSpreadsheet className="w-3 h-3 mr-1" /> {t('data.spreadsheet_bulk_edit')}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -687,21 +691,21 @@ export function DataManager() {
                     variant="outline"
                     onClick={insertBlankRow}
                     className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
-                    title="Insert a blank row at the top of the spreadsheet for new records"
+                    title={t('data.insert_row_tooltip')}
                   >
-                    <Plus className="w-3 h-3 mr-1" /> Insert Row
+                    <Plus className="w-3 h-3 mr-1" /> {t('data.insert_row')}
                   </Button>
                   {hasChanges && (
                     <>
                       <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50">
-                        {Object.keys(draft!).length} row(s) changed
+                        {t('data.rows_changed', { count: Object.keys(draft!).length })}
                       </Badge>
                       <Button size="sm" variant="outline" onClick={discardChanges} className="h-7 text-[11px]">
-                        <X className="w-3 h-3 mr-1" /> Discard
+                        <X className="w-3 h-3 mr-1" /> {t('data.discard')}
                       </Button>
                       <Button size="sm" onClick={saveBulkChanges} disabled={savingBulk} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
                         {savingBulk ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
-                        Save Changes
+                        {t('data.save_changes')}
                       </Button>
                     </>
                   )}
@@ -742,16 +746,16 @@ export function DataManager() {
             {/* Pagination */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--brand-border)]">
               <div className="text-[11px] text-[var(--brand-ink)]/60">
-                Page {page} of {totalPages} · {total} records
-                {viewMode === 'table' && data.length !== processedData.length && ` · ${processedData.length} after filter`}
-                {viewMode === 'spreadsheet' && ' · showing up to 100 per page for inline editing'}
+                {t('data.page_info', { page, totalPages, total })}
+                {viewMode === 'table' && data.length !== processedData.length && t('data.after_filter', { count: processedData.length })}
+                {viewMode === 'spreadsheet' && t('data.showing_100_per_page')}
               </div>
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" disabled={page === 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))} className="h-7 text-[11px]">
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <Button size="sm" variant="outline" disabled={page === totalPages || loading} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="h-7 text-[11px]">
-                  Next
+                  {t('common.next')}
                 </Button>
               </div>
             </div>
@@ -763,13 +767,13 @@ export function DataManager() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editMode === 'create' ? 'Create' : 'Edit'} {activeEntity.replace(/s$/, '')}</DialogTitle>
+            <DialogTitle>{editMode === 'create' ? t('data.create_entity', { entity: activeEntity.replace(/s$/, '') }) : t('data.edit_entity', { entity: activeEntity.replace(/s$/, '') })}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
             {fieldConfig.map(f => (
               <div key={f.key} className={f.fullWidth ? 'col-span-2' : ''}>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">
-                  {f.label}{f.required && <span className="text-[var(--brand-red)] ml-0.5">*</span>}
+                  {t(`data.field.${f.labelKey || f.key}`)}{f.required && <span className="text-[var(--brand-red)] ml-0.5">*</span>}
                 </Label>
                 {f.type === 'boolean' ? (
                   <Switch
@@ -781,7 +785,7 @@ export function DataManager() {
                     value={String(editing?.[f.key] ?? '')}
                     onValueChange={(v) => setEditing({ ...editing, [f.key]: v })}
                   >
-                    <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder={t('data.select_placeholder')} /></SelectTrigger>
                     <SelectContent>
                       {f.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                     </SelectContent>
@@ -799,9 +803,9 @@ export function DataManager() {
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>{t('data.cancel')}</Button>
             <Button onClick={save} className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
-              {editMode === 'create' ? 'Create' : 'Save Changes'}
+              {editMode === 'create' ? t('data.create') : t('data.save_changes')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -811,12 +815,11 @@ export function DataManager() {
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Export {activeEntity} — pick columns</DialogTitle>
+            <DialogTitle>{t('data.export_pick_columns', { entity: activeEntity })}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="text-[12px] text-[var(--brand-ink)]/70 leading-relaxed">
-              Select which columns to include in the CSV export. The export uses
-              the current filtered/sorted view ({processedData.length} rows).
+              {t('data.export_pick_columns_desc', { count: processedData.length })}
             </div>
             <div className="flex items-center gap-2 pb-2 border-b border-[var(--brand-border)]">
               <Button
@@ -825,7 +828,7 @@ export function DataManager() {
                 className="h-7 text-[11px]"
                 onClick={() => setSelectedExportCols(new Set(fieldConfig.map(f => f.key)))}
               >
-                Select All
+                {t('data.select_all')}
               </Button>
               <Button
                 size="sm"
@@ -833,10 +836,10 @@ export function DataManager() {
                 className="h-7 text-[11px]"
                 onClick={() => setSelectedExportCols(new Set())}
               >
-                Clear All
+                {t('data.clear_all')}
               </Button>
               <Badge variant="secondary" className="text-[10px] ml-auto">
-                {selectedExportCols.size} / {fieldConfig.length} selected
+                {t('data.cols_selected', { selected: selectedExportCols.size, total: fieldConfig.length })}
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
@@ -851,21 +854,21 @@ export function DataManager() {
                     onChange={() => toggleExportCol(f.key)}
                     className="accent-[var(--brand-red)]"
                   />
-                  <span className="flex-1 truncate">{f.label}</span>
-                  {f.required && <span className="text-[var(--brand-red)] text-[9px]">req</span>}
+                  <span className="flex-1 truncate">{t(`data.field.${f.labelKey || f.key}`)}</span>
+                  {f.required && <span className="text-[var(--brand-red)] text-[9px]">{t('data.req')}</span>}
                 </label>
               ))}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExportDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowExportDialog(false)}>{t('data.cancel')}</Button>
             <Button
               onClick={exportSelectedColumns}
               disabled={selectedExportCols.size === 0}
               className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
             >
               <Download className="w-3.5 h-3.5 mr-1.5" />
-              Export {selectedExportCols.size} col(s) · {processedData.length} rows
+              {t('data.export_cols_rows', { cols: selectedExportCols.size, rows: processedData.length })}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -896,6 +899,7 @@ function TableView({
   onEdit: (row: any) => void
   onDelete: (row: any) => void
 }) {
+  const { t } = useLanguage()
   const hasFilters = Object.values(colFilters).some(v => v) || sortCol
   return (
     <div className="space-y-2">
@@ -904,11 +908,11 @@ function TableView({
         <div className="flex items-center justify-between text-[11px] px-2 py-1 bg-[var(--brand-cream)] rounded">
           <span className="text-[var(--brand-ink)]/70">
             <FilterIcon className="w-3 h-3 inline mr-1" />
-            Showing <strong>{data.length}</strong> of {totalCount} on this page
-            {sortCol && <span className="ml-2 text-[var(--brand-ink)]/50">· sorted by {sortCol} {sortDir}</span>}
+            {t('data.showing_of', { shown: data.length, total: totalCount })}
+            {sortCol && <span className="ml-2 text-[var(--brand-ink)]/50">{t('data.sorted_by', { col: sortCol, dir: sortDir || '' })}</span>}
           </span>
           <button onClick={onResetFilters} className="text-[var(--brand-red)] hover:underline">
-            Reset filters
+            {t('data.reset_filters')}
           </button>
         </div>
       )}
@@ -925,7 +929,7 @@ function TableView({
                       onClick={() => onSort(f.key)}
                       className="flex items-center gap-1 hover:text-[var(--brand-red)]"
                     >
-                      {f.label}
+                      {t(`data.field.${f.labelKey || f.key}`)}
                       <SortIcon className={`w-3 h-3 ${isSorted ? 'text-[var(--brand-red)]' : 'text-[var(--brand-ink)]/40'}`} />
                     </button>
                   </th>
@@ -945,7 +949,7 @@ function TableView({
                         onChange={e => onColFilterChange(f.key, e.target.value)}
                         className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full bg-white"
                       >
-                        <option value="">All</option>
+                        <option value="">{t('common.all')}</option>
                         {opts.map(o => <option key={o} value={o}>{o.length > 30 ? o.slice(0, 27) + '…' : o}</option>)}
                       </select>
                     </th>
@@ -957,7 +961,7 @@ function TableView({
                       type="text"
                       value={colFilters[f.key] || ''}
                       onChange={e => onColFilterChange(f.key, e.target.value)}
-                      placeholder="Filter…"
+                      placeholder={t('data.filter_placeholder')}
                       className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full"
                     />
                   </th>
@@ -968,9 +972,9 @@ function TableView({
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">Loading…</td></tr>
+              <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">{t('common.loading')}</td></tr>
             ) : data.length === 0 ? (
-              <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">No records match current filters</td></tr>
+              <tr><td colSpan={columns.length + 1} className="py-8 text-center text-[var(--brand-ink)]/40">{t('data.no_records_match')}</td></tr>
             ) : (
               data.map((row, i) => (
                 <tr key={i} className="border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/50">
@@ -1017,13 +1021,14 @@ function SpreadsheetView({
   onEdit: (row: any) => void
   onDelete: (row: any) => void
 }) {
+  const { t } = useLanguage()
   // Spreadsheet shows: row#, all fields, edit, delete
   // Limit columns to keep it usable — show all fields
   if (loading) {
-    return <div className="py-12 text-center text-[var(--brand-ink)]/40 text-[12px]">Loading…</div>
+    return <div className="py-12 text-center text-[var(--brand-ink)]/40 text-[12px]">{t('common.loading')}</div>
   }
   if (data.length === 0) {
-    return <div className="py-12 text-center text-[var(--brand-ink)]/40 text-[12px]">No records found</div>
+    return <div className="py-12 text-center text-[var(--brand-ink)]/40 text-[12px]">{t('data.no_data')}</div>
   }
   return (
     <div className="overflow-auto max-h-[600px] border border-[var(--brand-border)] rounded">
@@ -1033,11 +1038,11 @@ function SpreadsheetView({
             <th className="text-center px-1 py-1.5 border-r border-b border-[var(--brand-border)] font-semibold text-[var(--brand-ink)]/50 uppercase text-[9px] w-8 sticky left-0 bg-[var(--brand-cream)] z-20">#</th>
             {fields.map(f => (
               <th key={f.key} className="text-left px-2 py-1.5 border-r border-b border-[var(--brand-border)] font-semibold text-[var(--brand-ink)]/70 uppercase tracking-wider text-[9px] whitespace-nowrap min-w-[80px]">
-                {f.label}
+                {t(`data.field.${f.labelKey || f.key}`)}
                 {f.required && <span className="text-[var(--brand-red)] ml-0.5">*</span>}
               </th>
             ))}
-            <th className="text-center px-1 py-1.5 border-b border-[var(--brand-border)] font-semibold text-[var(--brand-ink)]/50 w-16">Actions</th>
+            <th className="text-center px-1 py-1.5 border-b border-[var(--brand-border)] font-semibold text-[var(--brand-ink)]/50 w-16">{t('data.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1069,14 +1074,14 @@ function SpreadsheetView({
                   <button
                     onClick={() => onEdit(row)}
                     className="p-0.5 rounded hover:bg-[var(--brand-red)]/10 text-[var(--brand-ink)]/60 hover:text-[var(--brand-red)]"
-                    title="Open in dialog"
+                    title={t('data.open_in_dialog')}
                   >
                     <Edit className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => onDelete(row)}
                     className="p-0.5 rounded hover:bg-red-100 text-[var(--brand-ink)]/60 hover:text-red-600 ml-0.5"
-                    title="Delete"
+                    title={t('data.delete')}
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -1100,6 +1105,7 @@ function CellEditor({
   value: any
   onChange: (v: any) => void
 }) {
+  const { t } = useLanguage()
   if (field.type === 'boolean') {
     return (
       <button
@@ -1109,7 +1115,7 @@ function CellEditor({
             ? 'bg-green-100 text-green-700 hover:bg-green-200'
             : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
         }`}
-        title={value ? 'true (click to toggle)' : 'false (click to toggle)'}
+        title={value ? t('data.true_toggle') : t('data.false_toggle')}
       >
         {value ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
       </button>
@@ -1160,6 +1166,7 @@ function formatCell(value: any, type?: string): React.ReactNode {
 interface FieldConfig {
   key: string
   label: string
+  labelKey?: string // override for i18n key, defaults to `data.field.${key}`
   type?: 'text' | 'number' | 'boolean' | 'select'
   options?: string[]
   step?: string
@@ -1292,9 +1299,9 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
       ]
     case 'kabupaten':
       return [
-        { key: 'code', label: 'Code (BPS 4-digit)', type: 'text', required: true },
+        { key: 'code', label: 'Code (BPS 4-digit)', labelKey: 'code_bps4', type: 'text', required: true },
         { key: 'name', label: 'Name', type: 'text', required: true },
-        { key: 'type', label: 'Type (Kabupaten/Kota)', type: 'select', options: ['Kabupaten','Kota'] },
+        { key: 'type', label: 'Type (Kabupaten/Kota)', labelKey: 'type_kab', type: 'select', options: ['Kabupaten','Kota'] },
         { key: 'capital', label: 'Capital', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
@@ -1313,7 +1320,7 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
       ]
     case 'kecamatan':
       return [
-        { key: 'code', label: 'Code (BPS 6-digit)', type: 'text', required: true },
+        { key: 'code', label: 'Code (BPS 6-digit)', labelKey: 'code_bps6', type: 'text', required: true },
         { key: 'name', label: 'Name', type: 'text', required: true },
         { key: 'kabupaten_code', label: 'Kabupaten/Kota Code', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
@@ -1330,7 +1337,7 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
       ]
     case 'provinces':
       return [
-        { key: 'code', label: 'Code (BPS 2-digit)', type: 'text', required: true },
+        { key: 'code', label: 'Code (BPS 2-digit)', labelKey: 'code_bps2', type: 'text', required: true },
         { key: 'name', label: 'Name', type: 'text', required: true },
         { key: 'country_id', label: 'Country ID', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },

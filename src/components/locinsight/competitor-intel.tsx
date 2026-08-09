@@ -15,6 +15,7 @@ import {
   Search, Shield, RefreshCw, Trash2, Edit, Save, X, ArrowRight,
   ArrowUp, ArrowDown, ArrowUpDown, Download, Filter as FilterIcon,
 } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 interface CompetitorRow {
   id: string
@@ -44,24 +45,13 @@ const CATEGORY_OPTIONS = [
   'supermarket', 'pharmacy', 'department_store', 'sports', 'other',
 ]
 
-const CATEGORY_LABELS: Record<string, string> = {
-  convenience_store: 'Convenience Store',
-  fast_food: 'Fast Food',
-  coffee: 'Coffee',
-  fashion: 'Fashion',
-  beauty: 'Beauty',
-  supermarket: 'Supermarket',
-  pharmacy: 'Pharmacy',
-  department_store: 'Department Store',
-  sports: 'Sports',
-  other: 'Other',
-}
-
 // =====================================================
 // Column definitions — drives header rendering, sort,
 // per-column filter, and CSV export.
 // =====================================================
 type SortDir = 'asc' | 'desc' | null
+
+type TFunc = (key: string, params?: Record<string, string | number>) => string
 
 interface ColumnDef {
   key: keyof CompetitorRow
@@ -74,27 +64,34 @@ interface ColumnDef {
   csvFormat?: (v: any, row: CompetitorRow) => string
 }
 
-const COLUMNS: ColumnDef[] = [
-  { key: 'brand_name', label: 'Brand', sortable: true, filterable: true, filterType: 'select',
-    format: (v) => <span className="font-medium text-[var(--brand-red)]">{v}</span> },
-  { key: 'brand_category', label: 'Category', sortable: true, filterable: true, filterType: 'select',
-    format: (v) => <Badge variant="outline" className="text-[9px]">{CATEGORY_LABELS[v as string] || v}</Badge> },
-  { key: 'name', label: 'Outlet Name', sortable: true, filterable: true, filterType: 'text',
-    format: (v) => <span className="block max-w-[200px] truncate" title={String(v)}>{v}</span> },
-  { key: 'kec', label: 'Kecamatan', sortable: true, filterable: true, filterType: 'select',
-    format: (v) => v || '—' },
-  { key: 'kab', label: 'Kabupaten', sortable: true, filterable: true, filterType: 'select',
-    format: (v) => v || '—' },
-  { key: 'is_in_mall', label: 'In Mall', sortable: true, filterable: true, filterType: 'select',
-    format: (v) => v ? <Badge className="text-[9px] bg-[var(--brand-ink)]">Yes</Badge> : '—',
-    csvFormat: (v) => v ? 'Yes' : 'No' },
-  { key: 'mall_name', label: 'Mall Name', sortable: true, filterable: true, filterType: 'text',
-    format: (v, row) => row.is_in_mall ? <span className="block max-w-[120px] truncate" title={String(v || '')}>{v || '—'}</span> : '—' },
-  { key: 'source', label: 'Source', sortable: true, filterable: true, filterType: 'select',
-    format: (v) => <span className="text-[10px] text-[var(--brand-ink)]/60">{v}</span> },
-]
+function categoryLabel(v: string, t: TFunc): string {
+  return CATEGORY_OPTIONS.includes(v as any) ? t('competitors.category.' + v) : v
+}
+
+function buildColumns(t: TFunc): ColumnDef[] {
+  return [
+    { key: 'brand_name', label: t('competitors.col_brand'), sortable: true, filterable: true, filterType: 'select',
+      format: (v) => <span className="font-medium text-[var(--brand-red)]">{v}</span> },
+    { key: 'brand_category', label: t('competitors.col_category'), sortable: true, filterable: true, filterType: 'select',
+      format: (v) => <Badge variant="outline" className="text-[9px]">{categoryLabel(v as string, t)}</Badge> },
+    { key: 'name', label: t('competitors.col_outlet_name'), sortable: true, filterable: true, filterType: 'text',
+      format: (v) => <span className="block max-w-[200px] truncate" title={String(v)}>{v}</span> },
+    { key: 'kec', label: t('competitors.label_kec'), sortable: true, filterable: true, filterType: 'select',
+      format: (v) => v || '—' },
+    { key: 'kab', label: t('competitors.label_kab'), sortable: true, filterable: true, filterType: 'select',
+      format: (v) => v || '—' },
+    { key: 'is_in_mall', label: t('competitors.col_in_mall'), sortable: true, filterable: true, filterType: 'select',
+      format: (v) => v ? <Badge className="text-[9px] bg-[var(--brand-ink)]">{t('common.yes')}</Badge> : '—',
+      csvFormat: (v) => v ? t('common.yes') : t('common.no') },
+    { key: 'mall_name', label: t('malls.name'), sortable: true, filterable: true, filterType: 'text',
+      format: (v, row) => row.is_in_mall ? <span className="block max-w-[120px] truncate" title={String(v || '')}>{v || '—'}</span> : '—' },
+    { key: 'source', label: t('competitors.col_source'), sortable: true, filterable: true, filterType: 'select',
+      format: (v) => <span className="text-[10px] text-[var(--brand-ink)]/60">{v}</span> },
+  ]
+}
 
 export function CompetitorIntel({ onScrapeMore }: Props) {
+  const { t } = useLanguage()
   const [competitors, setCompetitors] = useState<CompetitorRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<CompetitorRow | null>(null)
@@ -108,6 +105,8 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
   const [globalSearch, setGlobalSearch] = useState('')
   // Per-column filters: { brand_name: 'Alfamart', kec: 'Kuta', ... }
   const [colFilters, setColFilters] = useState<Partial<Record<keyof CompetitorRow, string>>>({})
+
+  const COLUMNS = useMemo(() => buildColumns(t), [t])
 
   useEffect(() => {
     loadExisting()
@@ -128,12 +127,12 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
   }, [])
 
   async function deleteRow(id: string) {
-    if (!confirm('Delete this competitor record?')) return
+    if (!confirm(t('competitors.delete_confirm'))) return
     try {
       const res = await fetch(`/api/locinsight/competitors/${id}`, { method: 'DELETE' })
       const json = await res.json()
       if (json.success) {
-        toast.success('Deleted')
+        toast.success(t('competitors.deleted'))
         setCompetitors(prev => prev.filter(c => c.id !== id))
       } else {
         toast.error(json.error || 'Delete failed')
@@ -160,7 +159,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
       })
       const json = await res.json()
       if (json.success) {
-        toast.success('Competitor updated')
+        toast.success(t('competitors.updated'))
         setCompetitors(prev => prev.map(c => c.id === id ? { ...c, ...json.data } : c))
         setShowEditDialog(false)
         setEditing(null)
@@ -255,7 +254,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
       }
     }
     return opts
-  }, [competitors])
+  }, [competitors, COLUMNS])
 
   const brandsInDb = filterOptions['brand_name'] || []
   const categoriesInDb = filterOptions['brand_category'] || []
@@ -271,17 +270,26 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
   // === Filtered CSV export ===
   function exportFilteredCSV() {
     if (filtered.length === 0) {
-      toast.info('No data to export')
+      toast.info(t('competitors.no_data_export'))
       return
     }
     const headers = ['id', ...COLUMNS.map(c => c.key), 'address', 'city', 'lat', 'lng', 'source_url', 'last_crawled_at']
-    const headerLabels = ['ID', ...COLUMNS.map(c => c.label), 'Address', 'City', 'Latitude', 'Longitude', 'Source URL', 'Last Crawled At']
+    const headerLabels = [
+      t('competitors.csv_id'),
+      ...COLUMNS.map(c => c.label),
+      t('competitors.label_address'),
+      t('competitors.label_city'),
+      t('competitors.label_latitude'),
+      t('competitors.label_longitude'),
+      t('competitors.label_source_url'),
+      t('competitors.csv_last_crawled'),
+    ]
     const lines = [headerLabels.join(',')]
     for (const r of filtered) {
       const cells = headers.map(h => {
         const v = (r as any)[h]
         if (v == null) return ''
-        const s = typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
+        const s = typeof v === 'boolean' ? (v ? t('common.yes') : t('common.no')) : String(v)
         // RFC 4180 quoting
         if (s.includes(',') || s.includes('"') || s.includes('\n')) {
           return `"${s.replace(/"/g, '""')}"`
@@ -300,7 +308,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    toast.success(`Exported ${filtered.length} filtered rows to CSV`)
+    toast.success(t('competitors.export_success', { n: filtered.length }))
   }
 
   const isFilterActive = globalSearch !== '' || Object.values(colFilters).some(v => v) ||
@@ -311,23 +319,22 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
       <div className="flex items-start justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-            Competitor Intelligence
+            {t('competitors.title')}
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-            View, edit, and analyze competitor store presence scraped from OpenStreetMap. Click any column header to sort;
-            use the filter inputs below each header to narrow results; export respects current filters & sort.
+            {t('competitors.intel_subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size="sm" onClick={loadExisting} disabled={loading}>
-            <RefreshCw className={`w-3 h-3 mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`w-3 h-3 mr-1.5 ${loading ? 'animate-spin' : ''}`} /> {t('common.refresh')}
           </Button>
           <Button
             size="sm"
             onClick={() => onScrapeMore?.()}
             className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
           >
-            <Search className="w-3 h-3 mr-1.5" /> Scrape More
+            <Search className="w-3 h-3 mr-1.5" /> {t('competitors.scrape_more')}
             <ArrowRight className="w-3 h-3 ml-1.5" />
           </Button>
         </div>
@@ -337,25 +344,25 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="card-premium">
           <CardContent className="p-4">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">Total Competitors</div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('competitors.total_outlets')}</div>
             <div className="font-display text-[28px] font-bold text-[var(--brand-red)]">{competitors.length}</div>
           </CardContent>
         </Card>
         <Card className="card-premium">
           <CardContent className="p-4">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">Brands Tracked</div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('competitors.brands_tracked')}</div>
             <div className="font-display text-[28px] font-bold text-[var(--brand-ink)]">{brandsInDb.length}</div>
           </CardContent>
         </Card>
         <Card className="card-premium">
           <CardContent className="p-4">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">Kecamatan Covered</div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('competitors.kecamatan_covered')}</div>
             <div className="font-display text-[28px] font-bold text-[var(--brand-ink)]">{kecamatanInDb.length}</div>
           </CardContent>
         </Card>
         <Card className="card-premium">
           <CardContent className="p-4">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">Showing (Filtered)</div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60">{t('competitors.showing_filtered')}</div>
             <div className="font-display text-[28px] font-bold text-[var(--brand-ink)]">{filtered.length}</div>
           </CardContent>
         </Card>
@@ -365,13 +372,13 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
       <Card className="card-premium">
         <CardHeader className="pb-2">
           <CardTitle className="text-[12px] uppercase tracking-wider flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[var(--brand-red)]" /> Top Competitor Brands
+            <Shield className="w-4 h-4 text-[var(--brand-red)]" /> {t('competitors.top_brands')}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           {byBrand.length === 0 ? (
             <div className="text-[12px] text-[var(--brand-ink)]/50 py-6 text-center">
-              No competitor data yet. Click "Scrape More" to fetch from OSM.
+              {t('competitors.no_data_scrape')}
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -394,22 +401,22 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
         <CardContent className="p-3 flex flex-wrap gap-2 items-end">
           <div className="flex-1 min-w-[200px]">
             <label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-1">
-              Global Search (any field)
+              {t('competitors.global_search')}
             </label>
             <Input
               value={globalSearch}
               onChange={e => setGlobalSearch(e.target.value)}
-              placeholder="Search across all columns…"
+              placeholder={t('competitors.search_placeholder')}
               className="text-[12px] h-8"
             />
           </div>
           <Button variant="outline" size="sm" onClick={resetFilters} disabled={!isFilterActive} className="h-8">
-            <FilterIcon className="w-3 h-3 mr-1" /> Reset
+            <FilterIcon className="w-3 h-3 mr-1" /> {t('ab.reset')}
           </Button>
           <Button size="sm" onClick={exportFilteredCSV} disabled={filtered.length === 0}
             className="bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white h-8">
             <Download className="w-3 h-3 mr-1.5" />
-            Export Filtered ({filtered.length})
+            {t('competitors.export_filtered', { n: filtered.length })}
           </Button>
         </CardContent>
       </Card>
@@ -425,8 +432,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-[13px] text-[var(--brand-ink)]/60">
-              No competitor stores match the current filters. Adjust filters or{' '}
-              <strong>Scrape More</strong> to fetch new data.
+              {t('competitors.no_match')}
             </div>
           ) : (
             <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
@@ -448,7 +454,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                         </th>
                       )
                     })}
-                    <th className="p-2 text-right">Actions</th>
+                    <th className="p-2 text-right">{t('data.actions')}</th>
                   </tr>
                   {/* Per-column filter row */}
                   <tr className="border-t border-[var(--brand-border)] bg-white">
@@ -464,7 +470,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                               onChange={e => setColFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
                               className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full bg-white"
                             >
-                              <option value="">All</option>
+                              <option value="">{t('common.all')}</option>
                               {opts.map(o => <option key={o} value={o}>{o}</option>)}
                             </select>
                           </th>
@@ -476,7 +482,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                             type="text"
                             value={value}
                             onChange={e => setColFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
-                            placeholder="Filter…"
+                            placeholder={t('competitors.filter_placeholder')}
                             className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full"
                           />
                         </th>
@@ -498,14 +504,14 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                           <button
                             onClick={() => openEdit(c)}
                             className="text-[var(--brand-ink)]/40 hover:text-[var(--brand-ink)] p-1 rounded hover:bg-[var(--brand-cream)]"
-                            title="Edit"
+                            title={t('data.edit')}
                           >
                             <Edit className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => deleteRow(c.id)}
                             className="text-[var(--brand-ink)]/40 hover:text-[var(--brand-red)] p-1 rounded hover:bg-[var(--brand-cream)]"
-                            title="Delete"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -517,7 +523,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
               </table>
               {filtered.length > 500 && (
                 <div className="p-2 text-center text-[11px] text-[var(--brand-ink)]/60 bg-[var(--brand-cream)] border-t border-[var(--brand-border)]">
-                  Showing first 500 of {filtered.length} filtered rows. Use Export to download all.
+                  {t('competitors.showing_first_500', { n: filtered.length })}
                 </div>
               )}
             </div>
@@ -531,14 +537,14 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-4 h-4 text-[var(--brand-red)]" />
-              Edit Competitor Store
+              {t('competitors.edit_title')}
             </DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Brand Name *</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('competitors.label_brand_name')}</Label>
                   <Input
                     value={editing.brand_name}
                     onChange={(e) => setEditing({ ...editing, brand_name: e.target.value })}
@@ -546,21 +552,21 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Category</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('competitors.label_category')}</Label>
                   <Select
                     value={editing.brand_category}
                     onValueChange={(v) => setEditing({ ...editing, brand_category: v })}
                   >
                     <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CATEGORY_OPTIONS.map(c => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>)}
+                      {CATEGORY_OPTIONS.map(c => <SelectItem key={c} value={c}>{categoryLabel(c, t)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Outlet Name *</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('competitors.label_outlet_name')}</Label>
                 <Input
                   value={editing.name}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
@@ -569,10 +575,10 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
               </div>
 
               <div className="bg-[var(--brand-cream)] p-3 rounded border border-[var(--brand-border)]">
-                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">Location (Admin Boundary)</Label>
+                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">{t('competitors.label_location_admin')}</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">Kecamatan</Label>
+                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">{t('competitors.label_kec')}</Label>
                     <Input
                       value={editing.kec || ''}
                       onChange={(e) => setEditing({ ...editing, kec: e.target.value })}
@@ -581,7 +587,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                     />
                   </div>
                   <div>
-                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">Kabupaten/Kota</Label>
+                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">{t('competitors.label_kab')}</Label>
                     <Input
                       value={editing.kab || ''}
                       onChange={(e) => setEditing({ ...editing, kab: e.target.value })}
@@ -590,7 +596,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                     />
                   </div>
                   <div>
-                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">City</Label>
+                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">{t('competitors.label_city')}</Label>
                     <Input
                       value={editing.city || ''}
                       onChange={(e) => setEditing({ ...editing, city: e.target.value })}
@@ -598,12 +604,12 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                     />
                   </div>
                   <div>
-                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">Address</Label>
+                    <Label className="text-[11px] text-[var(--brand-ink)]/60 mb-1 block">{t('competitors.label_address')}</Label>
                     <Input
                       value={editing.address || ''}
                       onChange={(e) => setEditing({ ...editing, address: e.target.value })}
                       className="h-9 text-[12px]"
-                      placeholder="Street address (if known)"
+                      placeholder={t('competitors.placeholder_address')}
                     />
                   </div>
                 </div>
@@ -611,7 +617,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Latitude</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('competitors.label_latitude')}</Label>
                   <Input
                     type="number"
                     step="0.0001"
@@ -621,7 +627,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Longitude</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('competitors.label_longitude')}</Label>
                   <Input
                     type="number"
                     step="0.0001"
@@ -638,10 +644,10 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
                     checked={!!editing.is_in_mall}
                     onCheckedChange={(v) => setEditing({ ...editing, is_in_mall: v })}
                   />
-                  <Label className="text-[12px]">Located inside a mall?</Label>
+                  <Label className="text-[12px]">{t('competitors.label_in_mall_switch')}</Label>
                 </div>
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Mall Name</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('malls.name')}</Label>
                   <Input
                     value={editing.mall_name || ''}
                     onChange={(e) => setEditing({ ...editing, mall_name: e.target.value })}
@@ -652,7 +658,7 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
               </div>
 
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Source URL</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('competitors.label_source_url')}</Label>
                 <Input
                   value={editing.source_url || ''}
                   onChange={(e) => setEditing({ ...editing, source_url: e.target.value })}
@@ -662,17 +668,20 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
               </div>
 
               <div className="text-[10px] text-[var(--brand-ink)]/50">
-                Last crawled: {editing.last_crawled_at ? new Date(editing.last_crawled_at).toLocaleString() : '—'} · Source: {editing.source}
+                {t('competitors.last_crawled_source', {
+                  crawled: editing.last_crawled_at ? new Date(editing.last_crawled_at).toLocaleString() : '—',
+                  source: editing.source,
+                })}
               </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowEditDialog(false); setEditing(null) }}>
-              <X className="w-3.5 h-3.5 mr-1" /> Cancel
+              <X className="w-3.5 h-3.5 mr-1" /> {t('common.cancel')}
             </Button>
             <Button onClick={saveEdit} disabled={saving}>
               {saving ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
-              Save Changes
+              {t('data.save_changes')}
             </Button>
           </DialogFooter>
         </DialogContent>

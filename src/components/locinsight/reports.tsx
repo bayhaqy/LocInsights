@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Download, FileSpreadsheet, FileJson, Printer, Clock, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/i18n/language-provider'
 
 interface ReportHistoryItem {
   id: string
@@ -23,6 +24,7 @@ interface ReportHistoryItem {
 }
 
 export function Reports() {
+  const { t } = useLanguage()
   const [reportType, setReportType] = useState<'executive_summary' | 'site_analysis' | 'brand_expansion' | 'regional_comparison'>('executive_summary')
   const [format, setFormat] = useState<'json' | 'csv' | 'html'>('html')
   const [tier, setTier] = useState<string>('all')
@@ -52,7 +54,7 @@ export function Reports() {
       if (format === 'html') {
         const html = await res.text()
         setPreviewHtml(html)
-        toast.success('Report generated — preview ready. Use your browser print dialog (Ctrl+P) to save as PDF.')
+        toast.success(t('reports.toast_generated'))
       } else if (format === 'csv') {
         const blob = await res.blob()
         const url = URL.createObjectURL(blob)
@@ -61,7 +63,7 @@ export function Reports() {
         a.download = `locinsight_${reportType}_${Date.now()}.csv`
         a.click()
         URL.revokeObjectURL(url)
-        toast.success('CSV downloaded')
+        toast.success(t('reports.toast_csv'))
 
         // Add to history
         const reportId = res.headers.get('X-Report-Id')
@@ -86,10 +88,10 @@ export function Reports() {
         a.download = `locinsight_${reportType}_${Date.now()}.json`
         a.click()
         URL.revokeObjectURL(url)
-        toast.success('JSON downloaded')
+        toast.success(t('reports.toast_json'))
       }
     } catch (e: any) {
-      toast.error(e.message || 'Failed to generate report')
+      toast.error(e.message || t('reports.toast_failed'))
     } finally {
       setLoading(false)
     }
@@ -99,7 +101,7 @@ export function Reports() {
     if (!previewHtml) return
     const w = window.open('', '_blank')
     if (!w) {
-      toast.error('Pop-up blocked. Allow pop-ups to print.')
+      toast.error(t('reports.toast_popup_blocked'))
       return
     }
     w.document.write(previewHtml)
@@ -112,10 +114,10 @@ export function Reports() {
       {/* Header */}
       <div>
         <h2 className="font-display text-[24px] font-bold text-[var(--brand-ink)] leading-tight">
-          Reports & Export
+          {t('reports.title')}
         </h2>
         <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-          Generate detailed reports for executive review, BD presentations, and operational planning
+          {t('reports.subtitle_full')}
         </p>
       </div>
 
@@ -125,19 +127,19 @@ export function Reports() {
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-              Report Preview
+              {t('reports.preview')}
             </CardTitle>
             {previewHtml && (
               <Button size="sm" variant="default" onClick={printPreview} className="h-8 text-[12px]">
                 <Printer className="w-3.5 h-3.5 mr-1.5" />
-                Print / Save as PDF
+                {t('reports.print_pdf')}
               </Button>
             )}
           </CardHeader>
           <CardContent>
             {previewHtml ? (
               <iframe
-                title="Report Preview"
+                title={t('reports.preview')}
                 srcDoc={previewHtml}
                 className="w-full border border-[var(--brand-border)] rounded-md bg-white"
                 style={{ height: 'calc(100vh - 320px)', minHeight: '500px' }}
@@ -145,10 +147,9 @@ export function Reports() {
             ) : (
               <div className="flex flex-col items-center justify-center text-center text-[var(--brand-ink)]/40" style={{ height: '400px' }}>
                 <FileText className="w-12 h-12 mb-3 opacity-50" />
-                <div className="text-[14px] font-medium">No report generated yet</div>
+                <div className="text-[14px] font-medium">{t('reports.no_report')}</div>
                 <div className="text-[12px] mt-1 max-w-xs">
-                  Configure the report on the right, then click "Generate Report" to preview.
-                  For PDF, use "Print / Save as PDF" after preview.
+                  {t('reports.no_report_hint')}
                 </div>
               </div>
             )}
@@ -160,51 +161,51 @@ export function Reports() {
           <Card className="card-premium">
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
-                Report Configuration
+                {t('reports.configuration')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Report Type</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('reports.report_type')}</Label>
                 <Select value={reportType} onValueChange={(v) => setReportType(v as any)}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="executive_summary">Executive Summary (KPIs + top 10)</SelectItem>
-                    <SelectItem value="site_analysis">Site Analysis (per-kelurahan deep dive)</SelectItem>
-                    <SelectItem value="brand_expansion">Brand Expansion Matrix (per-brand)</SelectItem>
-                    <SelectItem value="regional_comparison">Regional Comparison (per-kabupaten)</SelectItem>
+                    <SelectItem value="executive_summary">{t('reports.executive_summary_desc')}</SelectItem>
+                    <SelectItem value="site_analysis">{t('reports.site_analysis_desc')}</SelectItem>
+                    <SelectItem value="brand_expansion">{t('reports.brand_expansion_desc')}</SelectItem>
+                    <SelectItem value="regional_comparison">{t('reports.regional_comparison_desc')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Format</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('reports.format')}</Label>
                 <Select value={format} onValueChange={(v) => setFormat(v as any)}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="html">HTML (printable → PDF)</SelectItem>
-                    <SelectItem value="csv">CSV (Excel-compatible)</SelectItem>
-                    <SelectItem value="json">JSON (API/raw)</SelectItem>
+                    <SelectItem value="html">{t('reports.format_html')}</SelectItem>
+                    <SelectItem value="csv">{t('reports.format_csv')}</SelectItem>
+                    <SelectItem value="json">{t('reports.format_json')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Tier Filter</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('reports.tier_filter')}</Label>
                 <Select value={tier} onValueChange={setTier}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Tiers</SelectItem>
-                    <SelectItem value="1">Tier 1 (Mature)</SelectItem>
-                    <SelectItem value="2">Tier 2 (Growth)</SelectItem>
-                    <SelectItem value="3">Tier 3 (Untapped)</SelectItem>
+                    <SelectItem value="all">{t('reports.all_tiers')}</SelectItem>
+                    <SelectItem value="1">{t('reports.tier_1_mature')}</SelectItem>
+                    <SelectItem value="2">{t('reports.tier_2_growth')}</SelectItem>
+                    <SelectItem value="3">{t('reports.tier_3_untapped')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Min Score</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('reports.min_score')}</Label>
                   <Input
                     type="number"
                     value={minScore}
@@ -214,7 +215,7 @@ export function Reports() {
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Limit</Label>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('reports.limit')}</Label>
                   <Input
                     type="number"
                     value={limit}
@@ -233,12 +234,12 @@ export function Reports() {
                 {loading ? (
                   <>
                     <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Generating…
+                    {t('reports.generating')}
                   </>
                 ) : (
                   <>
                     <Download className="w-4 h-4 mr-2" />
-                    Generate Report
+                    {t('reports.generate_report')}
                   </>
                 )}
               </Button>
@@ -249,13 +250,13 @@ export function Reports() {
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-[var(--brand-ink)]" />
-                Recent Reports
+                {t('reports.recent')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {history.length === 0 ? (
                 <div className="text-[12px] text-[var(--brand-ink)]/40 py-6 text-center">
-                  No reports generated yet
+                  {t('reports.no_reports')}
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -274,7 +275,7 @@ export function Reports() {
                       </div>
                       <Badge variant="outline" className="text-[9px] h-4 px-1">
                         <CheckCircle2 className="w-2.5 h-2.5 mr-1 text-green-600" />
-                        Done
+                        {t('reports.done')}
                       </Badge>
                     </div>
                   ))}

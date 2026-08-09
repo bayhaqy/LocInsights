@@ -1,33 +1,70 @@
 /**
- * LocInsight Service Worker — Phase 3 PWA.
+ * LocInsight Service Worker — PWA with offline shell caching.
  *
- * Caches the /survey page and key API responses for offline use.
- * Field surveyors can collect data without internet, then sync when back online.
+ * Strategy:
+ *   • Pre-cache the app shell on install (logo, manifest, key CSS)
+ *   • Network-first for API calls (so fresh data when online; cache fallback offline)
+ *   • Cache-first for static assets (logo, fonts, leaflet tiles, _next/static)
+ *   • Stale-while-revalidate for navigation requests (HTML pages)
+ *
+ * Offline capabilities:
+ *   ✓ App shell loads (logo, layout, navigation)
+ *   ✓ Last-viewed Dashboard, Map Explorer, Opportunities data is cached
+ *   ✓ Field survey form works offline
+ *   ✗ Fresh API data requires network (will use cached if available)
+ *   ✗ AI chat requires network (calls external Z.AI API)
+ *   ✗ ML predictions require network (calls HuggingFace Space)
  */
-const CACHE_NAME = 'locinsight-survey-v1'
+
+const CACHE_VERSION = 'v2'
+const CACHE_NAME = `locinsight-${CACHE_VERSION}`
+const SURVEY_CACHE = `locinsight-survey-${CACHE_VERSION}`
+
 const PRECACHE_URLS = [
-  '/survey',
+  '/',
   '/manifest.json',
+  '/logo.png',
+  '/logo-white.png',
+  '/logo-icon.png',
+  '/logo-192.png',
+  '/logo-512.png',
+  '/apple-touch-icon.png',
+  '/favicon.ico',
+  '/survey',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
 ]
 
+// Install: pre-cache app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS).catch(() => {}))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        PRECACHE_URLS.map((url) =>
+          cache.add(url).catch(() => {
+            // Don't fail install if any single resource fails to cache
+          })
+        )
+      )
+    )
   )
   self.skipWaiting()
 })
 
+// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((k) => !k.includes(CACHE_VERSION) && !k.endsWith(CACHE_VERSION))
+          .map((k) => caches.delete(k))
+      )
     )
   )
   self.clients.claim()
 })
 
+// Fetch handler
 self.addEventListener('fetch', (event) => {
   const { request } = event
   // Only handle GET
@@ -35,22 +72,78 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
 
-  // Network-first for API calls (so fresh data when online)
+  // ---- Skip cross-origin requests for non-cached hosts (e.g. HuggingFace, external APIs) ----
+  // except for unpkg leaflet CDN which we want to cache
+  const isSameOrigin = url.origin === self.location.origin
+  const isLeafletCDN = url.origin === 'https://unpkg.com'
+  const isMapTile = /tile\.openstreetmap|cartocdn|basemaps/.test(url.href)
+
+  if (!isSameOrigin && !isLeafletCDN && !isMapTile) {
+    // Let external requests pass through normally (network-only)
+    return
+  }
+
+  // ---- Network-first for API calls (so fresh data when online) ----
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request))
+      fetch(request)
+        .then((response) => {
+          // Cache successful GET responses for offline fallback
+          if (response.ok) {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {})
+          }
+          return response
+        })
+        .catch(() => caches.match(request).then((cached) => cached || Response.error()))
     )
     return
   }
 
-  // Cache-first for static assets
+  // ---- Cache-first for map tiles (they're versioned and immutable) ----
+  if (isMapTile) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {})
+          }
+          return response
+        })
+      })
+    )
+    return
+  }
+
+  // ---- Stale-while-revalidate for navigation (HTML pages) ----
+  if (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const fetchPromise = fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              const clone = response.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {})
+            }
+            return response
+          })
+          .catch(() => cached || caches.match('/'))
+        return cached || fetchPromise
+      })
+    )
+    return
+  }
+
+  // ---- Cache-first for static assets (_next/static, images, fonts, leaflet CDN) ----
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached
       return fetch(request).then((response) => {
-        if (response.status === 200 && url.origin === self.location.origin) {
+        if (response.ok && (isSameOrigin || isLeafletCDN)) {
           const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {})
         }
         return response
       })
@@ -58,47 +151,7 @@ self.addEventListener('fetch', (event) => {
   )
 })
 
-// Background sync for queued survey submissions
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'survey-sync') {
-    event.waitUntil(syncSurveys())
-  }
+// Allow page to trigger immediate activation (skipWaiting)
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting()
 })
-
-async function syncSurveys() {
-  // Open the IndexedDB and pull queued submissions
-  // (the survey page writes here when offline)
-  const db = await openDB()
-  const tx = db.transaction('pending-surveys', 'readonly')
-  const all = await tx.objectStore('pending-surveys').getAll()
-  for (const survey of all) {
-    try {
-      const res = await fetch('/api/locinsight/field-survey', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(survey),
-      })
-      if (res.ok) {
-        const delTx = db.transaction('pending-surveys', 'readwrite')
-        await delTx.objectStore('pending-surveys').delete(survey.id)
-      }
-    } catch (e) {
-      // will retry on next sync
-      break
-    }
-  }
-}
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('locinsight-surveys', 1)
-    req.onupgradeneeded = () => {
-      const db = req.result
-      if (!db.objectStoreNames.contains('pending-surveys')) {
-        db.createObjectStore('pending-surveys', { keyPath: 'id' })
-      }
-    }
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
-}
