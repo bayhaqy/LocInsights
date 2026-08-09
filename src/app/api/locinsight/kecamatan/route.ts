@@ -8,9 +8,20 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams
     const term = sp.get('search')
     const kab = sp.get('kab_code')
+    const all = sp.get('all') === 'true'
 
     const where: any = {}
     if (kab) where.kabupaten_code = kab
+
+    if (all) {
+      // Single-shot full fetch for choropleth demographic layer.
+      const data = await db.kecamatan.findMany({
+        where,
+        orderBy: { code: 'asc' },
+        take: 5000,
+      })
+      return NextResponse.json({ success: true, data, count: data.length })
+    }
 
     return paginate(db.kecamatan, req, {
       where,

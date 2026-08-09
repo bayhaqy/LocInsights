@@ -74,6 +74,7 @@ export interface POI {
   kab: string
   magnitude: number
   notes: string
+  source?: string
 }
 
 export interface KelurahanLite {
