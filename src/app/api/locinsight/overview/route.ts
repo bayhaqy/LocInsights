@@ -5,7 +5,7 @@ import { BALI_MALLS } from '@/lib/data/bali-malls'
 import { BALI_KELURAHAN } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { BALI_POIS } from '@/lib/data/bali-poi'
-import { loadCompetitorStores } from '@/lib/scoring/db-engine'
+import { loadCompetitorStores, loadStoresFromDB } from '@/lib/scoring/db-engine'
 import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +13,9 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/locinsight/overview
  * Returns dashboard overview data: stats, top opportunities, store list, mall list, kelurahan list, brand list, POIs
+ *
+ * Phase 4 update: Now loads stores + competitor_stores from DB (Supabase) instead of
+ * static BALI_STORES. Falls back to static data if DB is unavailable.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -22,14 +25,26 @@ export async function GET(req: NextRequest) {
 
     // Phase 2: load competitor stores from DB
     const competitors = await loadCompetitorStores()
+
+    // Phase 4: load stores from DB (falls back to static if DB fails)
+    let dbStores: any[] = []
+    try {
+      dbStores = await loadStoresFromDB()
+    } catch (e) {
+      console.warn('[overview] DB stores load failed, falling back to static:', e)
+    }
+
+    // Use DB stores if available, otherwise static
+    const storesSource = dbStores.length > 0 ? dbStores : BALI_STORES
+
     const stats = getDashboardStats(competitors)
     const topOpps = getTopOpportunities(50, { brand_id: brandId, competitorStores: competitors, useTravelTime: true }, tierFilter)
 
     // Phase 3: count of field surveys + training runs
     const [pendingSurveys, latestTrainingRun, competitorBrands] = await Promise.all([
-      prisma.fieldSurvey.count({ where: { review_status: 'pending' } }),
-      prisma.trainingRun.findFirst({ orderBy: { started_at: 'desc' } }),
-      prisma.competitorStore.groupBy({ by: ['brand_name'], _count: true, orderBy: { _count: { brand_name: 'desc' } } }),
+      prisma.fieldSurvey.count({ where: { review_status: 'pending' } }).catch(() => 0),
+      prisma.trainingRun.findFirst({ orderBy: { started_at: 'desc' } }).catch(() => null),
+      prisma.competitorStore.groupBy({ by: ['brand_name'], _count: true, orderBy: { _count: { brand_name: 'desc' } } }).catch(() => []),
     ])
 
     return NextResponse.json({
@@ -49,7 +64,7 @@ export async function GET(req: NextRequest) {
           } : null,
           competitor_brand_counts: competitorBrands.map((b: any) => ({ brand: b.brand_name, count: b._count?.brand_name ?? b._count ?? 0 })),
         },
-        stores: BALI_STORES.map(s => ({
+        stores: storesSource.map(s => ({
           id: s.id,
           brand_id: s.brand_id,
           brand_name: s.brand_name,

@@ -157,13 +157,13 @@ export function MLAIEngine() {
             ML / AI Engine
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-            Real Gradient-Boosted Regression (Friedman 2001) + Huff gravity model + trade-area segmentation.
-            Pure TypeScript, no Python sidecar.
+            Gradient-Boosted Regression (Friedman 2001) + Huff gravity model + trade-area segmentation.
+            Hybrid engine: TypeScript GBR for dashboard integration + Python GBR (scikit-learn via Pyodide) in the ML Lab.
           </p>
         </div>
         <Button onClick={trainModel} disabled={training}>
           {training ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-          {training ? 'Training…' : 'Train GBR Model'}
+          {training ? 'Training…' : 'Train GBR Model (TS)'}
         </Button>
       </div>
 
@@ -174,6 +174,7 @@ export function MLAIEngine() {
           <TabsTrigger value="importance" className="text-[12px]"><Award className="w-3 h-3 mr-1" /> Feature Importance</TabsTrigger>
           <TabsTrigger value="clusters" className="text-[12px]"><Boxes className="w-3 h-3 mr-1" /> Segments</TabsTrigger>
           <TabsTrigger value="training" className="text-[12px]"><History className="w-3 h-3 mr-1" /> Training Runs</TabsTrigger>
+          <TabsTrigger value="ml_lab" className="text-[12px]"><Brain className="w-3 h-3 mr-1" /> ML Lab (Python)</TabsTrigger>
         </TabsList>
 
         {/* Models tab */}
@@ -459,6 +460,42 @@ export function MLAIEngine() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ML Lab (Python via HF Space) tab */}
+        <TabsContent value="ml_lab" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[14px] flex items-center gap-2">
+                <Brain className="w-4 h-4 text-[var(--brand-red)]" />
+                ML Lab — Python GBR via Pyodide (Hugging Face Space)
+              </CardTitle>
+              <p className="text-[12px] text-[var(--brand-ink)]/60 mt-1">
+                Interactive Python ML environment running entirely in your browser via Pyodide (WebAssembly).
+                Train scikit-learn Gradient Boosting Regressor, predict site scores, and find blank spots —
+                all client-side, no server compute. First load takes ~10-20s (Pyodide + scikit-learn install, cached after).
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-lg overflow-hidden border border-[var(--brand-border)] bg-white">
+                <iframe
+                  src="https://bayhaqy-locinsights-ml.static.hf.space"
+                  title="LocInsights ML Lab (Python via Pyodide)"
+                  className="w-full"
+                  style={{ height: '900px', border: 0 }}
+                  loading="lazy"
+                  allow="clipboard-read; clipboard-write"
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[11px] text-[var(--brand-ink)]/50">
+                <span>
+                  Powered by <a href="https://huggingface.co/spaces/Bayhaqy/LocInsights_ml" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-red)] hover:underline">Hugging Face Space</a>
+                  {' · '}<a href="https://github.com/bayhaqy/LocInsights_ml" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-red)] hover:underline">Source code</a>
+                </span>
+                <span>scikit-learn · numpy · Pyodide (WASM)</span>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

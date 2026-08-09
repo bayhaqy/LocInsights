@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
-import { MapPin, Building2, Compass, Filter, Crosshair, Search, RotateCcw } from 'lucide-react'
+import { MapPin, Building2, Compass, Filter, Crosshair, Search, RotateCcw, Shield, TrendingUp, Activity } from 'lucide-react'
 import { Store as StoreIcon } from 'lucide-react'
 import type { OpportunityScore, Store, Mall, POI } from './types'
 import { Button } from '@/components/ui/button'
@@ -78,6 +78,24 @@ export function MapExplorer({
   const [heatMode, setHeatMode] = useState<'region' | 'point'>('region')
   const [heatGranularity, setHeatGranularity] = useState<'kabupaten' | 'kecamatan'>('kabupaten')
   const [heatMetric, setHeatMetric] = useState<'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'>('avg_score')
+
+  // NEW layers (Phase 4)
+  const [showCompetitors, setShowCompetitors] = useState(false)
+  const [showTouristPOIs, setShowTouristPOIs] = useState(false)
+  const [showIncomeHeat, setShowIncomeHeat] = useState(false)
+  const [showCrowdDensity, setShowCrowdDensity] = useState(false)
+
+  // Competitor data (loaded from DB via API)
+  const [competitors, setCompetitors] = useState<any[]>([])
+  const [competitorBrandFilter, setCompetitorBrandFilter] = useState<string>('all')
+
+  // Load competitors on mount
+  useEffect(() => {
+    fetch('/api/locinsight/competitors?all=true')
+      .then(r => r.json())
+      .then(j => { if (j.success) setCompetitors(j.data || []) })
+      .catch(() => {})
+  }, [])
 
   // Filters
   const [tierFilter, setTierFilter] = useState<1 | 2 | 3 | 'all'>('all')
@@ -375,6 +393,59 @@ export function MapExplorer({
                 checked={showPOIs}
                 onCheckedChange={setShowPOIs}
                 color="var(--brand-ink)"
+              />
+
+              {/* NEW Phase 4 layers */}
+              <div className="pt-2 border-t border-[var(--brand-border)]">
+                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">Advanced Layers (Phase 4)</Label>
+              </div>
+              <LayerToggle
+                label="Competitor Stores"
+                desc={`${competitors.length} competitors (Indomaret, Alfamart, KFC, McDonald's, dll)`}
+                icon={Shield}
+                checked={showCompetitors}
+                onCheckedChange={setShowCompetitors}
+                color="#dc2626"
+              />
+              {showCompetitors && competitors.length > 0 && (
+                <div className="pl-2 border-l-2 border-red-500/30 space-y-2 ml-1">
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Filter by Brand</Label>
+                    <Select value={competitorBrandFilter} onValueChange={setCompetitorBrandFilter}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Brands ({competitors.length})</SelectItem>
+                        {Array.from(new Set(competitors.map(c => c.brand_name))).sort().map(b => (
+                          <SelectItem key={b} value={b}>{b} ({competitors.filter(c => c.brand_name === b).length})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              <LayerToggle
+                label="Tourist Attractions"
+                desc="Beaches, temples, museums, landmarks (from OSM)"
+                icon={MapPin}
+                checked={showTouristPOIs}
+                onCheckedChange={setShowTouristPOIs}
+                color="#0891b2"
+              />
+              <LayerToggle
+                label="Income Heatmap"
+                desc="Purchasing power by kelurahan (choropleth)"
+                icon={TrendingUp}
+                checked={showIncomeHeat}
+                onCheckedChange={setShowIncomeHeat}
+                color="#7c3aed"
+              />
+              <LayerToggle
+                label="Crowd Density"
+                desc="Foot traffic estimate (POI + mall + tourist density)"
+                icon={Activity}
+                checked={showCrowdDensity}
+                onCheckedChange={setShowCrowdDensity}
+                color="#ea580c"
               />
             </CardContent>
           </Card>
