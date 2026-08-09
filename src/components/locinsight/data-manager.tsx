@@ -13,11 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Database, Plus, Edit, Trash2, Search, Store as StoreIcon, Building2, Tag, MapPin, Map,
   RefreshCw, Upload, Download, FileSpreadsheet, Save, X, Check, AlertTriangle, FileDown,
-  Shield,
+  Shield, Globe, Flag,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-type EntityType = 'stores' | 'malls' | 'brands' | 'competitors' | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan'
+type EntityType = 'stores' | 'malls' | 'brands' | 'competitors' | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan' | 'provinces' | 'countries'
 
 interface EntityMeta {
   id: EntityType
@@ -27,14 +27,19 @@ interface EntityMeta {
 }
 
 const ENTITIES: EntityMeta[] = [
-  { id: 'stores', label: 'Stores', icon: StoreIcon, searchFields: ['name', 'brand_name'] },
-  { id: 'competitors', label: 'Competitors', icon: Shield, searchFields: ['name', 'brand_name', 'kab'] },
-  { id: 'malls', label: 'Malls', icon: Building2, searchFields: ['name'] },
-  { id: 'brands', label: 'Brands', icon: Tag, searchFields: ['name'] },
-  { id: 'kelurahan', label: 'Kelurahan', icon: MapPin, searchFields: ['name', 'kec_name', 'kab_name'] },
-  { id: 'pois', label: 'POIs', icon: MapPin, searchFields: ['name'] },
-  { id: 'kabupaten', label: 'Kabupaten', icon: Map, searchFields: ['name', 'capital'] },
-  { id: 'kecamatan', label: 'Kecamatan', icon: Map, searchFields: ['name'] },
+  // Geographic hierarchy: Country → Province → Kabupaten/Kota → Kecamatan → Kelurahan
+  { id: 'countries',    label: 'Countries',      icon: Globe,    searchFields: ['name'] },
+  { id: 'provinces',    label: 'Provinces',      icon: Flag,     searchFields: ['name', 'country'] },
+  { id: 'kabupaten',    label: 'Kabupaten/Kota', icon: Map,      searchFields: ['name', 'capital'] },
+  { id: 'kecamatan',    label: 'Kecamatan',      icon: Map,      searchFields: ['name'] },
+  { id: 'kelurahan',    label: 'Kelurahan',      icon: MapPin,   searchFields: ['name', 'kec_name', 'kab_name'] },
+  // Master data
+  { id: 'brands',       label: 'Brands',         icon: Tag,      searchFields: ['name'] },
+  { id: 'malls',        label: 'Malls',          icon: Building2, searchFields: ['name'] },
+  // Operational data
+  { id: 'stores',       label: 'Stores',         icon: StoreIcon, searchFields: ['name', 'brand_name'] },
+  { id: 'competitors',  label: 'Competitors',    icon: Shield,   searchFields: ['name', 'brand_name', 'kab'] },
+  { id: 'pois',         label: 'POIs',           icon: MapPin,   searchFields: ['name'] },
 ]
 
 export function DataManager() {
@@ -105,7 +110,9 @@ export function DataManager() {
     if (!editing) return
     try {
       const isEdit = editMode === 'edit' && (editing.id || editing.code)
-      const idField = activeEntity === 'kabupaten' || activeEntity === 'kecamatan' ? editing.code : editing.id
+      // For entities that use `code` as the primary key
+      const codeKeyedEntities: EntityType[] = ['kabupaten', 'kecamatan', 'provinces', 'countries']
+      const idField = codeKeyedEntities.includes(activeEntity) ? editing.code : editing.id
       const url = isEdit
         ? `/api/locinsight/${activeEntity}/${encodeURIComponent(idField)}`
         : `/api/locinsight/${activeEntity}`
@@ -130,7 +137,8 @@ export function DataManager() {
   }
 
   async function remove(row: any) {
-    const idField = activeEntity === 'kabupaten' || activeEntity === 'kecamatan' ? row.code : row.id
+    const codeKeyedEntities: EntityType[] = ['kabupaten', 'kecamatan', 'provinces', 'countries']
+    const idField = codeKeyedEntities.includes(activeEntity) ? row.code : row.id
     if (!confirm(`Delete "${row.name || row.code}"? This cannot be undone.`)) return
     try {
       const res = await fetch(`/api/locinsight/${activeEntity}/${encodeURIComponent(idField)}`, { method: 'DELETE' })
@@ -734,14 +742,14 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
         { key: 'kec', label: 'Kecamatan', type: 'text' },
-        { key: 'kab', label: 'Kabupaten', type: 'text' },
+        { key: 'kab', label: 'Kabupaten/Kota', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'is_in_mall', label: 'In Mall?', type: 'boolean' },
         { key: 'mall_id', label: 'Mall ID', type: 'text' },
         { key: 'mall_name', label: 'Mall Name', type: 'text' },
         { key: 'address', label: 'Address', type: 'text', fullWidth: true },
-        { key: 'opened_year', label: 'Opened', type: 'number' },
+        { key: 'opened_year', label: 'Opened Year', type: 'number' },
         { key: 'estimated_size_m2', label: 'Size (m²)', type: 'number' },
         { key: 'confirmed', label: 'Verified?', type: 'boolean' },
         { key: 'source', label: 'Source', type: 'text', fullWidth: true },
@@ -755,7 +763,7 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001', required: true },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001', required: true },
         { key: 'kec', label: 'Kecamatan', type: 'text' },
-        { key: 'kab', label: 'Kabupaten', type: 'text' },
+        { key: 'kab', label: 'Kabupaten/Kota', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'address', label: 'Address', type: 'text', fullWidth: true },
@@ -772,11 +780,11 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
         { key: 'kec', label: 'Kecamatan', type: 'text' },
-        { key: 'kab', label: 'Kabupaten', type: 'text' },
+        { key: 'kab', label: 'Kabupaten/Kota', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'gla_m2', label: 'GLA (m²)', type: 'number' },
-        { key: 'opened_year', label: 'Opened', type: 'number' },
+        { key: 'opened_year', label: 'Opened Year', type: 'number' },
         { key: 'class', label: 'Class', type: 'select', options: ['super_regional','regional','community','specialty'] },
         { key: 'anchor_count', label: 'Anchors', type: 'number' },
         { key: 'has_cinema', label: 'Cinema?', type: 'boolean' },
@@ -810,15 +818,15 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'code', label: 'Code', type: 'text', required: true },
         { key: 'name', label: 'Name', type: 'text', required: true },
         { key: 'kec_code', label: 'Kecamatan Code', type: 'text' },
-        { key: 'kec_name', label: 'Kecamatan Name', type: 'text' },
-        { key: 'kab_code', label: 'Kabupaten Code', type: 'text' },
-        { key: 'kab_name', label: 'Kabupaten Name', type: 'text' },
+        { key: 'kec_name', label: 'Kecamatan', type: 'text' },
+        { key: 'kab_code', label: 'Kabupaten/Kota Code', type: 'text' },
+        { key: 'kab_name', label: 'Kabupaten/Kota', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'tier', label: 'Tier (1=Metropolitan, 2=Urban, 3=Rural)', type: 'select', options: ['tier_1','tier_2','tier_3'] },
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
-        { key: 'population', label: 'Population (people)', type: 'number' },
+        { key: 'population', label: 'Population', type: 'number' },
         { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
         { key: 'density', label: 'Population Density (per km²)', type: 'number' },
         { key: 'urban_index', label: 'Urbanization Index (0-100)', type: 'number' },
@@ -827,7 +835,7 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'transport_index', label: 'Transport Index (0-100)', type: 'number' },
         { key: 'poi_density_index', label: 'POI Density Index (0-100)', type: 'number' },
         { key: 'is_coastal', label: 'Is Coastal Area?', type: 'boolean' },
-        { key: 'source', label: 'Data Source', type: 'text', fullWidth: true },
+        { key: 'source', label: 'Source', type: 'text', fullWidth: true },
       ]
     case 'pois':
       return [
@@ -837,7 +845,7 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
         { key: 'kec', label: 'Kecamatan', type: 'text' },
-        { key: 'kab', label: 'Kabupaten', type: 'text' },
+        { key: 'kab', label: 'Kabupaten/Kota', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'magnitude', label: 'Magnitude', type: 'number' },
@@ -849,38 +857,56 @@ function getFieldConfig(entity: EntityType): FieldConfig[] {
         { key: 'code', label: 'Code (BPS 4-digit)', type: 'text', required: true },
         { key: 'name', label: 'Name', type: 'text', required: true },
         { key: 'type', label: 'Type (Kabupaten/Kota)', type: 'select', options: ['Kabupaten','Kota'] },
-        { key: 'capital', label: 'Capital City', type: 'text' },
+        { key: 'capital', label: 'Capital', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'province', label: 'Province', type: 'text' },
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
         { key: 'tier', label: 'Tier (1=Metropolitan, 2=Urban, 3=Rural)', type: 'select', options: ['tier_1','tier_2','tier_3'] },
-        { key: 'population_2024', label: 'Population 2024 (people)', type: 'number' },
+        { key: 'population_2024', label: 'Population', type: 'number' },
         { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
         { key: 'population_density', label: 'Population Density (per km²)', type: 'number' },
-        { key: 'gdrp_per_capita_juta', label: 'GDRP per Capita (Juta Rp / million IDR)', type: 'number', step: '0.1' },
-        { key: 'hdmi_2024', label: 'HDI Score 2024 (0-1, Human Development Index)', type: 'number', step: '0.001' },
-        { key: 'tourist_hotels', label: 'Tourist Hotels (count)', type: 'number' },
+        { key: 'gdrp_per_capita_juta', label: 'GDRP per Capita (Juta Rp)', type: 'number', step: '0.1' },
+        { key: 'hdmi_2024', label: 'HDI (0-1, Human Development Index)', type: 'number', step: '0.001' },
+        { key: 'tourist_hotels', label: 'Tourist Hotels', type: 'number' },
         { key: 'notes', label: 'Notes', type: 'text', fullWidth: true },
-        { key: 'source', label: 'Data Source', type: 'text', fullWidth: true },
+        { key: 'source', label: 'Source', type: 'text', fullWidth: true },
       ]
     case 'kecamatan':
       return [
         { key: 'code', label: 'Code (BPS 6-digit)', type: 'text', required: true },
         { key: 'name', label: 'Name', type: 'text', required: true },
-        { key: 'kabupaten_code', label: 'Kabupaten Code', type: 'text' },
+        { key: 'kabupaten_code', label: 'Kabupaten/Kota Code', type: 'text' },
         { key: 'city', label: 'City', type: 'text' },
         { key: 'country', label: 'Country', type: 'text' },
         { key: 'province', label: 'Province', type: 'text' },
         { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
         { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
         { key: 'tier', label: 'Tier (1=Metropolitan, 2=Urban, 3=Rural)', type: 'select', options: ['tier_1','tier_2','tier_3'] },
-        { key: 'population_2024', label: 'Population 2024 (people)', type: 'number' },
+        { key: 'population_2024', label: 'Population', type: 'number' },
         { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
         { key: 'urban_score', label: 'Urbanization Score (0-100)', type: 'number' },
         { key: 'is_capital', label: 'Is Kabupaten Capital?', type: 'boolean' },
-        { key: 'source', label: 'Data Source', type: 'text', fullWidth: true },
+        { key: 'source', label: 'Source', type: 'text', fullWidth: true },
+      ]
+    case 'provinces':
+      return [
+        { key: 'code', label: 'Code (BPS 2-digit)', type: 'text', required: true },
+        { key: 'name', label: 'Name', type: 'text', required: true },
+        { key: 'country_id', label: 'Country ID', type: 'text' },
+        { key: 'country', label: 'Country', type: 'text' },
+        { key: 'lat', label: 'Latitude', type: 'number', step: '0.0001' },
+        { key: 'lng', label: 'Longitude', type: 'number', step: '0.0001' },
+        { key: 'area_km2', label: 'Area (km²)', type: 'number', step: '0.1' },
+        { key: 'population', label: 'Population', type: 'number' },
+      ]
+    case 'countries':
+      return [
+        { key: 'id', label: 'ID (ISO-2)', type: 'text', required: true },
+        { key: 'name', label: 'Name', type: 'text', required: true },
+        { key: 'iso2', label: 'ISO 2 Code', type: 'text' },
+        { key: 'iso3', label: 'ISO 3 Code', type: 'text' },
       ]
   }
   return []
