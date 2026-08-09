@@ -114,3 +114,5 @@ worklog.md
 prompt
 .ml_API_token
 local-*
+/download/*.csv
+/download/*.json
