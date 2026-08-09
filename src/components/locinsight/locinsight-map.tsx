@@ -546,7 +546,7 @@ export function LocInsightMap({
           </>
         )}
 
-        {showDemographics && (
+        {showDemographics && demoData.length > 0 && (
           <div className="pt-1 border-t border-[var(--brand-border)]">
             <div className="font-semibold text-[10px] uppercase tracking-wider text-[var(--brand-ink)] mb-1">
               {METRIC_LABELS[demoMetric]}

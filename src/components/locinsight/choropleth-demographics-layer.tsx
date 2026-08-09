@@ -100,8 +100,10 @@ const METRIC_FORMAT: Record<DemoMetric, (v: number) => string> = {
 }
 
 function quantile(value: number, breaks: number[]): number {
+  // Special-case zero: returns 0 (lowest color) rather than max color
+  if (value === 0) return 0
   for (let i = breaks.length - 1; i >= 0; i--) {
-    if (value >= breaks[i]) return Math.min(i + 1, 6)
+    if (value > breaks[i]) return Math.min(i + 1, 6)
   }
   return 0
 }
@@ -343,6 +345,25 @@ export function ChoroplethDemographicsLayer({
       }
     }
   }, [map, data, metric, breaks, scale, granularity])
+
+  // Loading/empty state overlay — show a small badge at the top-right of the map
+  useEffect(() => {
+    if (data.length > 0) return // data is loaded — nothing to show
+    const container = map.getContainer()
+    const badge = document.createElement('div')
+    badge.className = 'demo-loading-badge'
+    badge.style.cssText = 'position:absolute;top:10px;right:10px;z-index:999;background:#fff;border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:11px;color:#666;box-shadow:0 1px 4px rgba(0,0,0,0.1);font-family:Inter,sans-serif'
+    const isLoading = (granularity === 'kabupaten' && !geoData) ||
+                      (granularity === 'kecamatan' && !geoData) ||
+                      (granularity === 'kelurahan' && data.length === 0)
+    badge.innerHTML = isLoading
+      ? '<span style="display:inline-block;width:10px;height:10px;border:2px solid #C8102E;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px"></span>Loading demographics data…'
+      : '⚠ No demographic data available at this granularity. Try another metric or region level.'
+    container.appendChild(badge)
+    return () => {
+      try { container.removeChild(badge) } catch {}
+    }
+  }, [map, data, geoData, granularity])
 
   return null
 }

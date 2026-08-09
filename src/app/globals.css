@@ -337,3 +337,7 @@
   font-weight: 700;
   color: white;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

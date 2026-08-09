@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import {
   MapPin, Building2, Compass, Filter, Crosshair, Search, RotateCcw,
-  Shield, TrendingUp, Activity, Users, Sparkles, Banknote, Bus, Factory,
+  Shield, TrendingUp, Activity, Users, Sparkles, Banknote, Bus,
 } from 'lucide-react'
 import { Store as StoreIcon } from 'lucide-react'
 import type { OpportunityScore, Store, Mall, POI } from './types'
@@ -39,18 +39,19 @@ const LocInsightMap = dynamic(
   ) }
 )
 
-const KABUPATEN_OPTIONS = [
-  { value: 'all', label: 'All Kabupaten/Kota' },
-  { value: 'Badung', label: 'Badung (Kuta, Seminyak, Nusa Dua, Bukit)' },
-  { value: 'Denpasar', label: 'Denpasar (Kota)' },
-  { value: 'Gianyar', label: 'Gianyar (Ubud, Sukawati)' },
-  { value: 'Tabanan', label: 'Tabanan' },
-  { value: 'Buleleng', label: 'Buleleng (Singaraja)' },
-  { value: 'Karangasem', label: 'Karangasem (Amlapura, Candidasa)' },
-  { value: 'Bangli', label: 'Bangli (Kintamani)' },
-  { value: 'Klungkung', label: 'Klungkung (incl. Nusa Penida)' },
-  { value: 'Jembrana', label: 'Jembrana (Negara, Gilimanuk)' },
-]
+// ===== Unified layer type =====
+type LayerId =
+  | 'opportunity'
+  | 'demographics'
+  | 'stores'
+  | 'malls'
+  | 'competitors'
+  | 'tourist_pois'
+  | 'civic_pois'
+  | 'crowd_density'
+
+type VizMode = 'choropleth' | 'point'
+type RegionLevel = 'kabupaten' | 'kecamatan' | 'kelurahan'
 
 const BRAND_CATEGORY_OPTIONS = [
   { value: 'all', label: 'All Categories' },
@@ -82,49 +83,64 @@ const DEMO_METRIC_OPTIONS: { value: DemoMetric; label: string; icon: any; color:
   { value: 'population', label: 'Population', icon: Users, color: '#3182bd' },
 ]
 
-const DEMO_GRANULARITY_OPTIONS: { value: DemoGranularity; label: string }[] = [
-  { value: 'kabupaten', label: 'Per Kabupaten/Kota (9 regions)' },
-  { value: 'kecamatan', label: 'Per Kecamatan (57 regions)' },
-  { value: 'kelurahan', label: 'Per Kelurahan/Desa (point markers, ~170+ villages)' },
-]
+// Layers that support choropleth + point visualization
+const CHOROPLETH_CAPABLE_LAYERS: LayerId[] = ['opportunity', 'demographics']
 
 export function MapExplorer({
   opportunities, stores, malls, pois, selectedKelurahanId, onSelectKelurahan,
 }: MapExplorerProps) {
-  // ===== Layer toggles =====
-  // Base layers
-  const [showStores, setShowStores] = useState(true)
-  const [showMalls, setShowMalls] = useState(true)
+  // ===== Layer visibility + visualization config =====
+  const [layerOn, setLayerOn] = useState<Record<LayerId, boolean>>({
+    opportunity: true,
+    demographics: false,
+    stores: true,
+    malls: true,
+    competitors: false,
+    tourist_pois: false,
+    civic_pois: false,
+    crowd_density: false,
+  })
 
-  // Analysis layers
-  const [showHeat, setShowHeat] = useState(true)
-  const [heatMode, setHeatMode] = useState<'region' | 'point'>('region')
-  const [heatGranularity, setHeatGranularity] = useState<'kabupaten' | 'kecamatan'>('kabupaten')
-  const [heatMetric, setHeatMetric] = useState<'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'>('avg_score')
+  // Per-layer visualization mode (choropleth vs point)
+  const [layerVizMode, setLayerVizMode] = useState<Record<LayerId, VizMode>>({
+    opportunity: 'choropleth',
+    demographics: 'choropleth',
+    stores: 'point',
+    malls: 'point',
+    competitors: 'point',
+    tourist_pois: 'point',
+    civic_pois: 'point',
+    crowd_density: 'point',
+  })
 
-  // Points of Interest — split into tourist & civic (mutually distinct)
-  const [showTouristPOIs, setShowTouristPOIs] = useState(false)
-  const [showCivicPOIs, setShowCivicPOIs] = useState(false)
+  // Per-layer region level (only meaningful when vizMode = choropleth)
+  const [layerRegion, setLayerRegion] = useState<Record<LayerId, RegionLevel>>({
+    opportunity: 'kabupaten',
+    demographics: 'kabupaten',
+    stores: 'kabupaten',
+    malls: 'kabupaten',
+    competitors: 'kabupaten',
+    tourist_pois: 'kabupaten',
+    civic_pois: 'kabupaten',
+    crowd_density: 'kabupaten',
+  })
 
-  // Demographics choropleth
-  const [showDemographics, setShowDemographics] = useState(false)
+  // Opportunity metric (only for opportunity layer in choropleth mode)
+  const [oppMetric, setOppMetric] = useState<'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'>('avg_score')
+
+  // Demographics metric + granularity
   const [demoMetric, setDemoMetric] = useState<DemoMetric>('income_index')
-  const [demoGranularity, setDemoGranularity] = useState<DemoGranularity>('kabupaten')
-
-  // Competitive layers
-  const [showCompetitors, setShowCompetitors] = useState(false)
-  const [showCrowdDensity, setShowCrowdDensity] = useState(false)
 
   // Competitor data (loaded from DB via API)
   const [competitors, setCompetitors] = useState<any[]>([])
   const [competitorBrandFilter, setCompetitorBrandFilter] = useState<string>('all')
 
-  // Demographic data (loaded from DB via API — kelurahan + kecamatan + kabupaten)
+  // Demographic data (loaded from DB via API)
   const [kelurahanAll, setKelurahanAll] = useState<any[]>([])
   const [kecamatanAll, setKecamatanAll] = useState<any[]>([])
   const [kabupatenAll, setKabupatenAll] = useState<any[]>([])
 
-  // Load competitors on mount (lazy)
+  // Load competitors on mount
   useEffect(() => {
     fetch('/api/locinsight/competitors?all=true')
       .then(r => r.json())
@@ -132,7 +148,7 @@ export function MapExplorer({
       .catch(() => {})
   }, [])
 
-  // Load kelurahan once (used for demographics aggregation at any granularity)
+  // Load kelurahan once
   useEffect(() => {
     fetch('/api/locinsight/kelurahan?all=true')
       .then(r => r.json())
@@ -156,12 +172,12 @@ export function MapExplorer({
       .catch(() => {})
   }, [])
 
-  // ===== Filters =====
-  const [tierFilter, setTierFilter] = useState<1 | 2 | 3 | 'all'>('all')
-  const [recFilter, setRecFilter] = useState<'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'>('all')
+  // ===== Region Filter (applies to ALL layers) =====
   const [kabFilter, setKabFilter] = useState<string>('all')
   const [kecFilter, setKecFilter] = useState<string>('all')
   const [kelurahanFilter, setKelurahanFilter] = useState<string>('all')
+  const [tierFilter, setTierFilter] = useState<1 | 2 | 3 | 'all'>('all')
+  const [recFilter, setRecFilter] = useState<'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [parentFilter, setParentFilter] = useState<'all' | 'MAP' | 'MAA'>('all')
   const [search, setSearch] = useState('')
@@ -194,7 +210,7 @@ export function MapExplorer({
     return Array.from(set).sort()
   }, [opportunities, kecFilter])
 
-  // Reset kec/kelurahan filters when parent changes
+  // Reset child filters when parent changes
   useEffect(() => {
     if (kabFilter === 'all' && kecFilter !== 'all') setKecFilter('all')
   }, [kabFilter, kecFilter])
@@ -214,14 +230,21 @@ export function MapExplorer({
     setScoreRange([0, 100])
   }
 
+  // Helper: check if a record is in the current region filter
+  const isInRegion = (kab?: string, kec?: string, kel?: string) => {
+    if (kabFilter !== 'all' && kab !== kabFilter) return false
+    if (kecFilter !== 'all' && kec !== kecFilter) return false
+    if (kelurahanFilter !== 'all' && kel !== kelurahanFilter) return false
+    return true
+  }
+
+  // ===== Filter opportunities =====
   const filteredOpps = useMemo(() => {
     const q = search.trim().toLowerCase()
     return opportunities.filter(o => {
       if (tierFilter !== 'all' && o.tier !== tierFilter) return false
       if (recFilter !== 'all' && o.recommendation !== recFilter) return false
-      if (kabFilter !== 'all' && o.kab_name !== kabFilter) return false
-      if (kecFilter !== 'all' && o.kec_name !== kecFilter) return false
-      if (kelurahanFilter !== 'all' && o.kelurahan_name !== kelurahanFilter) return false
+      if (!isInRegion(o.kab_name, o.kec_name, o.kelurahan_name)) return false
       if (o.composite_score < scoreRange[0] || o.composite_score > scoreRange[1]) return false
       if (q) {
         const hay = `${o.kelurahan_name} ${o.kec_name} ${o.kab_name}`.toLowerCase()
@@ -231,8 +254,9 @@ export function MapExplorer({
     })
   }, [opportunities, tierFilter, recFilter, kabFilter, kecFilter, kelurahanFilter, scoreRange, search])
 
+  // ===== Filter stores (region + brand filters) =====
   const filteredStores = useMemo(() => {
-    if (!showStores) return []
+    if (!layerOn.stores) return []
     return stores.filter(s => {
       if (tierFilter !== 'all') {
         const kabTier: Record<string, number> = {
@@ -242,8 +266,7 @@ export function MapExplorer({
         }
         if (kabTier[s.kab] !== tierFilter) return false
       }
-      if (kabFilter !== 'all' && s.kab !== kabFilter) return false
-      if (kecFilter !== 'all' && s.kec !== kecFilter) return false
+      if (!isInRegion(s.kab, s.kec)) return false
       if (categoryFilter !== 'all' && s.brand_category !== categoryFilter) return false
       if (parentFilter !== 'all' && s.parent !== parentFilter) return false
       if (search) {
@@ -253,32 +276,98 @@ export function MapExplorer({
       }
       return true
     })
-  }, [stores, showStores, tierFilter, kabFilter, kecFilter, categoryFilter, parentFilter, search])
+  }, [stores, layerOn.stores, tierFilter, kabFilter, kecFilter, categoryFilter, parentFilter, search])
+
+  // ===== Filter malls (region) =====
+  const filteredMalls = useMemo(() => {
+    if (!layerOn.malls) return []
+    return malls.filter(m => {
+      if (tierFilter !== 'all') {
+        const kabTier: Record<string, number> = {
+          Badung: 1, Denpasar: 1,
+          Tabanan: 2, Gianyar: 2, Buleleng: 2,
+          Jembrana: 3, Klungkung: 3, Bangli: 3, Karangasem: 3,
+        }
+        if (kabTier[m.kab] !== tierFilter) return false
+      }
+      if (!isInRegion(m.kab, m.kec)) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const hay = `${m.name} ${m.kab} ${m.kec}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [malls, layerOn.malls, tierFilter, kabFilter, kecFilter, search])
+
+  // ===== Filter POIs (region) =====
+  const filteredPOIs = useMemo(() => {
+    return pois.filter(p => {
+      if (!isInRegion(p.kab, p.kec)) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const hay = `${p.name} ${p.kab} ${p.kec} ${p.type}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [pois, kabFilter, kecFilter, search])
+
+  // ===== Filter competitors (region) =====
+  const filteredCompetitors = useMemo(() => {
+    if (!layerOn.competitors) return []
+    let list = competitors
+    if (competitorBrandFilter !== 'all') {
+      list = list.filter(c => c.brand_name === competitorBrandFilter)
+    }
+    return list.filter(c => {
+      if (!isInRegion(c.kab, c.kec)) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const hay = `${c.name} ${c.brand_name} ${c.kab} ${c.kec}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [competitors, layerOn.competitors, competitorBrandFilter, kabFilter, kecFilter, search])
 
   // ===== Aggregate demographic data based on selected metric + granularity =====
+  // The demographics layer always uses layerRegion.demographics as the region level
+  const demoGranularity: DemoGranularity = layerRegion.demographics
+
   const demoData: DemoRegionRow[] = useMemo(() => {
-    if (!showDemographics) return []
+    if (!layerOn.demographics) return []
+
+    // Map demoMetric to kelurahan field name once at top (kelurahan uses `density` not `population_density`)
+    const klField: string = demoMetric === 'population_density' ? 'density' : demoMetric
+
+    // Apply region filter to kelurahan data
+    const filteredKl = kelurahanAll.filter(kl => {
+      if (kabFilter !== 'all' && kl.kab_name !== kabFilter) return false
+      if (kecFilter !== 'all' && kl.kec_name !== kecFilter) return false
+      if (kelurahanFilter !== 'all' && kl.name !== kelurahanFilter) return false
+      return true
+    })
 
     if (demoGranularity === 'kabupaten') {
-      // Aggregate from kelurahan → kabupaten (more accurate than using kabupaten.tier directly)
-      // but for population_density and gdrp_per_capita_juta we use the kabupaten record itself
       if (demoMetric === 'population_density' || demoMetric === 'population') {
-        return kabupatenAll.map(k => ({
-          name: k.name,
-          value: demoMetric === 'population_density'
-            ? (k.population_density ?? null)
-            : (k.population_2024 ?? null),
-          population: k.population_2024 ?? null,
-          kelurahan_count: kelurahanAll.filter(kl => kl.kab_code === k.code).length,
-          tier: k.tier ? Number(k.tier.replace('tier_', '')) : null,
-        }))
+        return kabupatenAll
+          .filter(k => kabFilter === 'all' || k.name === kabFilter)
+          .map(k => ({
+            name: k.name,
+            value: demoMetric === 'population_density'
+              ? (k.population_density ?? null)
+              : (k.population_2024 ?? null),
+            population: k.population_2024 ?? null,
+            kelurahan_count: kelurahanAll.filter(kl => kl.kab_code === k.code).length,
+            tier: k.tier ? Number(k.tier.replace('tier_', '')) : null,
+          }))
       }
-      // For indices (income/urban/tourist/etc.) — aggregate kelurahan up to kabupaten
       const byKab = new Map<string, { name: string; sum: number; count: number; pop: number; tier: string | null }>()
-      for (const kl of kelurahanAll) {
+      for (const kl of filteredKl) {
         const k = kl.kab_name
         if (!k) continue
-        const v = kl[demoMetric]
+        const v = (kl as any)[klField]
         if (v == null) continue
         const r = byKab.get(k) || { name: k, sum: 0, count: 0, pop: 0, tier: kl.tier }
         r.sum += v
@@ -295,25 +384,25 @@ export function MapExplorer({
       }))
     }
 
-    // kecamatan granularity
     if (demoGranularity === 'kecamatan') {
       if (demoMetric === 'population_density' || demoMetric === 'population') {
-        return kecamatanAll.map(k => ({
-          name: k.name,
-          value: demoMetric === 'population_density'
-            ? (k.population_2024 && k.area_km2 ? k.population_2024 / k.area_km2 : null)
-            : (k.population_2024 ?? null),
-          population: k.population_2024 ?? null,
-          kelurahan_count: kelurahanAll.filter(kl => kl.kec_code === k.code).length,
-          tier: k.tier ? Number(k.tier.replace('tier_', '')) : null,
-        }))
+        return kecamatanAll
+          .filter(k => kabFilter === 'all' || k.kabupaten_code === kabupatenAll.find(kb => kb.name === kabFilter)?.code)
+          .map(k => ({
+            name: k.name,
+            value: demoMetric === 'population_density'
+              ? (k.population_2024 && k.area_km2 ? k.population_2024 / k.area_km2 : null)
+              : (k.population_2024 ?? null),
+            population: k.population_2024 ?? null,
+            kelurahan_count: kelurahanAll.filter(kl => kl.kec_code === k.code).length,
+            tier: k.tier ? Number(k.tier.replace('tier_', '')) : null,
+          }))
       }
-      // For indices — aggregate kelurahan up to kecamatan
       const byKec = new Map<string, { name: string; sum: number; count: number; pop: number; tier: string | null }>()
-      for (const kl of kelurahanAll) {
+      for (const kl of filteredKl) {
         const k = kl.kec_name
         if (!k) continue
-        const v = kl[demoMetric]
+        const v = (kl as any)[klField]
         if (v == null) continue
         const r = byKec.get(k) || { name: k, sum: 0, count: 0, pop: 0, tier: kl.tier }
         r.sum += v
@@ -330,22 +419,26 @@ export function MapExplorer({
       }))
     }
 
-    // kelurahan granularity — point-level data (each kelurahan is one row)
-    return kelurahanAll.map(kl => ({
+    // kelurahan granularity
+    return filteredKl.map(kl => ({
       name: kl.name,
-      value: kl[demoMetric] ?? null,
+      value: (kl as any)[klField] ?? null,
       population: kl.population ?? null,
       kelurahan_count: 1,
       tier: kl.tier ? Number(kl.tier.replace('tier_', '')) : null,
       lat: kl.lat ?? null,
       lng: kl.lng ?? null,
     }))
-  }, [showDemographics, demoMetric, demoGranularity, kelurahanAll, kecamatanAll, kabupatenAll])
+  }, [layerOn.demographics, demoMetric, demoGranularity, kelurahanAll, kecamatanAll, kabupatenAll, kabFilter, kecFilter, kelurahanFilter])
 
   const isFilterActive = tierFilter !== 'all' || recFilter !== 'all' || kabFilter !== 'all' ||
     kecFilter !== 'all' || kelurahanFilter !== 'all' ||
     categoryFilter !== 'all' || parentFilter !== 'all' || search !== '' ||
     scoreRange[0] !== 0 || scoreRange[1] !== 100
+
+  // Opportunity layer's region level (for choropleth mode)
+  const oppRegion = layerRegion.opportunity
+  const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
 
   return (
     <div className="space-y-4">
@@ -356,7 +449,7 @@ export function MapExplorer({
             Interactive Map Explorer
           </h2>
           <p className="text-[13px] text-[var(--brand-ink)]/60 mt-0.5">
-            {filteredOpps.length} kelurahan · {filteredStores.length} stores ditampilkan dari total {opportunities.length} kelurahan & {stores.length} stores
+            {filteredOpps.length} kelurahan · {filteredStores.length} stores · {filteredMalls.length} malls ditampilkan
           </p>
         </div>
         {isFilterActive && (
@@ -367,49 +460,52 @@ export function MapExplorer({
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
         {/* Map */}
         <div>
           <LocInsightMap
             opportunities={filteredOpps}
             stores={filteredStores}
-            malls={malls}
-            pois={pois}
+            malls={filteredMalls}
+            pois={filteredPOIs}
             selectedKelurahanId={selectedKelurahanId}
             onSelectKelurahan={onSelectKelurahan}
-            showStores={showStores}
-            showMalls={showMalls}
-            showCivicPOIs={showCivicPOIs}
-            showTouristPOIs={showTouristPOIs}
-            showHeat={showHeat}
-            heatMode={heatMode}
-            heatGranularity={heatGranularity}
-            heatMetric={heatMetric}
+            showStores={layerOn.stores}
+            showMalls={layerOn.malls}
+            showCivicPOIs={layerOn.civic_pois}
+            showTouristPOIs={layerOn.tourist_pois}
+            showHeat={layerOn.opportunity}
+            heatMode={layerVizMode.opportunity === 'choropleth' ? 'region' : 'point'}
+            heatGranularity={oppHeatGranularity as 'kabupaten' | 'kecamatan'}
+            heatMetric={oppMetric}
             tierFilter={tierFilter}
             recommendationFilter={recFilter}
-            showCompetitors={showCompetitors}
-            competitors={competitors}
+            showCompetitors={layerOn.competitors}
+            competitors={filteredCompetitors}
             competitorBrandFilter={competitorBrandFilter}
-            showDemographics={showDemographics}
+            showDemographics={layerOn.demographics}
             demoMetric={demoMetric}
             demoGranularity={demoGranularity}
             demoData={demoData}
-            showCrowdDensity={showCrowdDensity}
+            showCrowdDensity={layerOn.crowd_density}
             height="calc(100vh - 220px)"
           />
         </div>
 
-        {/* Control panel */}
+        {/* Control panel — single unified panel */}
         <div className="space-y-3">
-          {/* Filters card */}
           <Card className="card-premium">
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Filter className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                Filters
+                Region & Filters
+                <span className="ml-auto text-[10px] normal-case tracking-normal text-[var(--brand-ink)]/50 font-normal">
+                  affects all layers
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
+              {/* Search */}
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Search</Label>
                 <div className="relative">
@@ -417,48 +513,48 @@ export function MapExplorer({
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Kelurahan, kecamatan, store name…"
+                    placeholder="Kelurahan, kecamatan, store, mall…"
                     className="h-9 text-[12px] pl-8"
                   />
                 </div>
               </div>
 
+              {/* Cascading region filter */}
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Kabupaten/Kota</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Region (cascading)</Label>
                 <Select value={kabFilter} onValueChange={(v) => { setKabFilter(v); setKecFilter('all'); setKelurahanFilter('all'); }}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Kabupaten/Kota</SelectItem>
+                    <SelectItem value="all">All Kabupaten/Kota (9)</SelectItem>
                     {kabOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                    Kecamatan {kabFilter !== 'all' ? `(${kecOptions.length})` : ''}
-                  </Label>
-                  <Select value={kecFilter} onValueChange={(v) => { setKecFilter(v); setKelurahanFilter('all'); }} disabled={kabFilter === 'all'}>
-                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Kecamatan</SelectItem>
-                      {kecOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
-                    Kelurahan/Desa {kecFilter !== 'all' ? `(${kelurahanOptions.length})` : ''}
-                  </Label>
-                  <Select value={kelurahanFilter} onValueChange={setKelurahanFilter} disabled={kecFilter === 'all'}>
-                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Kelurahan</SelectItem>
-                      {kelurahanOptions.slice(0, 200).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                  Kecamatan {kabFilter !== 'all' ? `(${kecOptions.length})` : '— pick kabupaten first'}
+                </Label>
+                <Select value={kecFilter} onValueChange={(v) => { setKecFilter(v); setKelurahanFilter('all'); }} disabled={kabFilter === 'all'}>
+                  <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Kecamatan</SelectItem>
+                    {kecOptions.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                  Kelurahan/Desa {kecFilter !== 'all' ? `(${kelurahanOptions.length})` : '— pick kecamatan first'}
+                </Label>
+                <Select value={kelurahanFilter} onValueChange={setKelurahanFilter} disabled={kecFilter === 'all'}>
+                  <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Kelurahan/Desa</SelectItem>
+                    {kelurahanOptions.slice(0, 200).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -507,7 +603,7 @@ export function MapExplorer({
               </div>
 
               <div className="pt-2 border-t border-[var(--brand-border)]">
-                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">Store Filters (affects store markers only)</Label>
+                <Label className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/50 mb-2 block">Store-only filters</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">Brand Category</Label>
@@ -532,76 +628,91 @@ export function MapExplorer({
             </CardContent>
           </Card>
 
-          {/* Layers card — reorganized, no "Phase 4" labels */}
+          {/* ===== Map Layers card ===== */}
           <Card className="card-premium">
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Compass className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                Layers
+                Map Layers
+                <span className="ml-auto text-[10px] normal-case tracking-normal text-[var(--brand-ink)]/50 font-normal">
+                  {Object.values(layerOn).filter(Boolean).length} active
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
 
-              {/* ===== Analysis: Opportunity choropleth ===== */}
+              {/* ===== Opportunity Score ===== */}
               <LayerToggle
                 label="Opportunity Score"
-                desc={heatMode === 'region'
-                  ? (heatGranularity === 'kabupaten' ? 'Choropleth per kabupaten (9 regions)' : 'Choropleth per kecamatan (57 regions)')
-                  : 'Point intensity per kelurahan/desa (finest granularity)'}
+                desc={`${filteredOpps.length} kelurahan scored`}
                 icon={Crosshair}
-                checked={showHeat}
-                onCheckedChange={setShowHeat}
+                checked={layerOn.opportunity}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, opportunity: v })}
                 color="var(--brand-red)"
               />
-              {showHeat && (
+              {layerOn.opportunity && (
                 <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
-                  <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Granularity</Label>
-                    <Select value={heatMode} onValueChange={(v) => setHeatMode(v as 'region' | 'point')}>
-                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="point">Per Kelurahan/Desa (point intensity, finest)</SelectItem>
-                        <SelectItem value="region">Per Region (choropleth fill)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {heatMode === 'region' && (
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Level</Label>
-                      <Select value={heatGranularity} onValueChange={(v) => setHeatGranularity(v as 'kabupaten' | 'kecamatan')}>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Visualization</Label>
+                      <Select value={layerVizMode.opportunity} onValueChange={(v) => setLayerVizMode({ ...layerVizMode, opportunity: v as VizMode })}>
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="kabupaten">Per Kabupaten/Kota (9)</SelectItem>
-                          <SelectItem value="kecamatan">Per Kecamatan (57)</SelectItem>
+                          <SelectItem value="choropleth">Choropleth (region fill)</SelectItem>
+                          <SelectItem value="point">Point (heatmap intensity)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Level</Label>
+                      <Select
+                        value={layerRegion.opportunity}
+                        onValueChange={(v) => setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel })}
+                        disabled={layerVizMode.opportunity === 'point'}
+                      >
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kabupaten">Kabupaten (9 regions)</SelectItem>
+                          <SelectItem value="kecamatan">Kecamatan (57 regions)</SelectItem>
+                          {layerVizMode.opportunity === 'point' && (
+                            <SelectItem value="kelurahan">Kelurahan/Desa (finest)</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {layerVizMode.opportunity === 'choropleth' && (
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Metric</Label>
+                      <Select value={oppMetric} onValueChange={(v) => setOppMetric(v as any)}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="avg_score">Average composite score</SelectItem>
+                          <SelectItem value="max_score">Best score in region</SelectItem>
+                          <SelectItem value="high_priority_count"># high-priority sites</SelectItem>
+                          <SelectItem value="store_density"># kelurahan covered</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   )}
-                  <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Metric</Label>
-                    <Select value={heatMetric} onValueChange={(v) => setHeatMetric(v as any)}>
-                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="avg_score">Average composite score</SelectItem>
-                        <SelectItem value="max_score">Best score in region</SelectItem>
-                        <SelectItem value="high_priority_count"># high-priority sites</SelectItem>
-                        <SelectItem value="store_density"># kelurahan covered</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {layerVizMode.opportunity === 'point' && (
+                    <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
+                      Point mode renders a heat intensity layer — each kelurahan/desa contributes its composite score as a point. Finest granularity.
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* ===== Demographics choropleth (NEW — proper choropleth for income, urban, etc.) ===== */}
+              {/* ===== Demographics ===== */}
               <LayerToggle
-                label="Demographics Choropleth"
-                desc="Income, urbanization, tourism, transport, population — by admin boundary"
+                label="Demographics"
+                desc="Income, urbanization, tourism, transport, population"
                 icon={TrendingUp}
-                checked={showDemographics}
-                onCheckedChange={setShowDemographics}
+                checked={layerOn.demographics}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, demographics: v })}
                 color="#7c3aed"
               />
-              {showDemographics && (
+              {layerOn.demographics && (
                 <div className="pl-2 border-l-2 border-violet-500/30 space-y-2 ml-1">
                   <div>
                     <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Metric</Label>
@@ -614,53 +725,71 @@ export function MapExplorer({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Granularity</Label>
-                    <Select value={demoGranularity} onValueChange={(v) => setDemoGranularity(v as DemoGranularity)}>
-                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {DEMO_GRANULARITY_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Visualization</Label>
+                      <Select
+                        value={layerVizMode.demographics}
+                        onValueChange={(v) => setLayerVizMode({ ...layerVizMode, demographics: v as VizMode })}
+                      >
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="choropleth">Choropleth (region fill)</SelectItem>
+                          <SelectItem value="point">Point (per-village marker)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Region Level</Label>
+                      <Select
+                        value={layerRegion.demographics}
+                        onValueChange={(v) => setLayerRegion({ ...layerRegion, demographics: v as RegionLevel })}
+                      >
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kabupaten">Kabupaten (9 regions)</SelectItem>
+                          <SelectItem value="kecamatan">Kecamatan (57 regions)</SelectItem>
+                          <SelectItem value="kelurahan">Kelurahan/Desa (~700+ villages)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                    {demoData.length} regions aggregated · data from {demoGranularity === 'kabupaten' ? 'kabupaten + kelurahan' : 'kecamatan + kelurahan'} BPS sources
+                    {demoData.length} regions aggregated · BPS + KEMENDAGRI source. Kelurahan level auto-renders as points (no village polygons).
                   </div>
                 </div>
               )}
 
-              {/* ===== Base: MAP/MAA Stores ===== */}
+              {/* ===== Stores ===== */}
               <LayerToggle
                 label="MAP / MAA Stores"
-                desc={`${filteredStores.length} of ${stores.length} stores shown`}
+                desc={`${filteredStores.length} of ${stores.length} stores`}
                 icon={StoreIcon}
-                checked={showStores}
-                onCheckedChange={setShowStores}
+                checked={layerOn.stores}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, stores: v })}
                 color="var(--brand-red)"
               />
 
-              {/* ===== Base: Malls ===== */}
+              {/* ===== Malls ===== */}
               <LayerToggle
                 label="Shopping Malls"
-                desc={`${malls.length} shopping centers`}
+                desc={`${filteredMalls.length} of ${malls.length} shopping centers`}
                 icon={Building2}
-                checked={showMalls}
-                onCheckedChange={setShowMalls}
+                checked={layerOn.malls}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, malls: v })}
                 color="var(--brand-ink)"
               />
 
               {/* ===== Competitor Stores ===== */}
               <LayerToggle
                 label="Competitor Stores"
-                desc={`${competitors.length} competitors (Indomaret, Alfamart, KFC, McDonald's, dll)`}
+                desc={`${filteredCompetitors.length} of ${competitors.length} competitors`}
                 icon={Shield}
-                checked={showCompetitors}
-                onCheckedChange={setShowCompetitors}
+                checked={layerOn.competitors}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, competitors: v })}
                 color="#dc2626"
               />
-              {showCompetitors && competitors.length > 0 && (
+              {layerOn.competitors && competitors.length > 0 && (
                 <div className="pl-2 border-l-2 border-red-500/30 space-y-2 ml-1">
                   <div>
                     <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">Filter by Brand</Label>
@@ -677,33 +806,33 @@ export function MapExplorer({
                 </div>
               )}
 
-              {/* ===== Tourist POIs (beaches, temples, attractions, hotels) ===== */}
+              {/* ===== Tourist POIs ===== */}
               <LayerToggle
                 label="Tourist Attractions"
-                desc={`Beaches, temples, attractions, hotels (${pois.filter(p => ['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length} from OSM)`}
+                desc={`Beaches, temples, attractions, hotels (${filteredPOIs.filter(p => ['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length} shown)`}
                 icon={Sparkles}
-                checked={showTouristPOIs}
-                onCheckedChange={setShowTouristPOIs}
+                checked={layerOn.tourist_pois}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, tourist_pois: v })}
                 color="#0891b2"
               />
 
-              {/* ===== Civic POIs (transit, university, hospital, etc.) ===== */}
+              {/* ===== Civic POIs ===== */}
               <LayerToggle
                 label="Civic POIs"
-                desc={`Universities, hospitals, transit hubs, government, ports (${pois.filter(p => !['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length} from OSM)`}
+                desc={`Universities, hospitals, transit, government (${filteredPOIs.filter(p => !['tourist_attraction','beach','temple','hotel_cluster'].includes(p.type)).length} shown)`}
                 icon={MapPin}
-                checked={showCivicPOIs}
-                onCheckedChange={setShowCivicPOIs}
+                checked={layerOn.civic_pois}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, civic_pois: v })}
                 color="#5C5C5C"
               />
 
-              {/* ===== Crowd density heat ===== */}
+              {/* ===== Crowd Density ===== */}
               <LayerToggle
                 label="Crowd Density"
                 desc="Foot traffic estimate (POI + mall + store density)"
                 icon={Activity}
-                checked={showCrowdDensity}
-                onCheckedChange={setShowCrowdDensity}
+                checked={layerOn.crowd_density}
+                onCheckedChange={(v) => setLayerOn({ ...layerOn, crowd_density: v })}
                 color="#ea580c"
               />
             </CardContent>
