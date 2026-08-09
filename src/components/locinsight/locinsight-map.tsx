@@ -165,6 +165,8 @@ export interface LocInsightMapProps {
   demoData?: DemoRegionRow[]
   /** Crowd density heatmap (leaflet.heat) */
   showCrowdDensity?: boolean
+  /** Called when a choropleth region (kabupaten/kecamatan polygon) is clicked. */
+  onRegionClick?: (regionName: string, granularity: 'kabupaten' | 'kecamatan') => void
   height?: string
 }
 
@@ -193,6 +195,7 @@ export function LocInsightMap({
   demoGranularity = 'kabupaten',
   demoData = [],
   showCrowdDensity = false,
+  onRegionClick,
   height = '600px',
 }: LocInsightMapProps) {
   const [mapReady, setMapReady] = useState(false)
@@ -297,6 +300,7 @@ export function LocInsightMap({
             granularity={heatGranularity}
             showLabels
             activeTier={tierFilter}
+            onRegionClick={onRegionClick}
           />
         )}
         {showHeat && heatMode === 'point' && (

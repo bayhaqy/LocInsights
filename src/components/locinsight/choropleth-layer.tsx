@@ -29,6 +29,8 @@ export interface ChoroplethLayerProps {
   showLabels?: boolean
   /** Filter to a specific tier (1/2/3) — others shown faded */
   activeTier?: 1 | 2 | 3 | 'all'
+  /** Called when a region polygon is clicked. Receives the region name (kabupaten or kecamatan) + granularity. */
+  onRegionClick?: (regionName: string, granularity: 'kabupaten' | 'kecamatan') => void
 }
 
 // ColorBrewer YlOrRd 7-step (perception-correct sequential reds)
@@ -81,6 +83,7 @@ export function ChoroplethLayer({
   granularity = 'kabupaten',
   showLabels = true,
   activeTier = 'all',
+  onRegionClick,
 }: ChoroplethLayerProps) {
   const map = useMap()
   const layerRef = useRef<L.LayerGroup | null>(null)
@@ -236,12 +239,32 @@ export function ChoroplethLayer({
             { sticky: true, direction: 'top' }
           )
 
-          lyr.on('mouseover', () => {
-            ;(lyr as L.Path).setStyle({ weight: 2.5, color: '#0F0F12', opacity: 0.9 })
-          })
-          lyr.on('mouseout', () => {
-            ;(lyr as L.Path).setStyle({ weight, color: '#0F0F12', opacity: 0.5 })
-          })
+          // Click handler — select the top opportunity in this region
+          if (onRegionClick && stats && stats.opportunities.length > 0) {
+            lyr.on('click', () => {
+              onRegionClick(regionName, granularity)
+            })
+            // Add cursor pointer style on hover
+            lyr.on('mouseover', () => {
+              ;(lyr as L.Path).setStyle({ weight: 2.5, color: '#0F0F12', opacity: 0.9 })
+              if (map.getContainer) {
+                try { map.getContainer().style.cursor = 'pointer' } catch {}
+              }
+            })
+            lyr.on('mouseout', () => {
+              ;(lyr as L.Path).setStyle({ weight, color: '#0F0F12', opacity: 0.5 })
+              if (map.getContainer) {
+                try { map.getContainer().style.cursor = '' } catch {}
+              }
+            })
+          } else {
+            lyr.on('mouseover', () => {
+              ;(lyr as L.Path).setStyle({ weight: 2.5, color: '#0F0F12', opacity: 0.9 })
+            })
+            lyr.on('mouseout', () => {
+              ;(lyr as L.Path).setStyle({ weight, color: '#0F0F12', opacity: 0.5 })
+            })
+          }
         },
       })
 
@@ -276,7 +299,7 @@ export function ChoroplethLayer({
         layerRef.current = null
       }
     }
-  }, [map, geoData, perRegion, metric, showLabels, activeTier, breaks, granularity])
+  }, [map, geoData, perRegion, metric, showLabels, activeTier, breaks, granularity, onRegionClick])
 
   return null
 }

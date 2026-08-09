@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -26,6 +26,8 @@ interface MapExplorerProps {
   onSelectKelurahan: (id: string) => void
   /** Called when the user clicks the "Selected" card — typically navigates to Opportunities. */
   onOpenOpportunities?: () => void
+  /** Called when the user clicks "Deep Analysis →" inside the Selected card. */
+  onOpenAnalysis?: () => void
 }
 
 // Dynamic import with ssr:false to avoid Leaflet's window reference during SSR
@@ -89,7 +91,7 @@ const DEMO_METRIC_OPTIONS: { value: DemoMetric; label: string; icon: any; color:
 const CHOROPLETH_CAPABLE_LAYERS: LayerId[] = ['opportunity', 'demographics']
 
 export function MapExplorer({
-  opportunities, stores, malls, pois, selectedKelurahanId, onSelectKelurahan, onOpenOpportunities,
+  opportunities, stores, malls, pois, selectedKelurahanId, onSelectKelurahan, onOpenOpportunities, onOpenAnalysis,
 }: MapExplorerProps) {
   // ===== Layer visibility + visualization config =====
   const [layerOn, setLayerOn] = useState<Record<LayerId, boolean>>({
@@ -442,6 +444,23 @@ export function MapExplorer({
   const oppRegion = layerRegion.opportunity
   const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
 
+  // ===== Region click handler (from choropleth polygon) =====
+  // When a choropleth region is clicked, find the top-scoring opportunity in that region
+  // and call onSelectKelurahan with its id. This makes the whole region clickable, not
+  // just the small CircleMarker at the centroid.
+  const handleRegionClick = useCallback((regionName: string, granularity: 'kabupaten' | 'kecamatan') => {
+    const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '')
+    const normalizedRegion = normalize(regionName)
+    const candidates = filteredOpps.filter(o => {
+      const key = granularity === 'kabupaten' ? o.kab_name : o.kec_name
+      return key && normalize(key) === normalizedRegion
+    })
+    if (candidates.length === 0) return
+    // Pick the top-scoring opportunity in the region
+    const top = candidates.reduce((best, cur) => cur.composite_score > best.composite_score ? cur : best)
+    onSelectKelurahan(top.kelurahan_id)
+  }, [filteredOpps, onSelectKelurahan])
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -472,6 +491,7 @@ export function MapExplorer({
             pois={filteredPOIs}
             selectedKelurahanId={selectedKelurahanId}
             onSelectKelurahan={onSelectKelurahan}
+            onRegionClick={handleRegionClick}
             showStores={layerOn.stores}
             showMalls={layerOn.malls}
             showCivicPOIs={layerOn.civic_pois}
@@ -550,6 +570,16 @@ export function MapExplorer({
                 <div className="mt-3 pt-3 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/70 leading-relaxed">
                   {selected.white_space_summary}
                 </div>
+                {onOpenAnalysis && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenAnalysis() }}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[var(--brand-ink)] text-white text-[11.5px] font-medium hover:bg-[var(--brand-ink)]/90 transition-colors"
+                    title="Open Deep Analysis"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    Open in Deep Analysis →
+                  </button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -557,7 +587,7 @@ export function MapExplorer({
               <CardContent className="py-6 text-center">
                 <Crosshair className="w-6 h-6 mx-auto text-[var(--brand-ink)]/30 mb-2" />
                 <div className="text-[12px] text-[var(--brand-ink)]/60">
-                  Klik marker di peta untuk melihat detail kelurahan
+                  Klik marker atau wilayah di peta untuk melihat detail kelurahan
                 </div>
                 <div className="text-[10.5px] text-[var(--brand-ink)]/40 mt-1">
                   Panel ini akan otomatis ter-update saat wilayah dipilih

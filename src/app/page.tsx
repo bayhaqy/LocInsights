@@ -17,6 +17,7 @@ import { CompetitorIntel } from '@/components/locinsight/competitor-intel'
 import { ABTestSimulator } from '@/components/locinsight/ab-test-simulator'
 import { MallTenants } from '@/components/locinsight/mall-tenants'
 import { About } from '@/components/locinsight/about'
+import { ChatWidget } from '@/components/locinsight/chat-widget'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
@@ -84,10 +85,11 @@ export default function Home() {
     )
   }
 
-  // Map click → set selection AND navigate to Deep Analysis
+  // Map click → ONLY update selection (stay on Map Explorer so user sees the Selected card update).
+  // Auto-navigation to Deep Analysis is removed per user request — user wants to see the
+  // selection change in-place, then choose to navigate via the Selected card or sidebar.
   const handleMapSelect = (id: string) => {
     setSelectedKelurahanId(id)
-    setActiveView('analysis')
   }
 
   return (
@@ -146,6 +148,7 @@ export default function Home() {
               selectedKelurahanId={selectedKelurahanId}
               onSelectKelurahan={handleMapSelect}
               onOpenOpportunities={() => setActiveView('opportunities')}
+              onOpenAnalysis={() => setActiveView('analysis')}
             />
           )}
           {activeView === 'opportunities' && (
@@ -209,6 +212,9 @@ export default function Home() {
           </div>
         </footer>
       </main>
+
+      {/* Floating AI chat — visible on all tabs */}
+      <ChatWidget />
     </div>
   )
 }
