@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     // Use DB stores if available, otherwise static
     const storesSource = dbStores.length > 0 ? dbStores : BALI_STORES
 
-    const stats = getDashboardStats(competitors)
+    const stats = getDashboardStats(competitors, storesSource)
     const topOpps = getTopOpportunities(50, { brand_id: brandId, competitorStores: competitors, useTravelTime: true }, tierFilter)
 
     // Phase 3: count of field surveys + training runs

@@ -445,7 +445,11 @@ export interface DashboardStats {
   malls_without_map_anchor: { name: string; kec: string; kab: string }[]
 }
 
-export function getDashboardStats(competitorStores: CompetitorStoreLite[] = []): DashboardStats {
+export function getDashboardStats(
+  competitorStores: CompetitorStoreLite[] = [],
+  storesInput?: any[],
+): DashboardStats {
+  const stores = storesInput && storesInput.length > 0 ? storesInput : BALI_STORES
   const allScores = scoreAllKelurahan({ competitorStores })
 
   const KAB_TIER: Record<string, 1 | 2 | 3> = {
@@ -453,31 +457,31 @@ export function getDashboardStats(competitorStores: CompetitorStoreLite[] = []):
     'Tabanan': 2, 'Gianyar': 2, 'Buleleng': 2,
     'Jembrana': 3, 'Klungkung': 3, 'Bangli': 3, 'Karangasem': 3,
   }
-  const tier1Stores = BALI_STORES.filter(s => KAB_TIER[s.kab] === 1).length
-  const tier2Stores = BALI_STORES.filter(s => KAB_TIER[s.kab] === 2).length
-  const tier3Stores = BALI_STORES.filter(s => KAB_TIER[s.kab] === 3).length
+  const tier1Stores = stores.filter(s => KAB_TIER[s.kab] === 1).length
+  const tier2Stores = stores.filter(s => KAB_TIER[s.kab] === 2).length
+  const tier3Stores = stores.filter(s => KAB_TIER[s.kab] === 3).length
 
   const anchorBrandIds = ['BR101', 'BR102', 'BR201', 'BR202', 'BR203']
   const mallsWithoutAnchor = BALI_MALLS.filter(m => {
     if (m.visitor_estimate_daily === 0) return false
-    const storesInMall = BALI_STORES.filter(s => s.mall_id === m.id)
+    const storesInMall = stores.filter(s => s.mall_id === m.id)
     return !storesInMall.some(s => anchorBrandIds.includes(s.brand_id))
   })
 
   const brandCoverage = BRANDS.map(b => ({
     brand: b.name,
-    stores: BALI_STORES.filter(s => s.brand_id === b.id).length,
+    stores: stores.filter(s => s.brand_id === b.id || s.brand_name === b.name).length,
     category: b.category,
   })).filter(x => x.stores > 0).sort((a, b) => b.stores - a.stores)
 
   const kabMap = new Map<string, number>()
-  for (const s of BALI_STORES) {
+  for (const s of stores) {
     kabMap.set(s.kab, (kabMap.get(s.kab) || 0) + 1)
   }
 
   return {
     total_kelurahan: BALI_KELURAHAN.length,
-    total_stores: BALI_STORES.length,
+    total_stores: stores.length,
     total_malls: BALI_MALLS.length,
     total_competitor_stores: competitorStores.length,
     tier_1_stores: tier1Stores,
