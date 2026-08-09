@@ -73,7 +73,7 @@ export function MallTenants({ malls }: MallTenantAuditProps) {
           mall_name: mall.name,
           lat: mall.lat,
           lng: mall.lng,
-          radius_km: 0.5,
+          radius_km: 0.8, // 800m — better coverage for Bali malls
         }),
       })
       const json = await res.json()
@@ -81,10 +81,13 @@ export function MallTenants({ malls }: MallTenantAuditProps) {
         toast.success(`Found ${json.total_found} tenants (${json.map_brands_found} MAP, ${json.competitor_brands_found} competitor)`)
         await loadTenants()
       } else {
-        toast.error(json.error || 'Scrape failed')
+        // Server returned a structured error — surface the full message so the
+        // user knows whether to retry, increase radius, or wait for OSM.
+        const errMsg = json.error || 'Audit failed — unknown error'
+        toast.error(errMsg, { duration: 8000 })
       }
     } catch (e: any) {
-      toast.error(e.message)
+      toast.error(`Network error: ${e.message}. The Overpass API may be slow or unreachable from the server.`, { duration: 8000 })
     } finally {
       setScraping(false)
     }

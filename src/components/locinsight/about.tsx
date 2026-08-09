@@ -11,13 +11,6 @@ import {
 /**
  * About page — focuses on WHAT the app is, WHY it's useful, and HOW it's built.
  * The scoring math/methods live on the Methodology page (no duplication).
- *
- * Writing conventions applied (best practices for technical writing):
- *  • Each section opens with a clear thesis sentence, then expands with context,
- *    examples, and rationale (no orphan single-sentence paragraphs).
- *  • Active voice, present tense for system behaviour.
- *  • Inline code/tags used for field names; badges used for source type.
- *  • Cross-references to the Methodology page rather than duplicating formulas.
  */
 export function About() {
   return (
@@ -361,8 +354,8 @@ export function About() {
 
           <div className="mt-4 pt-3 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/55 leading-relaxed">
             Built with open-source tools · All data sourced from public, auditable sources ·
-            For internal strategic planning use.
-            For questions, feedback, or contributions, reach out via the developer website above.
+            For internal strategic planning use. For questions, feedback, or contributions,
+            reach out via the developer website above.
           </div>
         </CardContent>
       </Card>

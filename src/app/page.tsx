@@ -67,10 +67,6 @@ export default function Home() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleSelectKelurahan = (id: string) => {
-    setSelectedKelurahanId(id)
-  }
-
   if (loading) {
     return <LoadingScreen />
   }
@@ -88,12 +84,23 @@ export default function Home() {
     )
   }
 
+  // Map click → set selection AND navigate to Deep Analysis
+  const handleMapSelect = (id: string) => {
+    setSelectedKelurahanId(id)
+    setActiveView('analysis')
+  }
+
   return (
     <div className="flex min-h-screen bg-[var(--brand-cream)]">
       <Sidebar
         items={NAV_ITEMS}
         activeId={activeView}
         onSelect={setActiveView}
+        stats={{
+          total_kelurahan: data.stats.total_kelurahan,
+          total_stores: data.stats.total_stores,
+          total_malls: data.stats.total_malls,
+        }}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
@@ -101,6 +108,7 @@ export default function Home() {
       <main className="flex-1 overflow-x-hidden min-w-0">
         <header className="bg-white border-b border-[var(--brand-border)] px-4 sm:px-6 py-3 sticky top-0 z-30 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
+            {/* SINGLE sidebar toggle button — only in page header */}
             <button
               onClick={() => setSidebarCollapsed(c => !c)}
               className="p-1.5 rounded-md hover:bg-[var(--brand-cream)] text-[var(--brand-ink)]/70 hover:text-[var(--brand-ink)] transition-colors"
@@ -136,7 +144,8 @@ export default function Home() {
               malls={data.malls}
               pois={data.pois}
               selectedKelurahanId={selectedKelurahanId}
-              onSelectKelurahan={handleSelectKelurahan}
+              onSelectKelurahan={handleMapSelect}
+              onOpenOpportunities={() => setActiveView('opportunities')}
             />
           )}
           {activeView === 'opportunities' && (
@@ -159,7 +168,7 @@ export default function Home() {
             <BrandsCoverage
               brands={data.brands}
               stores={data.stores}
-              onSelectKelurahan={handleSelectKelurahan}
+              onSelectKelurahan={(id) => { setSelectedKelurahanId(id); setActiveView('analysis') }}
             />
           )}
           {activeView === 'malls' && (
@@ -167,7 +176,7 @@ export default function Home() {
               malls={data.malls}
               stores={data.stores}
               brands={data.brands}
-              onSelectKelurahan={handleSelectKelurahan}
+              onSelectKelurahan={(id) => { setSelectedKelurahanId(id); setActiveView('analysis') }}
             />
           )}
           {activeView === 'competitors' && <CompetitorIntel onScrapeMore={() => setActiveView('scraper')} />}
@@ -206,8 +215,7 @@ export default function Home() {
 
 /* ------------------------------------------------------------------
  * LoadingScreen — minimalist animated globe loader.
- * Uses CSS animations only (no JS), shows a rotating globe SVG with
- * orbiting meridian rings + the LocInsight brand wordmark.
+ * Pure CSS animations, shows a rotating globe SVG + brand wordmark.
  * ---------------------------------------------------------------- */
 function LoadingScreen() {
   return (
@@ -243,49 +251,16 @@ function LoadingScreen() {
       <div className="flex flex-col items-center gap-6">
         {/* Globe */}
         <div className="relative w-24 h-24">
-          {/* outer dashed orbit */}
-          <svg
-            viewBox="0 0 100 100"
-            className="absolute inset-0 li-globe-ring"
-            aria-hidden="true"
-          >
-            <circle
-              cx="50" cy="50" r="46"
-              fill="none"
-              stroke="var(--brand-red)"
-              strokeWidth="1.2"
-              strokeDasharray="3 6"
-              opacity="0.55"
-            />
+          <svg viewBox="0 0 100 100" className="absolute inset-0 li-globe-ring" aria-hidden="true">
+            <circle cx="50" cy="50" r="46" fill="none" stroke="var(--brand-red)" strokeWidth="1.2" strokeDasharray="3 6" opacity="0.55" />
           </svg>
-
-          {/* middle meridian ring (rotates opposite) */}
-          <svg
-            viewBox="0 0 100 100"
-            className="absolute inset-0 li-globe-ring-r"
-            aria-hidden="true"
-          >
-            <ellipse
-              cx="50" cy="50" rx="34" ry="46"
-              fill="none"
-              stroke="var(--brand-ink)"
-              strokeWidth="1"
-              opacity="0.25"
-            />
-            <ellipse
-              cx="50" cy="50" rx="18" ry="46"
-              fill="none"
-              stroke="var(--brand-ink)"
-              strokeWidth="1"
-              opacity="0.18"
-            />
-            {/* latitude lines */}
+          <svg viewBox="0 0 100 100" className="absolute inset-0 li-globe-ring-r" aria-hidden="true">
+            <ellipse cx="50" cy="50" rx="34" ry="46" fill="none" stroke="var(--brand-ink)" strokeWidth="1" opacity="0.25" />
+            <ellipse cx="50" cy="50" rx="18" ry="46" fill="none" stroke="var(--brand-ink)" strokeWidth="1" opacity="0.18" />
             <line x1="6"  y1="50" x2="94" y2="50" stroke="var(--brand-ink)" strokeWidth="0.8" opacity="0.18" />
             <line x1="14" y1="36" x2="86" y2="36" stroke="var(--brand-ink)" strokeWidth="0.6" opacity="0.12" />
             <line x1="14" y1="64" x2="86" y2="64" stroke="var(--brand-ink)" strokeWidth="0.6" opacity="0.12" />
           </svg>
-
-          {/* core globe */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div
               className="li-globe-core w-14 h-14 rounded-full flex items-center justify-center font-bold text-[22px] text-white shadow-lg"

@@ -24,6 +24,8 @@ interface MapExplorerProps {
   pois: POI[]
   selectedKelurahanId: string | null
   onSelectKelurahan: (id: string) => void
+  /** Called when the user clicks the "Selected" card — typically navigates to Opportunities. */
+  onOpenOpportunities?: () => void
 }
 
 // Dynamic import with ssr:false to avoid Leaflet's window reference during SSR
@@ -87,7 +89,7 @@ const DEMO_METRIC_OPTIONS: { value: DemoMetric; label: string; icon: any; color:
 const CHOROPLETH_CAPABLE_LAYERS: LayerId[] = ['opportunity', 'demographics']
 
 export function MapExplorer({
-  opportunities, stores, malls, pois, selectedKelurahanId, onSelectKelurahan,
+  opportunities, stores, malls, pois, selectedKelurahanId, onSelectKelurahan, onOpenOpportunities,
 }: MapExplorerProps) {
   // ===== Layer visibility + visualization config =====
   const [layerOn, setLayerOn] = useState<Record<LayerId, boolean>>({
@@ -492,8 +494,78 @@ export function MapExplorer({
           />
         </div>
 
-        {/* Control panel — single unified panel */}
-        <div className="space-y-3">
+        {/* Control panel — single unified scrollable panel */}
+        <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto overflow-x-hidden pr-1 -mr-1 scroll-styled">
+          {/* ===== Selected card — at TOP, clickable to open Opportunities ===== */}
+          {selected ? (
+            <Card
+              className="card-premium border-[var(--brand-red)] border-2 cursor-pointer hover:shadow-md transition-shadow group"
+              onClick={onOpenOpportunities}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onOpenOpportunities) onOpenOpportunities() }}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-red)] flex items-center gap-2">
+                  <Crosshair className="w-3.5 h-3.5" />
+                  Selected
+                  <span className="ml-auto text-[9.5px] normal-case tracking-normal text-[var(--brand-ink)]/45 font-normal flex items-center gap-0.5 group-hover:text-[var(--brand-red)] transition-colors">
+                    Open in Opportunities →
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="font-display text-[18px] font-bold text-[var(--brand-ink)] leading-tight">
+                  {selected.kelurahan_name}
+                </div>
+                <div className="text-[11.5px] text-[var(--brand-ink)]/60 mb-3">
+                  {selected.kec_name}, {selected.kab_name} · Tier {selected.tier}
+                </div>
+                <div className="space-y-1.5 text-[12px]">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--brand-ink)]/60">Composite Score</span>
+                    <strong className="text-[var(--brand-red)] num-tabular">{selected.composite_score}/100</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--brand-ink)]/60">Market Share</span>
+                    <strong className="num-tabular">{(selected.potential_market_share * 100).toFixed(1)}%</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--brand-ink)]/60">Daily Customers</span>
+                    <strong className="num-tabular">{selected.estimated_daily_customers}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--brand-ink)]/60">Monthly Revenue</span>
+                    <strong className="num-tabular">Rp {selected.projected_monthly_revenue_juta}jt</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--brand-ink)]/60">Nearest Mall</span>
+                    <span className="text-right text-[11px]">{selected.nearest_mall_name?.split(' ')[0] || '—'} ({selected.nearest_mall_distance_km}km)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--brand-ink)]/60">Cannibalization</span>
+                    <span className="capitalize text-[11px]">{selected.cannibalization_risk}</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/70 leading-relaxed">
+                  {selected.white_space_summary}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="card-premium bg-[var(--brand-cream)] border-dashed">
+              <CardContent className="py-6 text-center">
+                <Crosshair className="w-6 h-6 mx-auto text-[var(--brand-ink)]/30 mb-2" />
+                <div className="text-[12px] text-[var(--brand-ink)]/60">
+                  Klik marker di peta untuk melihat detail kelurahan
+                </div>
+                <div className="text-[10.5px] text-[var(--brand-ink)]/40 mt-1">
+                  Panel ini akan otomatis ter-update saat wilayah dipilih
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="card-premium">
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
@@ -837,64 +909,6 @@ export function MapExplorer({
               />
             </CardContent>
           </Card>
-
-          {/* Selected kelurahan card */}
-          {selected ? (
-            <Card className="card-premium border-[var(--brand-red)] border-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-red)] flex items-center gap-2">
-                  <Crosshair className="w-3.5 h-3.5" />
-                  Selected
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="font-display text-[18px] font-bold text-[var(--brand-ink)] leading-tight">
-                  {selected.kelurahan_name}
-                </div>
-                <div className="text-[11.5px] text-[var(--brand-ink)]/60 mb-3">
-                  {selected.kec_name}, {selected.kab_name} · Tier {selected.tier}
-                </div>
-                <div className="space-y-1.5 text-[12px]">
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Composite Score</span>
-                    <strong className="text-[var(--brand-red)] num-tabular">{selected.composite_score}/100</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Market Share</span>
-                    <strong className="num-tabular">{(selected.potential_market_share * 100).toFixed(1)}%</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Daily Customers</span>
-                    <strong className="num-tabular">{selected.estimated_daily_customers}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Monthly Revenue</span>
-                    <strong className="num-tabular">Rp {selected.projected_monthly_revenue_juta}jt</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Nearest Mall</span>
-                    <span className="text-right text-[11px]">{selected.nearest_mall_name?.split(' ')[0] || '—'} ({selected.nearest_mall_distance_km}km)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">Cannibalization</span>
-                    <span className="capitalize text-[11px]">{selected.cannibalization_risk}</span>
-                  </div>
-                </div>
-                <div className="mt-3 pt-3 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/70 leading-relaxed">
-                  {selected.white_space_summary}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="card-premium bg-[var(--brand-cream)]">
-              <CardContent className="py-6 text-center">
-                <Crosshair className="w-6 h-6 mx-auto text-[var(--brand-ink)]/30 mb-2" />
-                <div className="text-[12px] text-[var(--brand-ink)]/60">
-                  Klik marker di peta untuk melihat detail kelurahan
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>

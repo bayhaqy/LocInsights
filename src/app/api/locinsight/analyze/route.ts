@@ -6,13 +6,18 @@ import { BALI_STORES } from '@/lib/data/bali-stores'
 import { BALI_MALLS } from '@/lib/data/bali-malls'
 import { BALI_POIS } from '@/lib/data/bali-poi'
 import { prisma } from '@/lib/db'
+import { getKelurahanFromDB, loadStoresFromDB } from '@/lib/scoring/db-engine'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/locinsight/analyze?kelurahan_id=...&brand_id=...
  * Deep analysis of one kelurahan for one optional target brand.
- * Phase 2: includes competitor stores + travel-time isochrones.
+ *
+ * The kelurahan is resolved from the DB first (716 villages), falling back to
+ * the static representative set (~220) for backwards compatibility. This fixes
+ * the "kelurahan not found" error users hit when clicking DB-only villages on
+ * the Map Explorer.
  */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -23,9 +28,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'kelurahan_id is required' }, { status: 400 })
   }
 
-  const kel = getKelurahan(kelurahanId)
+  // Try DB first (real 716 villages), then static fallback (~220 representatives)
+  let kel = await getKelurahanFromDB(kelurahanId)
   if (!kel) {
-    return NextResponse.json({ success: false, error: 'kelurahan not found' }, { status: 404 })
+    kel = getKelurahan(kelurahanId) || null
+  }
+  if (!kel) {
+    return NextResponse.json({ success: false, error: `kelurahan not found (id=${kelurahanId})` }, { status: 404 })
   }
 
   // Load competitor stores from DB (Phase 2)

@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { LucideIcon, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LucideIcon, PanelLeftOpen } from 'lucide-react'
 
 export interface NavItem {
   id: string
@@ -14,6 +14,11 @@ export interface SidebarProps {
   items: NavItem[]
   activeId: string
   onSelect: (id: string) => void
+  stats: {
+    total_kelurahan: number
+    total_stores: number
+    total_malls: number
+  }
   collapsed?: boolean
   onToggleCollapse?: () => void
 }
@@ -25,18 +30,21 @@ export interface SidebarProps {
  *   • expanded (default, w-64) — full labels + descriptions
  *   • collapsed (w-14)        — icon-only rail for full-screen map viewing
  *
- * Toggle is exposed both internally (chevron button at the top) and externally
- * via the `onToggleCollapse` callback (used by the page header button).
+ * IMPORTANT (UX): there is exactly ONE sidebar toggle button — and it lives in
+ * the page header. When the sidebar is collapsed, a small floating circular
+ * "expand" button appears on the right edge of the rail so the user can bring
+ * it back. There is NO internal toggle inside the sidebar header itself,
+ * avoiding the duplicate-button confusion reported by users.
  */
-export function Sidebar({ items, activeId, onSelect, collapsed = false, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, onToggleCollapse }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'bg-[var(--brand-ink)] text-white flex flex-col h-screen sticky top-0 transition-[width] duration-200 ease-in-out z-40',
+        'bg-[var(--brand-ink)] text-white flex flex-col h-screen sticky top-0 transition-[width] duration-200 ease-in-out z-40 relative',
         collapsed ? 'w-14' : 'w-64'
       )}
     >
-      {/* Logo / brand */}
+      {/* Logo / brand — no internal toggle button */}
       <div className={cn(
         'border-b border-white/10 flex items-center',
         collapsed ? 'px-2 py-4 justify-center' : 'px-5 pt-6 pb-5 gap-2.5'
@@ -50,20 +58,10 @@ export function Sidebar({ items, activeId, onSelect, collapsed = false, onToggle
             <div className="text-[10px] text-white/50 uppercase tracking-wider">Location Intelligence</div>
           </div>
         )}
-        {!collapsed && (
-          <button
-            onClick={onToggleCollapse}
-            className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-            title="Hide sidebar"
-            aria-label="Hide sidebar"
-          >
-            <PanelLeftClose className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
-      {/* Collapsed-mode expand button (replaces logo click target) */}
-      {collapsed && (
+      {/* Collapsed-mode expand button — the ONLY in-sidebar toggle (shows when rail is collapsed) */}
+      {collapsed && onToggleCollapse && (
         <button
           onClick={onToggleCollapse}
           className="absolute top-3 -right-3 w-6 h-6 rounded-full bg-[var(--brand-red)] text-white flex items-center justify-center shadow-md hover:scale-110 transition-transform z-50"
@@ -107,7 +105,6 @@ export function Sidebar({ items, activeId, onSelect, collapsed = false, onToggle
                   </div>
                 </div>
               )}
-              {/* Active indicator for collapsed mode */}
               {collapsed && isActive && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-white rounded-r" />
               )}
@@ -116,7 +113,7 @@ export function Sidebar({ items, activeId, onSelect, collapsed = false, onToggle
         })}
       </nav>
 
-      {/* Footer (only in expanded mode — minimal) */}
+      {/* Footer (expanded only — minimal, no totals) */}
       {!collapsed && (
         <div className="border-t border-white/10 px-4 py-3">
           <div className="text-[9.5px] text-white/40 leading-relaxed">

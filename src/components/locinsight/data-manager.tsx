@@ -60,6 +60,11 @@ export function DataManager() {
   const [savingBulk, setSavingBulk] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Export column-picker state
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx'>('csv')
+  const [selectedExportCols, setSelectedExportCols] = useState<Set<string>>(new Set())
+
   // Table view sort + per-column filter state (client-side, on current page data)
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null)
@@ -194,27 +199,88 @@ export function DataManager() {
     }
     setSavingBulk(true)
     try {
-      const idField = activeEntity === 'kabupaten' || activeEntity === 'kecamatan' ? 'code' : 'id'
-      const rowsToUpdate = Object.entries(draft).map(([idx, changes]) => ({
-        [idField]: data[Number(idx)][idField],
-        ...changes,
-      }))
-      const res = await fetch('/api/locinsight/bulk', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity: activeEntity, rows: rowsToUpdate }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        toast.success(`Saved ${json.updated} of ${rowsToUpdate.length} changes${json.skipped ? ` · ${json.skipped} skipped` : ''}${json.error_count ? ` · ${json.error_count} errors` : ''}`)
-        if (json.error_count > 0) {
-          console.warn('Bulk update errors:', json.errors)
+      const idField = activeEntity === 'kabupaten' || activeEntity === 'kecamatan' || activeEntity === 'provinces' || activeEntity === 'countries' ? 'code' : 'id'
+
+      // Separate new rows (POST) from existing rows (PUT bulk).
+      const newRows: any[] = []
+      const rowsToUpdate: any[] = []
+      for (const [idx, changes] of Object.entries(draft)) {
+        const dataRow = data[Number(idx)]
+        if (!dataRow) continue
+        const isNew = (dataRow as any).__isNew === true || (changes as any).__isNew === true
+        // Strip internal flags before sending
+        const { __isNew, ...cleanChanges } = changes as any
+        if (isNew) {
+          // For new rows: send ALL fields (combined data + changes), not just diffs
+          newRows.push({ ...dataRow, ...cleanChanges, __isNew: undefined })
+        } else {
+          rowsToUpdate.push({
+            [idField]: dataRow[idField],
+            ...cleanChanges,
+          })
         }
-        setDraft(null)
-        fetchData()
-      } else {
-        toast.error(json.error)
       }
+
+      let totalCreated = 0
+      let totalUpdated = 0
+      let totalErrors = 0
+      const errorList: string[] = []
+
+      // 1. Bulk update existing rows
+      if (rowsToUpdate.length > 0) {
+        const res = await fetch('/api/locinsight/bulk', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entity: activeEntity, rows: rowsToUpdate }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          totalUpdated = json.updated || 0
+          totalErrors += json.error_count || 0
+          if (json.errors) errorList.push(...json.errors)
+        } else {
+          toast.error(json.error)
+          return
+        }
+      }
+
+      // 2. Insert new rows one-by-one (POST) — bulk POST would need a
+      //    different endpoint signature. New rows are typically few.
+      for (const row of newRows) {
+        // Strip __isNew and any undefined fields
+        const { __isNew: _drop, id: _idDrop, ...payload } = row
+        // For id-keyed entities, also drop empty id (DB will assign UUID)
+        try {
+          const res = await fetch(`/api/locinsight/${activeEntity}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+          const json = await res.json()
+          if (json.success) totalCreated++
+          else {
+            totalErrors++
+            errorList.push(`New row: ${json.error || 'unknown error'}`)
+          }
+        } catch (e: any) {
+          totalErrors++
+          errorList.push(`New row: ${e.message}`)
+        }
+      }
+
+      const parts: string[] = []
+      if (totalUpdated) parts.push(`${totalUpdated} updated`)
+      if (totalCreated) parts.push(`${totalCreated} created`)
+      if (totalErrors) parts.push(`${totalErrors} errors`)
+      const msg = parts.length ? `Saved: ${parts.join(' · ')}` : 'No changes needed'
+      if (totalErrors > 0) {
+        toast.warning(msg)
+        console.warn('Bulk save errors:', errorList)
+      } else {
+        toast.success(msg)
+      }
+      setDraft(null)
+      fetchData()
     } catch (e: any) {
       toast.error(e.message)
     } finally {
@@ -258,6 +324,58 @@ export function DataManager() {
     } catch (e: any) {
       toast.error(e.message)
     }
+  }
+
+  /** Open the export dialog with all columns pre-selected. */
+  function openExportDialog(format: 'csv' | 'xlsx') {
+    setExportFormat(format)
+    setSelectedExportCols(new Set(fieldConfig.map(f => f.key)))
+    setShowExportDialog(true)
+  }
+
+  /** Toggle a single column in the export picker. */
+  function toggleExportCol(key: string) {
+    setSelectedExportCols(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  /** Export only the user-selected columns from the current filtered view. */
+  function exportSelectedColumns() {
+    if (selectedExportCols.size === 0) {
+      toast.error('Select at least one column to export')
+      return
+    }
+    const selectedFields = fieldConfig.filter(f => selectedExportCols.has(f.key))
+    const headers = selectedFields.map(f => f.label)
+    const lines = [headers.join(',')]
+    for (const r of processedData) {
+      const cells = selectedFields.map(f => {
+        const v = (r as any)[f.key]
+        if (v == null) return ''
+        const s = typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v)
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`
+        }
+        return s
+      })
+      lines.push(cells.join(','))
+    }
+    const csv = lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${activeEntity}_custom_${selectedFields.length}cols_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${processedData.length} rows × ${selectedFields.length} columns`)
+    setShowExportDialog(false)
   }
 
   // === Client-side sort + filter applied to current page data ===
@@ -403,10 +521,34 @@ export function DataManager() {
     }
   }
 
-  // Show ALL columns in the table view (was sliced to first 6, which hid useful fields).
-  // The table has overflow-x-auto so horizontal scroll handles wide tables.
+  // Show ALL columns in table view (was sliced to 6, hiding most fields).
+  // Horizontal scroll is enabled via min-width on the table.
   const tableColumns = fieldConfig
   const hasChanges = draft && Object.keys(draft).length > 0
+
+  // === Insert blank row at top of spreadsheet data (for bulk insert) ===
+  function insertBlankRow() {
+    // Build an empty row matching the entity's field config (id left empty for DB to assign)
+    const blank: Record<string, any> = {}
+    for (const f of fieldConfig) {
+      blank[f.key] = f.type === 'boolean' ? false : (f.type === 'number' ? null : '')
+    }
+    // For code-keyed entities, leave code empty too
+    if (['kabupaten', 'kecamatan', 'provinces', 'countries'].includes(activeEntity)) {
+      delete blank.id
+    } else {
+      blank.id = '' // DB will assign UUID or we leave it for user to fill
+    }
+    // Mark as a "new" row by tagging with __isNew so we POST (not PUT) on save
+    blank.__isNew = true
+    setData(prev => [blank, ...prev])
+    // Track in draft so it shows as unsaved
+    setDraft(prev => ({
+      ...prev,
+      0: { ...(prev?.[0] || {}), __isNew: true, ...blank },
+    }))
+    toast.info('Blank row inserted at top — fill in fields, then click Save Changes')
+  }
 
   return (
     <div className="space-y-4">
@@ -488,6 +630,15 @@ export function DataManager() {
                 <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px]" title="Export ALL records (server-side)">
                   <Download className="w-3 h-3 mr-1" /> XLSX (All)
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openExportDialog('csv')}
+                  className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
+                  title="Pick which columns to include in the CSV export"
+                >
+                  <FilterIcon className="w-3 h-3 mr-1" /> Custom Cols
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px]" title="Download empty template">
                   <FileDown className="w-3 h-3 mr-1" /> Template
                 </Button>
@@ -528,18 +679,32 @@ export function DataManager() {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              {viewMode === 'spreadsheet' && hasChanges && (
+              {viewMode === 'spreadsheet' && (
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50">
-                    {Object.keys(draft!).length} row(s) changed
-                  </Badge>
-                  <Button size="sm" variant="outline" onClick={discardChanges} className="h-7 text-[11px]">
-                    <X className="w-3 h-3 mr-1" /> Discard
+                  {/* Insert blank row at top — for bulk insert workflow */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={insertBlankRow}
+                    className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
+                    title="Insert a blank row at the top of the spreadsheet for new records"
+                  >
+                    <Plus className="w-3 h-3 mr-1" /> Insert Row
                   </Button>
-                  <Button size="sm" onClick={saveBulkChanges} disabled={savingBulk} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
-                    {savingBulk ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
-                    Save Changes
-                  </Button>
+                  {hasChanges && (
+                    <>
+                      <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50">
+                        {Object.keys(draft!).length} row(s) changed
+                      </Badge>
+                      <Button size="sm" variant="outline" onClick={discardChanges} className="h-7 text-[11px]">
+                        <X className="w-3 h-3 mr-1" /> Discard
+                      </Button>
+                      <Button size="sm" onClick={saveBulkChanges} disabled={savingBulk} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
+                        {savingBulk ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                        Save Changes
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -641,6 +806,70 @@ export function DataManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Export Column Picker Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Export {activeEntity} — pick columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-[12px] text-[var(--brand-ink)]/70 leading-relaxed">
+              Select which columns to include in the CSV export. The export uses
+              the current filtered/sorted view ({processedData.length} rows).
+            </div>
+            <div className="flex items-center gap-2 pb-2 border-b border-[var(--brand-border)]">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={() => setSelectedExportCols(new Set(fieldConfig.map(f => f.key)))}
+              >
+                Select All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={() => setSelectedExportCols(new Set())}
+              >
+                Clear All
+              </Button>
+              <Badge variant="secondary" className="text-[10px] ml-auto">
+                {selectedExportCols.size} / {fieldConfig.length} selected
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+              {fieldConfig.map(f => (
+                <label
+                  key={f.key}
+                  className="flex items-center gap-2 p-2 rounded border border-[var(--brand-border)] hover:bg-[var(--brand-cream)] cursor-pointer text-[11.5px]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedExportCols.has(f.key)}
+                    onChange={() => toggleExportCol(f.key)}
+                    className="accent-[var(--brand-red)]"
+                  />
+                  <span className="flex-1 truncate">{f.label}</span>
+                  {f.required && <span className="text-[var(--brand-red)] text-[9px]">req</span>}
+                </label>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExportDialog(false)}>Cancel</Button>
+            <Button
+              onClick={exportSelectedColumns}
+              disabled={selectedExportCols.size === 0}
+              className="bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Export {selectedExportCols.size} col(s) · {processedData.length} rows
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -683,15 +912,15 @@ function TableView({
           </button>
         </div>
       )}
-      <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-        <table className="w-full text-[11.5px]">
+      <div className="overflow-auto max-h-[600px] border border-[var(--brand-border)] rounded">
+        <table className="text-[11.5px] border-collapse min-w-max">
           <thead className="sticky top-0 bg-white z-10">
             <tr className="border-b border-[var(--brand-border)]">
               {columns.map(f => {
                 const isSorted = sortCol === f.key
                 const SortIcon = !isSorted ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
                 return (
-                  <th key={f.key} className="text-left px-2 py-2 font-semibold text-[var(--brand-ink)]/70 uppercase tracking-wider text-[10px] whitespace-nowrap">
+                  <th key={f.key} className="text-left px-2 py-2 font-semibold text-[var(--brand-ink)]/70 uppercase tracking-wider text-[10px] whitespace-nowrap border-r border-[var(--brand-border)] last:border-r-0 min-w-[120px]">
                     <button
                       onClick={() => onSort(f.key)}
                       className="flex items-center gap-1 hover:text-[var(--brand-red)]"
@@ -746,11 +975,11 @@ function TableView({
               data.map((row, i) => (
                 <tr key={i} className="border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/50">
                   {columns.map(f => (
-                    <td key={f.key} className="px-2 py-1.5 whitespace-nowrap">
+                    <td key={f.key} className="px-2 py-1.5 whitespace-nowrap border-r border-[var(--brand-border)]/30 last:border-r-0 align-top">
                       {formatCell(row[f.key], f.type)}
                     </td>
                   ))}
-                  <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.04)]">
                     <button
                       onClick={() => onEdit(row)}
                       className="p-1 rounded hover:bg-[var(--brand-red)]/10 text-[var(--brand-ink)]/60 hover:text-[var(--brand-red)]"

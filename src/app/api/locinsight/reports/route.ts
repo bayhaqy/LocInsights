@@ -19,8 +19,8 @@ import { BALI_KELURAHAN } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { BALI_POIS } from '@/lib/data/bali-poi'
 import { KABUPATEN_LIST } from '@/lib/data/bali-admin'
-import * as fs from 'fs/promises'
-import * as path from 'path'
+// NOTE: fs/path intentionally not imported — Vercel serverless can't write
+// arbitrary disk paths. CSV/JSON content is returned inline as the response.
 
 export const dynamic = 'force-dynamic'
 
@@ -288,37 +288,54 @@ export async function GET(req: NextRequest) {
     }
 
     if (format === 'csv') {
-      // Convert content to CSV (use sites/brands/kabupaten arrays if available)
-      const arr =
-        content.sites || content.brands_analyzed && content.matrix ||
-        content.kabupaten || content.top_10_opportunities || []
-      const csv = toCSV(Array.isArray(arr) ? arr : [content])
+      // Convert content to CSV — use sites/matrix/kabupaten/top_10 arrays.
+      // Operator-precedence-safe: explicit parentheses (the previous
+      // `a || b && c || d` form relied on && binding tighter than || and
+      // silently fell through to top_10 for executive_summary).
+      let arr: any[] = []
+      if (Array.isArray(content.sites) && content.sites.length) {
+        arr = content.sites
+      } else if (Array.isArray(content.matrix) && content.matrix.length) {
+        arr = content.matrix
+      } else if (Array.isArray(content.kabupaten) && content.kabupaten.length) {
+        arr = content.kabupaten
+      } else if (Array.isArray(content.top_10_opportunities) && content.top_10_opportunities.length) {
+        arr = content.top_10_opportunities
+      } else {
+        arr = [content]
+      }
+      const csv = toCSV(arr)
       const fileName = `locinsight_${type}_${Date.now()}.csv`
 
-      // Save to DB
-      const report = await db.report.create({
-        data: {
-          title: content.title,
-          type,
-          format: 'csv',
-          filters: JSON.stringify(filters),
-          status: 'generated',
-          file_path: `/download/${fileName}`,
-          file_size_kb: Math.ceil(csv.length / 1024),
-          generated_by: 'system',
-        },
-      })
-
-      // Save file to disk under /home/z/my-project/download/
-      const filePath = path.join('/home/z/my-project/download', fileName)
-      await fs.writeFile(filePath, csv, 'utf-8')
+      // Persist report metadata to DB (best-effort — never block the response
+      // on a DB write failure). Skip the on-disk file write entirely: Vercel
+      // serverless functions cannot write to arbitrary paths, and the CSV is
+      // already returned inline as the response body.
+      let reportId: string | undefined
+      try {
+        const report = await db.report.create({
+          data: {
+            title: content.title,
+            type,
+            format: 'csv',
+            filters: JSON.stringify(filters),
+            status: 'generated',
+            file_path: null, // inline download — no on-disk file
+            file_size_kb: Math.ceil(csv.length / 1024),
+            generated_by: 'system',
+          },
+        })
+        reportId = report.id
+      } catch (dbErr) {
+        console.warn('reports: DB insert failed, returning CSV anyway:', dbErr)
+      }
 
       return new NextResponse(csv, {
         status: 200,
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': `attachment; filename="${fileName}"`,
-          'X-Report-Id': report.id,
+          ...(reportId ? { 'X-Report-Id': reportId } : {}),
         },
       })
     }

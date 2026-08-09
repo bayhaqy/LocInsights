@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { mall_id, mall_name, lat, lng, radius_km = 0.5 } = body
+    const { mall_id, mall_name, lat, lng, radius_km = 0.8 } = body
 
     if (!mall_name || lat == null || lng == null) {
       return NextResponse.json({
@@ -108,9 +108,12 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // Build Overpass query for shops + amenities within mall bbox
-    const dLat = radius_km / 111
-    const dLng = radius_km / (111 * Math.cos((lat * Math.PI) / 180))
+    // Build Overpass query for shops + amenities within mall bbox.
+    // Default radius 800m (was 500m) — Bali malls have shops tagged across a
+    // wider area and 500m frequently returned zero results.
+    const r = Math.max(0.3, Math.min(2.0, Number(radius_km) || 0.8))
+    const dLat = r / 111
+    const dLng = r / (111 * Math.cos((lat * Math.PI) / 180))
     const bbox = `${lat - dLat},${lng - dLng},${lat + dLat},${lng + dLng}`
     const query = `[out:json][timeout:25];(
       node["shop"](${bbox});
@@ -120,6 +123,18 @@ export async function POST(req: NextRequest) {
     );out center 200;`
 
     const elements = await runOverpass(query)
+
+    // If Overpass returned nothing, return a clear error to the user instead
+    // of silently wiping existing tenants.
+    if (elements.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Overpass API returned 0 elements. The mall bbox may have no OSM shops tagged, or the Overpass endpoint is temporarily unavailable. Existing tenants were NOT modified.',
+        mall_id: mall_id || null,
+        mall_name,
+        total_found: 0,
+      }, { status: 502 })
+    }
 
     // Classify each into MAP brand / competitor / unknown
     const found: {
@@ -165,7 +180,21 @@ export async function POST(req: NextRequest) {
       return true
     })
 
-    // Persist to DB (replace existing tenants for this mall)
+    // Safety net: if classification found zero MAP/competitor brands, do NOT
+    // wipe existing tenants — return informational response instead.
+    if (deduped.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: `Overpass returned ${elements.length} shop elements but none matched a known MAP or competitor brand. Existing tenants were NOT modified. Try increasing radius_km or adding brands to the BRANDS / COMPETITOR_BRANDS lists.`,
+        mall_id: mall_id || null,
+        mall_name,
+        elements_fetched: elements.length,
+        total_found: 0,
+      }, { status: 422 })
+    }
+
+    // Persist to DB (replace existing tenants for this mall) — only AFTER we
+    // know we have at least one valid new tenant.
     if (mall_id) {
       await prisma.mallTenant.deleteMany({ where: { mall_id } })
     } else {
@@ -173,18 +202,24 @@ export async function POST(req: NextRequest) {
     }
 
     for (const t of deduped) {
-      await prisma.mallTenant.create({
-        data: {
-          mall_id: mall_id || null,
-          mall_name,
-          brand_name: t.brand_name,
-          brand_category: (t.brand_category as any) || null,
-          is_map_brand: t.is_map_brand,
-          is_competitor: t.is_competitor,
-          category: t.category,
-          source: 'osm' as any,
-        },
-      })
+      try {
+        await prisma.mallTenant.create({
+          data: {
+            mall_id: mall_id || null,
+            mall_name,
+            brand_name: t.brand_name,
+            brand_category: (t.brand_category as any) || null,
+            is_map_brand: t.is_map_brand,
+            is_competitor: t.is_competitor,
+            category: t.category,
+            source: 'osm' as any,
+          },
+        })
+      } catch (createErr) {
+        // Log per-row errors but continue — partial persistence is better than
+        // total failure when the user has just waited for Overpass.
+        console.warn('mallTenant.create failed:', createErr)
+      }
     }
 
     return NextResponse.json({
@@ -197,6 +232,6 @@ export async function POST(req: NextRequest) {
       data: deduped,
     })
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: e.message || String(e) }, { status: 500 })
   }
 }
