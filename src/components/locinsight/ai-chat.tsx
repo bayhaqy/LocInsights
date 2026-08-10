@@ -83,6 +83,7 @@ export function AIChat() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [fallbackMode, setFallbackMode] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -261,6 +262,8 @@ export function AIChat() {
       const data = await res.json()
       const reply: string = data.reply || ''
       if (!reply) throw new Error('Empty reply')
+      // Track whether we're in fallback mode (rule-based) or full AI mode
+      setFallbackMode(data.source === 'fallback')
 
       const assistantMsg: ChatMessage = { role: 'assistant', content: reply, ts: Date.now() }
       setConversations(prev =>
@@ -627,7 +630,9 @@ export function AIChat() {
                   </button>
                 </div>
                 <div className="text-[10px] text-[var(--brand-ink)]/40 mt-1.5 text-center">
-                  LocInsight AI · Guardrailed to location intelligence topics
+                  {fallbackMode
+                    ? (lang === 'id' ? 'Mode bantuan · Aktifkan AI penuh di Vercel' : 'Help mode · Set ZAI env vars for full AI')
+                    : 'LocInsight AI · Guardrailed to location intelligence topics'}
                 </div>
               </div>
             </>

@@ -344,16 +344,15 @@ export function About() {
                 <div>{t('about.android.min')}</div>
               </div>
               <a
-                href="/locinsight-android-build-instructions.txt"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/locinsights.apk"
+                download="locinsights.apk"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-ink)] text-white text-[11px] font-medium rounded-md hover:bg-[var(--brand-ink)]/90 transition-colors"
               >
                 <Download className="w-3 h-3" />
                 {t('about.download_apk')}
               </a>
               <div className="text-[10px] text-[var(--brand-ink)]/50 mt-1.5">
-                Build instructions included · Bubblewrap TWA
+                {t('about.android.tap_to_install')}
               </div>
             </div>
 

@@ -116,6 +116,53 @@ function FlyTo({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   return null
 }
 
+// User location marker — blue dot with accuracy circle (Leaflet CircleMarker + pulsing dot)
+function UserLocationMarker({ lat, lng, accuracy }: { lat: number; lng: number; accuracy: number }) {
+  const map = useMap()
+  // Fly to user location when it first arrives
+  useEffect(() => {
+    map.flyTo([lat, lng], 14, { duration: 1.2 })
+  }, [lat, lng, map])
+  return (
+    <>
+      <CircleMarker
+        center={[lat, lng]}
+        radius={Math.max(8, Math.min(40, accuracy / 3))}
+        pathOptions={{
+          color: '#2563eb',
+          fillColor: '#2563eb',
+          fillOpacity: 0.12,
+          weight: 1,
+        }}
+      />
+      <CircleMarker
+        center={[lat, lng]}
+        radius={7}
+        pathOptions={{
+          color: '#fff',
+          fillColor: '#2563eb',
+          fillOpacity: 1,
+          weight: 3,
+        }}
+      >
+        <Popup>
+          <div style={{ fontSize: 12, minWidth: 180 }}>
+            <div style={{ fontWeight: 700, color: '#2563eb', marginBottom: 4 }}>
+              📍 Your location
+            </div>
+            <div style={{ fontSize: 11, color: '#666' }}>
+              {lat.toFixed(5)}, {lng.toFixed(5)}
+            </div>
+            <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+              Accuracy: ±{Math.round(accuracy)}m
+            </div>
+          </div>
+        </Popup>
+      </CircleMarker>
+    </>
+  )
+}
+
 export interface CompetitorPin {
   id: string
   brand_name: string
@@ -199,6 +246,9 @@ export function LocInsightMap({
   height = '600px',
 }: LocInsightMapProps) {
   const [mapReady, setMapReady] = useState(false)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [geoError, setGeoError] = useState<string | null>(null)
   const selected = opportunities.find(o => o.kelurahan_id === selectedKelurahanId)
 
   // Bali center: roughly -8.4, 115.2
@@ -264,6 +314,38 @@ export function LocInsightMap({
     return pts
   }, [touristPOIs, civicPOIs, malls, stores, competitors, showCrowdDensity])
 
+  // ===== Request user's GPS location =====
+  const requestLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoError('Geolocation is not supported by your browser.')
+      return
+    }
+    setLocating(true)
+    setGeoError(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy || 50,
+        })
+        setLocating(false)
+      },
+      (err) => {
+        setLocating(false)
+        const messages: Record<number, string> = {
+          1: 'Location permission denied. Please allow location access in your browser settings.',
+          2: 'Location unavailable. Check your GPS or network connection.',
+          3: 'Location request timed out. Try again.',
+        }
+        setGeoError(messages[err.code] || `Location error: ${err.message}`)
+        // Auto-clear error after 6 seconds
+        setTimeout(() => setGeoError(null), 6000)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    )
+  }
+
   return (
     <div style={{ height, width: '100%' }} className="relative rounded-lg overflow-hidden border border-[var(--brand-border)]">
       <MapContainer
@@ -281,6 +363,15 @@ export function LocInsightMap({
         <ZoomControl position="bottomright" />
 
         {selected && <FlyTo lat={selected.lat} lng={selected.lng} zoom={13} />}
+
+        {/* ===== User's GPS location marker (blue dot) ===== */}
+        {userLocation && (
+          <UserLocationMarker
+            lat={userLocation.lat}
+            lng={userLocation.lng}
+            accuracy={userLocation.accuracy}
+          />
+        )}
 
         {/* ===== Demographics choropleth (income, urban index, etc.) ===== */}
         {showDemographics && demoData.length > 0 && (
@@ -573,7 +664,51 @@ export function LocInsightMap({
         {showTouristPOIs && <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: '#0891b2' }}></span>Tourist Attraction</div>}
         {showCivicPOIs && <div className="flex items-center gap-2"><span className="w-3 h-3" style={{ background: '#5C5C5C' }}></span>Civic POI (Hospital, University, Transit, Office)</div>}
         {showCrowdDensity && <div className="flex items-center gap-2 pt-1 border-t border-[var(--brand-border)]"><span className="w-3 h-3 rounded-full" style={{ background: '#fb923c' }}></span>Crowd Density (heat)</div>}
+        {userLocation && <div className="flex items-center gap-2 pt-1 border-t border-[var(--brand-border)]"><span className="w-3 h-3 rounded-full" style={{ background: '#2563eb', border: '2px solid #fff', boxShadow: '0 0 0 1px #2563eb' }}></span>Your location</div>}
       </div>
+
+      {/* ===== "Use My Location" button — top-right of map ===== */}
+      <button
+        onClick={requestLocation}
+        disabled={locating}
+        className="absolute top-3 right-3 z-[1000] inline-flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-[var(--brand-border)] rounded-lg shadow-sm text-[11.5px] font-medium text-[var(--brand-ink)] hover:bg-white hover:border-[var(--brand-red)] hover:text-[var(--brand-red)] transition-colors disabled:opacity-60 disabled:cursor-wait"
+        title="Center the map on your current GPS location"
+      >
+        {locating ? (
+          <>
+            <span className="w-3.5 h-3.5 border-2 border-[var(--brand-red)] border-t-transparent rounded-full animate-spin" />
+            <span>Locating…</span>
+          </>
+        ) : userLocation ? (
+          <>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#2563eb] border-2 border-white shadow-sm" />
+            <span>My Location</span>
+          </>
+        ) : (
+          <>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4" />
+              <line x1="12" y1="2" x2="12" y2="5" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="5" y2="12" />
+              <line x1="19" y1="12" x2="22" y2="12" />
+            </svg>
+            <span>Use My Location</span>
+          </>
+        )}
+      </button>
+
+      {/* ===== Geolocation error toast ===== */}
+      {geoError && (
+        <div className="absolute top-16 right-3 z-[1000] max-w-[260px] bg-red-50 border border-red-200 text-red-800 text-[11px] rounded-md shadow-md px-3 py-2 flex items-start gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span>{geoError}</span>
+        </div>
+      )}
 
       {!mapReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-[1100]">
