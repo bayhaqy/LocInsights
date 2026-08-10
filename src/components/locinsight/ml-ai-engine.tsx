@@ -118,7 +118,9 @@ export function MLAIEngine() {
     try {
       const res = await fetch('/api/locinsight/ml?action=clusters')
       const json = await res.json()
-      if (json.success) setClusters(json.data.clusters)
+      // API returns clusters at top level (not under .data)
+      const clustersData = json.data?.clusters ?? json.clusters ?? []
+      if (json.success) setClusters(clustersData)
     } catch (e: any) {
       toast.error(e.message)
     }
@@ -365,7 +367,16 @@ export function MLAIEngine() {
         {/* Clusters tab */}
         <TabsContent value="clusters" className="space-y-3">
           {clusters.length === 0 ? (
-            <Skeleton className="h-64 w-full" />
+            <Card className="card-premium">
+              <CardContent className="py-12 text-center">
+                <Boxes className="w-8 h-8 mx-auto text-[var(--brand-ink)]/30 mb-3" />
+                <div className="text-[14px] text-[var(--brand-ink)]/60">{t('ml.no_clusters')}</div>
+                <div className="text-[11px] text-[var(--brand-ink)]/40 mt-1">{t('ml.no_clusters_hint')}</div>
+                <Button className="mt-3" size="sm" variant="outline" onClick={loadClusters}>
+                  <RefreshCw className="w-3 h-3 mr-1" /> {t('common.refresh')}
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {clusters.map(c => (

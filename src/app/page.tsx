@@ -100,7 +100,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--brand-cream)] items-start">
+    <div className="flex min-h-screen bg-[var(--brand-cream)] items-stretch">
       <Sidebar
         items={NAV_ITEMS}
         activeId={activeView}
@@ -114,7 +114,7 @@ export default function Home() {
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
 
-      <main className="flex-1 min-w-0 overflow-x-hidden">
+      <main className="flex-1 min-w-0 overflow-x-hidden flex flex-col min-h-screen">
         <header className="bg-white border-b border-[var(--brand-border)] px-4 sm:px-6 py-3 sticky top-0 z-30 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             {/* SINGLE sidebar toggle button — only in page header */}
@@ -141,7 +141,7 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="p-4 sm:p-6">
+        <div className="p-4 sm:p-6 flex-1">
           {activeView === 'dashboard' && (
             <Dashboard
               stats={data.stats}
@@ -205,7 +205,7 @@ export default function Home() {
           {activeView === 'settings' && <Settings />}
         </div>
 
-        <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-8">
+        <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-auto">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <img src="/logo-white.png" alt="LocInsight" className="w-5 h-5 object-contain" />

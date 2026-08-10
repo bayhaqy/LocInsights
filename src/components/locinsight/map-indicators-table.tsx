@@ -31,8 +31,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Search, Download, ArrowUpDown, ArrowUp, ArrowDown, Filter as FilterIcon, Database, X, Check,
 } from 'lucide-react'
@@ -121,7 +121,7 @@ export function MapIndicatorsTable({
   const [colFilters, setColFilters] = useState<Record<string, string>>({})
 
   // Export column-picker state
-  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showExportPopover, setShowExportPopover] = useState(false)
   const [exportCols, setExportCols] = useState<Set<string>>(new Set(COLUMNS.map(c => c.key))) // default: all
 
   // Reset text search/filter when selection changes (so the auto-filter is the dominant view)
@@ -282,7 +282,7 @@ export function MapIndicatorsTable({
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    setShowExportDialog(false)
+    setShowExportPopover(false)
   }
 
   const isFiltered = search !== '' || tierFilter !== 'all' || recFilter !== 'all' || Object.values(colFilters).some(v => v)
@@ -344,17 +344,89 @@ export function MapIndicatorsTable({
               <Download className="w-3 h-3 mr-1" />
               {t('map.table.export_filtered', { n: sorted.length })}
             </Button>
-            {/* Column picker button — opens dialog to choose which columns to export */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowExportDialog(true)}
-              className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
-              title={t('map.table.export_picker_subtitle')}
-            >
-              <FilterIcon className="w-3 h-3 mr-1" />
-              {exportCols.size}/{COLUMNS.length}
-            </Button>
+            {/* Column picker button — opens POPOVER anchored to the button
+                (not a centered dialog, which appeared awkwardly below the map) */}
+            <Popover open={showExportPopover} onOpenChange={setShowExportPopover}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
+                  title={t('map.table.export_picker_subtitle')}
+                >
+                  <FilterIcon className="w-3 h-3 mr-1" />
+                  {exportCols.size}/{COLUMNS.length}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={6}
+                className="w-[340px] max-h-[480px] overflow-y-auto p-3 scroll-styled"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[12px] font-semibold text-[var(--brand-ink)] flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5 text-[var(--brand-red)]" />
+                    {t('map.table.export_picker_title')}
+                  </div>
+                  <Badge variant="outline" className="text-[9.5px]">
+                    {t('map.table.selected_cols_count', { n: exportCols.size })}
+                  </Badge>
+                </div>
+                <p className="text-[10.5px] text-[var(--brand-ink)]/60 mb-2 leading-relaxed">
+                  {t('map.table.export_picker_subtitle')}
+                </p>
+                <div className="flex gap-1.5 mb-2">
+                  <Button size="sm" variant="outline" onClick={selectAllExportCols} className="h-6 text-[10px] flex-1">
+                    <Check className="w-3 h-3 mr-1" /> {t('map.table.select_all_cols')}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={clearAllExportCols} className="h-6 text-[10px] flex-1">
+                    <X className="w-3 h-3 mr-1" /> {t('map.table.clear_all_cols')}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-1 max-h-[280px] overflow-y-auto scroll-styled pr-0.5">
+                  {COLUMNS.map(c => {
+                    const checked = exportCols.has(c.key)
+                    return (
+                      <label
+                        key={c.key}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer text-[11px] transition-colors ${
+                          checked
+                            ? 'border-[var(--brand-red)]/40 bg-[var(--brand-red)]/5 text-[var(--brand-ink)]'
+                            : 'border-[var(--brand-border)] text-[var(--brand-ink)]/70 hover:bg-[var(--brand-cream)]'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleExportCol(c.key)}
+                          className="w-3.5 h-3.5 accent-[var(--brand-red)]"
+                        />
+                        <span className="flex-1 truncate">{t(c.labelKey)}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-1.5 mt-2 pt-2 border-t border-[var(--brand-border)]">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowExportPopover(false)}
+                    className="h-7 text-[11px] flex-1"
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => exportCSV(true)}
+                    disabled={exportCols.size === 0 || sorted.length === 0}
+                    className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)] flex-1"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    {t('map.table.export_with_cols', { n: sorted.length, cols: exportCols.size })}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         {/* Subtitle: shows whether we're showing all data or filtered to selection */}
@@ -444,73 +516,6 @@ export function MapIndicatorsTable({
           </table>
         </div>
       </CardContent>
-
-      {/* ===== Export column-picker dialog ===== */}
-      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[14px] flex items-center gap-2">
-              <Download className="w-4 h-4 text-[var(--brand-red)]" />
-              {t('map.table.export_picker_title')}
-            </DialogTitle>
-            <p className="text-[11.5px] text-[var(--brand-ink)]/60">
-              {t('map.table.export_picker_subtitle')}
-            </p>
-          </DialogHeader>
-
-          <div className="flex items-center justify-between mb-2">
-            <Badge variant="outline" className="text-[10px]">
-              {t('map.table.selected_cols_count', { n: exportCols.size })}
-            </Badge>
-            <div className="flex gap-1.5">
-              <Button size="sm" variant="outline" onClick={selectAllExportCols} className="h-7 text-[10.5px]">
-                <Check className="w-3 h-3 mr-1" /> {t('map.table.select_all_cols')}
-              </Button>
-              <Button size="sm" variant="outline" onClick={clearAllExportCols} className="h-7 text-[10.5px]">
-                <X className="w-3 h-3 mr-1" /> {t('map.table.clear_all_cols')}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto scroll-styled pr-1">
-            {COLUMNS.map(c => {
-              const checked = exportCols.has(c.key)
-              return (
-                <label
-                  key={c.key}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded border cursor-pointer text-[11.5px] transition-colors ${
-                    checked
-                      ? 'border-[var(--brand-red)]/40 bg-[var(--brand-red)]/5 text-[var(--brand-ink)]'
-                      : 'border-[var(--brand-border)] text-[var(--brand-ink)]/70 hover:bg-[var(--brand-cream)]'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleExportCol(c.key)}
-                    className="w-3.5 h-3.5 accent-[var(--brand-red)]"
-                  />
-                  <span>{t(c.labelKey)}</span>
-                </label>
-              )
-            })}
-          </div>
-
-          <DialogFooter className="mt-3">
-            <Button variant="outline" onClick={() => setShowExportDialog(false)} className="h-8 text-[11.5px]">
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => exportCSV(true)}
-              disabled={exportCols.size === 0 || sorted.length === 0}
-              className="h-8 text-[11.5px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
-            >
-              <Download className="w-3.5 h-3.5 mr-1" />
-              {t('map.table.export_with_cols', { n: sorted.length, cols: exportCols.size })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   )
 

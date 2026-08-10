@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import {
-  MapPin, Building2, Compass, Filter, Crosshair, Search, RotateCcw,
+  MapPin, Building2, Compass, Filter, Crosshair, Search, RotateCcw, X,
   Shield, TrendingUp, Activity, Users, Sparkles, Banknote, Bus,
 } from 'lucide-react'
 import { Store as StoreIcon } from 'lucide-react'
@@ -519,12 +519,25 @@ export function MapExplorer({
             })}
           </p>
         </div>
-        {isFilterActive && (
-          <Button size="sm" variant="outline" onClick={resetFilters} className="text-[11px] h-8">
-            <RotateCcw className="w-3 h-3 mr-1" />
-            {t('map.reset_filters')}
-          </Button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectedKelurahanId && (
+            <Button
+              size="sm"
+              onClick={() => onSelectKelurahan('')}
+              className="text-[11px] h-8 bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
+              title={t('map.table.clear_selection')}
+            >
+              <X className="w-3 h-3 mr-1" />
+              {t('map.table.clear_selection')}
+            </Button>
+          )}
+          {isFilterActive && (
+            <Button size="sm" variant="outline" onClick={resetFilters} className="text-[11px] h-8">
+              <RotateCcw className="w-3 h-3 mr-1" />
+              {t('map.reset_filters')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">

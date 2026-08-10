@@ -66,6 +66,7 @@ interface LocationOption {
   name: string
   type?: string
   kab_code?: string
+  kabupaten_code?: string
   kec_code?: string
   kab_name?: string
   kec_name?: string
@@ -238,6 +239,8 @@ export function Scraper() {
   }, [selCountry, selProvince, selKab, selKec, selKel, countryList, provinceList, kabupatenList, kecamatanList, kelurahanList, t])
 
   // Filtered kabupaten/kecamatan/kelurahan based on parent selection
+  // NOTE: kecamatan records from /api/locinsight/locations use `kabupaten_code`,
+  // while kelurahan records use `kab_code`. We check both for robustness.
   const filteredKabupaten = useMemo(() => {
     if (!selProvince) return kabupatenList
     return kabupatenList.filter(k => k.province_code === selProvince)
@@ -245,7 +248,10 @@ export function Scraper() {
 
   const filteredKecamatan = useMemo(() => {
     if (!selKab) return kecamatanList
-    return kecamatanList.filter(k => k.kab_code === selKab)
+    return kecamatanList.filter(k => {
+      const code = k.kabupaten_code ?? k.kab_code
+      return code === selKab
+    })
   }, [kecamatanList, selKab])
 
   const filteredKelurahan = useMemo(() => {

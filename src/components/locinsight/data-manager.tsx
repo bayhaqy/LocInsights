@@ -577,9 +577,9 @@ export function DataManager() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4">
         {/* Entity switcher */}
-        <Card className="card-premium h-fit">
+        <Card className="card-premium h-fit overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
               <Database className="w-3.5 h-3.5 text-[var(--brand-red)]" />
@@ -609,7 +609,7 @@ export function DataManager() {
         </Card>
 
         {/* Data pane */}
-        <Card className="card-premium">
+        <Card className="card-premium overflow-hidden min-w-0">
           <CardHeader className="pb-3">
             <input
               ref={fileInputRef}
