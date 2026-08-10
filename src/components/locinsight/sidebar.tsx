@@ -42,9 +42,10 @@ export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, o
   return (
     <aside
       className={cn(
-        'bg-[var(--brand-ink)] text-white flex flex-col h-screen sticky top-0 transition-[width] duration-200 ease-in-out z-40 relative',
+        'bg-[var(--brand-ink)] text-white flex flex-col h-screen sticky top-0 self-start transition-[width] duration-200 ease-in-out z-40 relative',
         collapsed ? 'w-14' : 'w-64'
       )}
+      style={{ height: '100vh', position: 'sticky', top: 0, alignSelf: 'flex-start' }}
     >
       {/* Logo / brand — no internal toggle button */}
       <div className={cn(

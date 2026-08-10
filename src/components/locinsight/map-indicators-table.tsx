@@ -17,19 +17,24 @@
  *   • Per-column text filter
  *   • Global search box
  *   • Tier + recommendation filter
- *   • Export current filtered view as CSV
+ *   • Auto-filter to selected kelurahan when a point is picked on the map
+ *     (no selection = show ALL data — per user request Aug 2026)
+ *   • Export current filtered view as CSV with column picker
  *
  * Mirrors the UX of the Data Manager table view.
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Search, Download, ArrowUpDown, ArrowUp, ArrowDown, Filter as FilterIcon, Database,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Search, Download, ArrowUpDown, ArrowUp, ArrowDown, Filter as FilterIcon, Database, X, Check,
 } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-provider'
 import type { OpportunityScore, Store, Mall } from './types'
@@ -39,6 +44,10 @@ interface MapIndicatorsTableProps {
   stores: Store[]
   malls: Mall[]
   competitors: any[]
+  /** When set, the table auto-filters to just this kelurahan. When null, shows ALL rows. */
+  selectedKelurahanId?: string | null
+  /** Optional callback to clear the selection (shows the "Clear selection" button). */
+  onClearSelection?: () => void
 }
 
 type SortDir = 'asc' | 'desc' | null
@@ -95,7 +104,14 @@ const CANNIBALIZATION_COLORS: Record<string, string> = {
   high: 'bg-red-50 text-red-700 border-red-200',
 }
 
-export function MapIndicatorsTable({ opportunities, stores, malls, competitors }: MapIndicatorsTableProps) {
+export function MapIndicatorsTable({
+  opportunities,
+  stores,
+  malls,
+  competitors,
+  selectedKelurahanId = null,
+  onClearSelection,
+}: MapIndicatorsTableProps) {
   const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState<string>('all')
@@ -103,6 +119,18 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
   const [sortCol, setSortCol] = useState<string | null>('composite_score')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [colFilters, setColFilters] = useState<Record<string, string>>({})
+
+  // Export column-picker state
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportCols, setExportCols] = useState<Set<string>>(new Set(COLUMNS.map(c => c.key))) // default: all
+
+  // Reset text search/filter when selection changes (so the auto-filter is the dominant view)
+  useEffect(() => {
+    if (selectedKelurahanId) {
+      setSearch('')
+      setColFilters({})
+    }
+  }, [selectedKelurahanId])
 
   // Enrich opportunities with population/density info from factors + nearby counts
   const enriched = useMemo(() => {
@@ -133,28 +161,40 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
     })
   }, [opportunities, competitors, stores])
 
+  // Auto-filter: if a kelurahan is selected on the map, the table filters to just that row.
+  // If no selection, the table shows ALL data (per user request).
+  const selectedOpp = useMemo(() => {
+    if (!selectedKelurahanId) return null
+    return enriched.find(o => o.kelurahan_id === selectedKelurahanId) || null
+  }, [enriched, selectedKelurahanId])
+
   // Apply filters
   const filtered = useMemo(() => {
     let r = enriched
-    if (tierFilter !== 'all') r = r.filter(o => o.tier === Number(tierFilter))
-    if (recFilter !== 'all') r = r.filter(o => o.recommendation === recFilter)
-    if (search) {
-      const q = search.toLowerCase()
-      r = r.filter(o => `${o.kelurahan_name} ${o.kec_name} ${o.kab_name}`.toLowerCase().includes(q))
-    }
-    if (Object.keys(colFilters).length > 0) {
-      r = r.filter(row => {
-        for (const [k, v] of Object.entries(colFilters)) {
-          if (!v) continue
-          const cellVal = (row as any)[k]
-          if (cellVal == null) return false
-          if (!String(cellVal).toLowerCase().includes(v.toLowerCase())) return false
-        }
-        return true
-      })
+    // Auto-filter to selected kelurahan (highest priority — overrides other filters)
+    if (selectedKelurahanId) {
+      r = r.filter(o => o.kelurahan_id === selectedKelurahanId)
+    } else {
+      if (tierFilter !== 'all') r = r.filter(o => o.tier === Number(tierFilter))
+      if (recFilter !== 'all') r = r.filter(o => o.recommendation === recFilter)
+      if (search) {
+        const q = search.toLowerCase()
+        r = r.filter(o => `${o.kelurahan_name} ${o.kec_name} ${o.kab_name}`.toLowerCase().includes(q))
+      }
+      if (Object.keys(colFilters).length > 0) {
+        r = r.filter(row => {
+          for (const [k, v] of Object.entries(colFilters)) {
+            if (!v) continue
+            const cellVal = (row as any)[k]
+            if (cellVal == null) return false
+            if (!String(cellVal).toLowerCase().includes(v.toLowerCase())) return false
+          }
+          return true
+        })
+      }
     }
     return r
-  }, [enriched, tierFilter, recFilter, search, colFilters])
+  }, [enriched, selectedKelurahanId, tierFilter, recFilter, search, colFilters])
 
   // Apply sort
   const sorted = useMemo(() => {
@@ -195,11 +235,32 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
     setSortDir('desc')
   }
 
-  function exportCSV() {
-    const headers = COLUMNS.map(c => t(c.labelKey))
+  function toggleExportCol(key: string) {
+    setExportCols(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function selectAllExportCols() {
+    setExportCols(new Set(COLUMNS.map(c => c.key)))
+  }
+
+  function clearAllExportCols() {
+    setExportCols(new Set())
+  }
+
+  function exportCSV(usePicker: boolean = false) {
+    const colsToExport = usePicker
+      ? COLUMNS.filter(c => exportCols.has(c.key))
+      : COLUMNS
+    if (colsToExport.length === 0) return
+    const headers = colsToExport.map(c => t(c.labelKey))
     const lines = [headers.join(',')]
     for (const r of sorted) {
-      const cells = COLUMNS.map(c => {
+      const cells = colsToExport.map(c => {
         const v = (r as any)[c.key]
         if (v == null) return ''
         const s = typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v)
@@ -215,14 +276,18 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `locinsight_all_indicators_${sorted.length}rows_${new Date().toISOString().slice(0, 10)}.csv`
+    const colTag = usePicker ? `_${colsToExport.length}cols` : ''
+    a.download = `locinsight_all_indicators_${sorted.length}rows${colTag}_${new Date().toISOString().slice(0, 10)}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    setShowExportDialog(false)
   }
 
   const isFiltered = search !== '' || tierFilter !== 'all' || recFilter !== 'all' || Object.values(colFilters).some(v => v)
+  // Disable manual filter UI when a kelurahan is selected (auto-filter takes over)
+  const filtersDisabled = !!selectedKelurahanId
 
   return (
     <Card className="card-premium">
@@ -240,11 +305,12 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
                 placeholder={t('map.table.search_placeholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-7 pl-7 w-[220px] text-[12px]"
+                disabled={filtersDisabled}
+                className="h-7 pl-7 w-[180px] sm:w-[220px] text-[12px] disabled:opacity-50"
               />
             </div>
-            <Select value={tierFilter} onValueChange={setTierFilter}>
-              <SelectTrigger className="h-7 w-[100px] text-[11px]"><SelectValue /></SelectTrigger>
+            <Select value={tierFilter} onValueChange={setTierFilter} disabled={filtersDisabled}>
+              <SelectTrigger className="h-7 w-[100px] text-[11px] disabled:opacity-50"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('common.all')} tier</SelectItem>
                 <SelectItem value="1">Tier 1</SelectItem>
@@ -252,8 +318,8 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
                 <SelectItem value="3">Tier 3</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={recFilter} onValueChange={setRecFilter}>
-              <SelectTrigger className="h-7 w-[140px] text-[11px]"><SelectValue /></SelectTrigger>
+            <Select value={recFilter} onValueChange={setRecFilter} disabled={filtersDisabled}>
+              <SelectTrigger className="h-7 w-[140px] text-[11px] disabled:opacity-50"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('common.all')} rec</SelectItem>
                 <SelectItem value="high_priority">{t('map.rec.high_priority')}</SelectItem>
@@ -262,23 +328,58 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
                 <SelectItem value="avoid">{t('map.rec.avoid')}</SelectItem>
               </SelectContent>
             </Select>
-            {isFiltered && (
+            {isFiltered && !filtersDisabled && (
               <Button size="sm" variant="outline" onClick={resetFilters} className="h-7 text-[11px]">
                 <FilterIcon className="w-3 h-3 mr-1" /> Reset
               </Button>
             )}
+            {/* Quick export — uses current column selection (defaults to all) */}
             <Button
               size="sm"
-              onClick={exportCSV}
-              disabled={sorted.length === 0}
+              onClick={() => exportCSV(true)}
+              disabled={sorted.length === 0 || exportCols.size === 0}
               className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
+              title={t('map.table.export_with_cols', { n: sorted.length, cols: exportCols.size })}
             >
               <Download className="w-3 h-3 mr-1" />
               {t('map.table.export_filtered', { n: sorted.length })}
             </Button>
+            {/* Column picker button — opens dialog to choose which columns to export */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowExportDialog(true)}
+              className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
+              title={t('map.table.export_picker_subtitle')}
+            >
+              <FilterIcon className="w-3 h-3 mr-1" />
+              {exportCols.size}/{COLUMNS.length}
+            </Button>
           </div>
         </div>
-        <div className="text-[10.5px] text-[var(--brand-ink)]/55 mt-1">{t('map.table.subtitle')}</div>
+        {/* Subtitle: shows whether we're showing all data or filtered to selection */}
+        <div className="text-[10.5px] text-[var(--brand-ink)]/55 mt-1">
+          {selectedOpp ? (
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant="outline" className="text-[9.5px] border-[var(--brand-red)]/40 text-[var(--brand-red)] bg-[var(--brand-red)]/5">
+                {t('map.table.filtered_to', { name: selectedOpp.kelurahan_name, kec: selectedOpp.kec_name, kab: selectedOpp.kab_name, n: sorted.length })}
+              </Badge>
+              {onClearSelection && (
+                <button
+                  onClick={onClearSelection}
+                  className="text-[10px] text-[var(--brand-ink)]/60 hover:text-[var(--brand-red)] underline-offset-2 hover:underline"
+                >
+                  {t('map.table.clear_selection')}
+                </button>
+              )}
+            </span>
+          ) : (
+            <>
+              {t('map.table.showing_all', { n: enriched.length })}{' '}
+              <span className="text-[var(--brand-ink)]/40">{t('map.table.click_anywhere_hint')}</span>
+            </>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-auto max-h-[500px] border border-[var(--brand-border)] rounded scroll-styled">
@@ -311,8 +412,9 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
                       type="text"
                       value={colFilters[c.key] || ''}
                       onChange={e => setColFilters(prev => ({ ...prev, [c.key]: e.target.value }))}
+                      disabled={filtersDisabled}
                       placeholder={t('data.filter_placeholder')}
-                      className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full bg-white"
+                      className="text-[10px] px-1 py-0.5 border border-[var(--brand-border)] rounded w-full bg-white disabled:opacity-50"
                     />
                   </th>
                 ))}
@@ -323,7 +425,7 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
                 <tr><td colSpan={COLUMNS.length} className="py-8 text-center text-[var(--brand-ink)]/40">{t('map.table.empty')}</td></tr>
               ) : (
                 sorted.map((row, i) => (
-                  <tr key={row.kelurahan_id + i} className="border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/50">
+                  <tr key={row.kelurahan_id + i} className={`border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/50 ${selectedKelurahanId === row.kelurahan_id ? 'bg-[var(--brand-red)]/5' : ''}`}>
                     {COLUMNS.map(c => {
                       const v = (row as any)[c.key]
                       return (
@@ -342,6 +444,73 @@ export function MapIndicatorsTable({ opportunities, stores, malls, competitors }
           </table>
         </div>
       </CardContent>
+
+      {/* ===== Export column-picker dialog ===== */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[14px] flex items-center gap-2">
+              <Download className="w-4 h-4 text-[var(--brand-red)]" />
+              {t('map.table.export_picker_title')}
+            </DialogTitle>
+            <p className="text-[11.5px] text-[var(--brand-ink)]/60">
+              {t('map.table.export_picker_subtitle')}
+            </p>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between mb-2">
+            <Badge variant="outline" className="text-[10px]">
+              {t('map.table.selected_cols_count', { n: exportCols.size })}
+            </Badge>
+            <div className="flex gap-1.5">
+              <Button size="sm" variant="outline" onClick={selectAllExportCols} className="h-7 text-[10.5px]">
+                <Check className="w-3 h-3 mr-1" /> {t('map.table.select_all_cols')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={clearAllExportCols} className="h-7 text-[10.5px]">
+                <X className="w-3 h-3 mr-1" /> {t('map.table.clear_all_cols')}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto scroll-styled pr-1">
+            {COLUMNS.map(c => {
+              const checked = exportCols.has(c.key)
+              return (
+                <label
+                  key={c.key}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded border cursor-pointer text-[11.5px] transition-colors ${
+                    checked
+                      ? 'border-[var(--brand-red)]/40 bg-[var(--brand-red)]/5 text-[var(--brand-ink)]'
+                      : 'border-[var(--brand-border)] text-[var(--brand-ink)]/70 hover:bg-[var(--brand-cream)]'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleExportCol(c.key)}
+                    className="w-3.5 h-3.5 accent-[var(--brand-red)]"
+                  />
+                  <span>{t(c.labelKey)}</span>
+                </label>
+              )
+            })}
+          </div>
+
+          <DialogFooter className="mt-3">
+            <Button variant="outline" onClick={() => setShowExportDialog(false)} className="h-8 text-[11.5px]">
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => exportCSV(true)}
+              disabled={exportCols.size === 0 || sorted.length === 0}
+              className="h-8 text-[11.5px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
+            >
+              <Download className="w-3.5 h-3.5 mr-1" />
+              {t('map.table.export_with_cols', { n: sorted.length, cols: exportCols.size })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 

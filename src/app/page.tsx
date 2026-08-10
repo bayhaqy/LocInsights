@@ -94,12 +94,13 @@ export default function Home() {
   // Map click → ONLY update selection (stay on Map Explorer so user sees the Selected card update).
   // Auto-navigation to Deep Analysis is removed per user request — user wants to see the
   // selection change in-place, then choose to navigate via the Selected card or sidebar.
+  // Empty string / null → clear the selection (so the All Indicators table shows all rows).
   const handleMapSelect = (id: string) => {
-    setSelectedKelurahanId(id)
+    setSelectedKelurahanId(id || null)
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--brand-cream)]">
+    <div className="flex min-h-screen bg-[var(--brand-cream)] items-start">
       <Sidebar
         items={NAV_ITEMS}
         activeId={activeView}

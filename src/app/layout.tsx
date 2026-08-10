@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
+import { OfflineBanner } from "@/components/locinsight/offline-banner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -80,6 +81,8 @@ export default function RootLayout({
           {children}
           <Toaster />
           <SonnerToaster position="top-right" richColors closeButton />
+          {/* Offline banner — shows full-screen message when no internet connection */}
+          <OfflineBanner />
         </LanguageProvider>
         {/* PWA service worker — registers after page load, defers to avoid blocking */}
         <script

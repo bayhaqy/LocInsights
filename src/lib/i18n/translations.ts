@@ -1251,6 +1251,34 @@ export const en: Dict = {
   'map.table.col.stores_2km': 'MAP Stores (2km)',
   'map.table.col.cannibalization': 'Cannibalization Risk',
 
+  // ---- Map Explorer: click-anywhere analysis + table auto-filter + export column picker ----
+  'map.table.showing_all': 'Showing all {n} kelurahan — click any point on the map to filter.',
+  'map.table.filtered_to': 'Filtered to: {name} ({kec}, {kab}) — {n} row(s).',
+  'map.table.clear_selection': 'Clear selection',
+  'map.table.export_picker_title': 'Export — choose columns',
+  'map.table.export_picker_subtitle': 'Select which columns to include in the CSV export.',
+  'map.table.select_all_cols': 'Select all',
+  'map.table.clear_all_cols': 'Clear all',
+  'map.table.selected_cols_count': '{n} columns selected',
+  'map.table.export_with_cols': 'Export {n} rows · {cols} cols',
+  'map.table.click_anywhere_hint': 'Tip: click anywhere on the map to analyze the nearest location.',
+  'map.viz_choropleth_cells': 'Choropleth (color-coded cells)',
+  'map.choropleth_kelurahan_hint': 'Each kelurahan is rendered as a color-coded cell based on quantile breaks of the selected metric.',
+
+  // ---- Header: APK download button ----
+  'header.download_apk': 'Download APK',
+  'header.download_apk_tooltip': 'Download the LocInsight Android app (.apk file)',
+
+  // ---- Offline banner (shown when no internet connection) ----
+  'offline.title': 'No Internet Connection',
+  'offline.subtitle': 'LocInsight can\'t reach the server right now.',
+  'offline.message': 'The app is offline. Most features (Map Explorer, Analysis, Reports) need a live connection to fetch fresh data. Try again once you\'re back online.',
+  'offline.what_you_can_do_title': 'While offline, you can:',
+  'offline.can_do_1': 'View the dashboard with the last cached data',
+  'offline.can_do_2': 'Open the Field Survey form (saved locally, syncs when online)',
+  'offline.retry': 'Retry connection',
+  'offline.view_cached': 'View cached data',
+
   // ---- Settings page ----
   'settings.title': 'Settings',
   'settings.subtitle': 'Configure website preferences and AI assistant access. Settings are stored locally in your browser.',
@@ -2540,6 +2568,34 @@ export const id: Dict = {
   'map.table.col.competitors_2km': 'Kompetitor (2km)',
   'map.table.col.stores_2km': 'Toko MAP (2km)',
   'map.table.col.cannibalization': 'Risko Kanibalisisasi',
+
+  // ---- Map Explorer: click-anywhere analysis + table auto-filter + export column picker ----
+  'map.table.showing_all': 'Menampilkan semua {n} kelurahan — klik titik mana pun di peta untuk memfilter.',
+  'map.table.filtered_to': 'Difilter ke: {name} ({kec}, {kab}) — {n} baris.',
+  'map.table.clear_selection': 'Hapus pilihan',
+  'map.table.export_picker_title': 'Ekspor — pilih kolom',
+  'map.table.export_picker_subtitle': 'Pilih kolom mana yang akan disertakan dalam ekspor CSV.',
+  'map.table.select_all_cols': 'Pilih semua',
+  'map.table.clear_all_cols': 'Bersihkan semua',
+  'map.table.selected_cols_count': '{n} kolom dipilih',
+  'map.table.export_with_cols': 'Ekspor {n} baris · {cols} kolom',
+  'map.table.click_anywhere_hint': 'Tip: klik di mana pun pada peta untuk menganalisa lokasi terdekat.',
+  'map.viz_choropleth_cells': 'Choropleth (sel berkode warna)',
+  'map.choropleth_kelurahan_hint': 'Tiap kelurahan dirender sebagai sel berkode warna berdasarkan kuantil dari metrik terpilih.',
+
+  // ---- Header: APK download button ----
+  'header.download_apk': 'Unduh APK',
+  'header.download_apk_tooltip': 'Unduh aplikasi Android LocInsight (file .apk)',
+
+  // ---- Offline banner (shown when no internet connection) ----
+  'offline.title': 'Tidak Ada Koneksi Internet',
+  'offline.subtitle': 'LocInsight tidak bisa menghubungi server saat ini.',
+  'offline.message': 'Aplikasi sedang offline. Sebagian besar fitur (Map Explorer, Analisa, Laporan) memerlukan koneksi aktif untuk mengambil data terbaru. Coba lagi setelah koneksi kembali.',
+  'offline.what_you_can_do_title': 'Saat offline, Anda bisa:',
+  'offline.can_do_1': 'Melihat dashboard dengan data cache terakhir',
+  'offline.can_do_2': 'Membuka form Field Survey (disimpan lokal, sinkron saat online)',
+  'offline.retry': 'Coba koneksi ulang',
+  'offline.view_cached': 'Lihat data cache',
 
   // ---- Settings page ----
   'settings.title': 'Pengaturan',

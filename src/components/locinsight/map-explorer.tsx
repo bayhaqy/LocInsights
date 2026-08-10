@@ -61,7 +61,7 @@ type LayerId =
   | 'civic_pois'
   | 'crowd_density'
 
-type VizMode = 'choropleth' | 'point'
+type VizMode = 'choropleth' | 'point' | 'cells'
 type RegionLevel = 'kabupaten' | 'kecamatan' | 'kelurahan'
 
 const BRAND_CATEGORY_OPTIONS = [
@@ -113,9 +113,11 @@ export function MapExplorer({
     crowd_density: false,
   })
 
-  // Per-layer visualization mode (choropleth vs point)
+  // Per-layer visualization mode (choropleth vs point vs cells)
+  // Default opportunity to 'cells' = choropleth-colored kelurahan cells (per user request Aug 2026:
+  // "by default show smallest region level for opportunity score" + "add choropleth option for kelurahan")
   const [layerVizMode, setLayerVizMode] = useState<Record<LayerId, VizMode>>({
-    opportunity: 'choropleth',
+    opportunity: 'cells',
     demographics: 'choropleth',
     stores: 'point',
     malls: 'point',
@@ -126,9 +128,10 @@ export function MapExplorer({
   })
 
   // Per-layer region level (only meaningful when vizMode = choropleth)
+  // Default to 'kelurahan' = smallest region level per user request
   const [layerRegion, setLayerRegion] = useState<Record<LayerId, RegionLevel>>({
-    opportunity: 'kabupaten',
-    demographics: 'kabupaten',
+    opportunity: 'kelurahan',
+    demographics: 'kelurahan',
     stores: 'kabupaten',
     malls: 'kabupaten',
     competitors: 'kabupaten',
@@ -450,6 +453,12 @@ export function MapExplorer({
 
   // Opportunity layer's region level (for choropleth mode)
   const oppRegion = layerRegion.opportunity
+  // 'cells' mode = choropleth-colored kelurahan cells (no GADM polygon needed)
+  // 'choropleth' mode = GADM polygon choropleth (kabupaten/kecamatan only)
+  // 'point' mode = leaflet.heat intensity
+  const oppHeatMode = layerVizMode.opportunity === 'choropleth' ? 'region'
+    : layerVizMode.opportunity === 'cells' ? 'cells'
+    : 'point'
   const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
 
   // ===== Region click handler (from choropleth polygon) =====
@@ -467,6 +476,31 @@ export function MapExplorer({
     // Pick the top-scoring opportunity in the region
     const top = candidates.reduce((best, cur) => cur.composite_score > best.composite_score ? cur : best)
     onSelectKelurahan(top.kelurahan_id)
+  }, [filteredOpps, onSelectKelurahan])
+
+  // ===== Map click handler (click anywhere on the map background) =====
+  // Per user request (Aug 2026): "I want to click any point on the map and instantly
+  // analyze the nearest location." When the user clicks the map background (not on a
+  // marker), find the nearest opportunity within 10 km and select it. If nothing is
+  // within 10 km, do nothing.
+  const handleMapClick = useCallback((lat: number, lng: number) => {
+    if (filteredOpps.length === 0) return
+    let nearest: OpportunityScore | null = null
+    let nearestDist = Infinity
+    const toRad = (d: number) => (d * Math.PI) / 180
+    for (const o of filteredOpps) {
+      const dLat = toRad(o.lat - lat)
+      const dLng = toRad(o.lng - lng)
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat)) * Math.cos(toRad(o.lat)) * Math.sin(dLng / 2) ** 2
+      const d = 2 * 6371 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      if (d < nearestDist) {
+        nearestDist = d
+        nearest = o
+      }
+    }
+    if (nearest && nearestDist <= 10) {
+      onSelectKelurahan(nearest.kelurahan_id)
+    }
   }, [filteredOpps, onSelectKelurahan])
 
   return (
@@ -504,12 +538,13 @@ export function MapExplorer({
             selectedKelurahanId={selectedKelurahanId}
             onSelectKelurahan={onSelectKelurahan}
             onRegionClick={handleRegionClick}
+            onMapClick={handleMapClick}
             showStores={layerOn.stores}
             showMalls={layerOn.malls}
             showCivicPOIs={layerOn.civic_pois}
             showTouristPOIs={layerOn.tourist_pois}
             showHeat={layerOn.opportunity}
-            heatMode={layerVizMode.opportunity === 'choropleth' ? 'region' : 'point'}
+            heatMode={oppHeatMode}
             heatGranularity={oppHeatGranularity as 'kabupaten' | 'kecamatan'}
             heatMetric={oppMetric}
             tierFilter={tierFilter}
@@ -706,6 +741,7 @@ export function MapExplorer({
                       <Select value={layerVizMode.opportunity} onValueChange={(v) => setLayerVizMode({ ...layerVizMode, opportunity: v as VizMode })}>
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="cells">{t('map.viz_choropleth_cells')}</SelectItem>
                           <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
                           <SelectItem value="point">{t('map.viz_point_heat')}</SelectItem>
                         </SelectContent>
@@ -716,15 +752,13 @@ export function MapExplorer({
                       <Select
                         value={layerRegion.opportunity}
                         onValueChange={(v) => setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel })}
-                        disabled={layerVizMode.opportunity === 'point'}
+                        disabled={layerVizMode.opportunity === 'point' || layerVizMode.opportunity === 'cells'}
                       >
                         <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
                           <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
                           <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
-                          {layerVizMode.opportunity === 'point' && (
-                            <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
-                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -741,6 +775,11 @@ export function MapExplorer({
                           <SelectItem value="store_density">{t('map.metric_store_density')}</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  )}
+                  {layerVizMode.opportunity === 'cells' && (
+                    <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
+                      {t('map.choropleth_kelurahan_hint')}
                     </div>
                   )}
                   {layerVizMode.opportunity === 'point' && (
@@ -891,13 +930,18 @@ export function MapExplorer({
       {/* ===== Combined Indicators Table — at BOTTOM of Map Explorer =====
           Shows every kelurahan with all 6 scoring factors + market estimates +
           nearby outlet counts. Mirrors the Data Manager table UX (sort / filter
-          per column / search / tier / recommendation / CSV export). */}
+          per column / search / tier / recommendation / CSV export).
+
+          Auto-filters to the selected kelurahan when a point is picked on the map;
+          shows ALL data when no selection is active (per user request Aug 2026). */}
       <div className="mt-4">
         <MapIndicatorsTable
           opportunities={filteredOpps}
           stores={filteredStores}
           malls={filteredMalls}
           competitors={filteredCompetitors}
+          selectedKelurahanId={selectedKelurahanId}
+          onClearSelection={() => onSelectKelurahan('')}
         />
       </div>
     </div>

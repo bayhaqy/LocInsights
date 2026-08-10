@@ -1,20 +1,25 @@
 'use client'
 
 /**
- * InstallPrompt — PWA "Install App" button for the header.
+ * InstallPrompt — APK download button for the header.
  *
- * Listens for the `beforeinstallprompt` event (Chrome/Edge/Android)
- * and shows an "Install" button. When clicked, triggers the native
- * install prompt. On iOS Safari (which doesn't fire beforeinstallprompt),
- * the button is hidden — iOS users install via Share → Add to Home Screen
- * (documented in the About page).
+ * Per user request (Aug 2026):
+ *   • Download apps should be Android-only (APK)
+ *   • No mention of download in About page
+ *   • Just a button next to the language switcher (top-right)
  *
- * Also detects if already running as installed PWA (display-mode: standalone)
- * and hides the button in that case.
+ * The button:
+ *   • Triggers a direct download of /locinsights.apk
+ *   • On Android, the browser will offer to install after download
+ *   • On desktop, the file just downloads
+ *
+ * Also listens for `beforeinstallprompt` (Chrome/Edge/Android) and offers
+ * the native PWA install when available — the button morphs to "Install"
+ * in that case (better UX than just downloading the APK).
  */
 
 import { useState, useEffect } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Smartphone } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-provider'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -33,7 +38,6 @@ export function InstallPrompt() {
       if (window.matchMedia('(display-mode: standalone)').matches) {
         setInstalled(true)
       }
-      // iOS Safari
       if ((window.navigator as any).standalone === true) {
         setInstalled(true)
       }
@@ -41,12 +45,9 @@ export function InstallPrompt() {
     checkStandalone()
 
     const onBeforeInstall = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault()
-      // Stash the event so it can be triggered later
       setDeferredPrompt(e as BeforeInstallPromptEvent)
     }
-
     const onInstalled = () => {
       setInstalled(true)
       setDeferredPrompt(null)
@@ -61,28 +62,44 @@ export function InstallPrompt() {
     }
   }, [])
 
-  // Don't render if already installed or no install prompt available
-  if (installed || !deferredPrompt) return null
+  // Already installed as PWA → no button needed
+  if (installed) return null
 
-  const handleInstall = async () => {
-    if (!deferredPrompt) return
-    await deferredPrompt.prompt()
-    const choice = await deferredPrompt.userChoice
-    if (choice.outcome === 'accepted') {
-      setInstalled(true)
+  // Native PWA install prompt available → prefer that path
+  if (deferredPrompt) {
+    const handleInstall = async () => {
+      if (!deferredPrompt) return
+      await deferredPrompt.prompt()
+      const choice = await deferredPrompt.userChoice
+      if (choice.outcome === 'accepted') {
+        setInstalled(true)
+      }
+      setDeferredPrompt(null)
     }
-    setDeferredPrompt(null)
+    return (
+      <button
+        onClick={handleInstall}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--brand-red)] text-white text-[12px] font-medium hover:bg-[var(--brand-red-dark)] transition-colors flex-shrink-0"
+        title={t('header.install_app')}
+        aria-label={t('header.install_app')}
+      >
+        <Download className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">{t('common.install_app')}</span>
+      </button>
+    )
   }
 
+  // No native install prompt → offer direct APK download (Android-first)
   return (
-    <button
-      onClick={handleInstall}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--brand-red)] text-white text-[12px] font-medium hover:bg-[var(--brand-red-dark)] transition-colors"
-      title={t('header.install_app')}
-      aria-label={t('header.install_app')}
+    <a
+      href="/locinsights.apk"
+      download="locinsights.apk"
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--brand-red)] text-white text-[12px] font-medium hover:bg-[var(--brand-red-dark)] transition-colors flex-shrink-0"
+      title={t('header.download_apk_tooltip')}
+      aria-label={t('header.download_apk')}
     >
-      <Download className="w-3.5 h-3.5" />
-      <span className="hidden sm:inline">{t('common.install_app')}</span>
-    </button>
+      <Smartphone className="w-3.5 h-3.5" />
+      <span className="hidden sm:inline">{t('header.download_apk')}</span>
+    </a>
   )
 }

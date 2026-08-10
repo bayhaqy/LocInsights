@@ -116,6 +116,22 @@ function FlyTo({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   return null
 }
 
+// Map click handler — fires when user clicks on the map background (not on a marker)
+function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number) => void }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!onClick) return
+    const handler = (e: L.LeafletMouseEvent) => {
+      onClick(e.latlng.lat, e.latlng.lng)
+    }
+    map.on('click', handler)
+    return () => {
+      map.off('click', handler)
+    }
+  }, [map, onClick])
+  return null
+}
+
 // User location marker — blue dot with accuracy circle (Leaflet CircleMarker + pulsing dot)
 function UserLocationMarker({ lat, lng, accuracy }: { lat: number; lng: number; accuracy: number }) {
   const map = useMap()
@@ -193,11 +209,11 @@ export interface LocInsightMapProps {
   /** Tourist POIs (beaches, temples, attractions, hotels) */
   showTouristPOIs: boolean
   showHeat: boolean
-  /** 'region' = choropleth (real GADM polygons); 'point' = leaflet.heat intensity */
-  heatMode?: 'region' | 'point'
+  /** 'region' = choropleth (real GADM polygons); 'point' = leaflet.heat intensity; 'cells' = choropleth-colored kelurahan cells */
+  heatMode?: 'region' | 'point' | 'cells'
   /** Choropleth granularity — kabupaten (9) or kecamatan (59) */
   heatGranularity?: 'kabupaten' | 'kecamatan'
-  /** Choropleth metric (only used when heatMode='region') */
+  /** Choropleth metric (only used when heatMode='region' or 'cells') */
   heatMetric?: 'avg_score' | 'max_score' | 'high_priority_count' | 'store_density'
   tierFilter: 1 | 2 | 3 | 'all'
   recommendationFilter: 'all' | 'high_priority' | 'priority' | 'monitor' | 'avoid'
@@ -214,6 +230,8 @@ export interface LocInsightMapProps {
   showCrowdDensity?: boolean
   /** Called when a choropleth region (kabupaten/kecamatan polygon) is clicked. */
   onRegionClick?: (regionName: string, granularity: 'kabupaten' | 'kecamatan') => void
+  /** Called when user clicks on empty map area (no marker). Receives lat/lng. */
+  onMapClick?: (lat: number, lng: number) => void
   height?: string
 }
 
@@ -243,6 +261,7 @@ export function LocInsightMap({
   demoData = [],
   showCrowdDensity = false,
   onRegionClick,
+  onMapClick,
   height = '600px',
 }: LocInsightMapProps) {
   const [mapReady, setMapReady] = useState(false)
@@ -364,6 +383,9 @@ export function LocInsightMap({
 
         {selected && <FlyTo lat={selected.lat} lng={selected.lng} zoom={13} />}
 
+        {/* Map click handler — finds nearest opportunity when user clicks anywhere on the map */}
+        <MapClickHandler onClick={onMapClick} />
+
         {/* ===== User's GPS location marker (blue dot) ===== */}
         {userLocation && (
           <UserLocationMarker
@@ -405,10 +427,77 @@ export function LocInsightMap({
           />
         )}
 
-        {/* Opportunity markers */}
+        {/* Opportunity markers
+         *  - heatMode 'cells'  = choropleth-colored kelurahan cells (quantile-based YlOrRd)
+         *  - heatMode 'point' or 'region' = recommendation-colored circle markers
+         */}
         <LayerGroup>
           {filteredOpps.map(o => {
             const isSelected = o.kelurahan_id === selectedKelurahanId
+            // Choropleth-cells mode: use YlOrRd quantile coloring based on composite_score
+            if (heatMode === 'cells') {
+              // ColorBrewer YlOrRd 7-step (matches choropleth-layer.tsx)
+              const CELL_COLORS = ['#ffffcc', '#ffeda0', '#fed976', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#b10026']
+              // Compute quantile breaks from current filteredOpps scores
+              const scores: number[] = filteredOpps.map(x => x.composite_score).sort((a, b) => a - b)
+              const breaks: number[] = []
+              for (let i = 1; i < 7; i++) breaks.push(scores[Math.floor((i / 7) * scores.length)] ?? 0)
+              let colorIdx = 0
+              for (let i = breaks.length - 1; i >= 0; i--) {
+                if (o.composite_score >= breaks[i]) { colorIdx = Math.min(i + 1, CELL_COLORS.length - 1); break }
+              }
+              const cellColor = CELL_COLORS[colorIdx]
+              return (
+                <CircleMarker
+                  key={o.kelurahan_id}
+                  center={[o.lat, o.lng]}
+                  radius={isSelected ? 14 : 9}
+                  pathOptions={{
+                    color: isSelected ? '#0F0F12' : '#0F0F12',
+                    fillColor: cellColor,
+                    fillOpacity: isSelected ? 0.95 : 0.78,
+                    weight: isSelected ? 3 : 0.6,
+                  }}
+                  eventHandlers={{ click: () => onSelectKelurahan(o.kelurahan_id) }}
+                >
+                  <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+                    <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
+                      <strong>{o.kelurahan_name}</strong><br />
+                      {o.kec_name}, {o.kab_name}<br />
+                      Score: <strong style={{ color: cellColor === '#ffffcc' || cellColor === '#ffeda0' ? '#666' : cellColor }}>{o.composite_score}</strong> · {o.recommendation.replace('_', ' ')}
+                    </div>
+                  </Tooltip>
+                  <Popup>
+                    <div style={{ minWidth: 220 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{o.kelurahan_name}</div>
+                      <div style={{ color: '#666', fontSize: 11, marginBottom: 8 }}>
+                        {o.kec_name} · {o.kab_name} · Tier {o.tier}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                        <span>Composite Score</span>
+                        <strong style={{ color: '#C8102E' }}>{o.composite_score}/100</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                        <span>Est. Daily Customers</span>
+                        <strong>{o.estimated_daily_customers}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                        <span>Proj. Monthly Rev.</span>
+                        <strong>Rp {o.projected_monthly_revenue_juta} jt</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
+                        <span>Market Share</span>
+                        <strong>{(o.potential_market_share * 100).toFixed(1)}%</strong>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#666', borderTop: '1px solid #eee', paddingTop: 8 }}>
+                        {o.nearest_mall_name ? `Nearest mall: ${o.nearest_mall_name} (${o.nearest_mall_distance_km}km)` : 'No mall nearby'}
+                      </div>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              )
+            }
+            // Default: recommendation-colored markers
             const color =
               o.recommendation === 'high_priority' ? '#C8102E' :
               o.recommendation === 'priority' ? '#D45F4A' :
@@ -631,7 +720,24 @@ export function LocInsightMap({
       <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm rounded-lg border border-[var(--brand-border)] shadow-sm p-3 text-xs space-y-2 z-[1000] max-w-[230px]">
         <div className="font-semibold text-[11px] uppercase tracking-wider text-[var(--brand-ink)]">Legend</div>
 
-        {showHeat && (
+        {showHeat && heatMode === 'cells' && (
+          <div className="pt-1 border-t border-[var(--brand-border)]">
+            <div className="font-semibold text-[10px] uppercase tracking-wider text-[var(--brand-red)] mb-1">
+              Opportunity Score (choropleth cells)
+            </div>
+            <div className="flex items-center gap-0.5">
+              {['#ffffcc', '#ffeda0', '#fed976', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#b10026'].map((c, i) => (
+                <span key={i} className="w-4 h-3 inline-block rounded-sm" style={{ background: c }} title={`Step ${i + 1}`} />
+              ))}
+            </div>
+            <div className="flex justify-between text-[9px] text-[var(--brand-ink)]/60 mt-0.5">
+              <span>Low score</span>
+              <span>High score</span>
+            </div>
+            <div className="text-[9.5px] text-[var(--brand-ink)]/55 mt-1">Each cell = one kelurahan, colored by quantile.</div>
+          </div>
+        )}
+        {showHeat && heatMode !== 'cells' && (
           <>
             <div className="font-semibold text-[10px] uppercase tracking-wider text-[var(--brand-red)] pt-1 border-t border-[var(--brand-border)]">Opportunity</div>
             <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: '#C8102E' }}></span>High priority (≥70)</div>

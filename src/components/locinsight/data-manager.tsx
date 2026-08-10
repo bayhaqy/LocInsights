@@ -611,68 +611,72 @@ export function DataManager() {
         {/* Data pane */}
         <Card className="card-premium">
           <CardHeader className="pb-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            {/* Row 1: Title + search + New (always visible, never clipped) */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 {activeEntity}
                 <Badge variant="secondary" className="text-[10px]">{t('data.records', { count: total })}</Badge>
               </CardTitle>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {/* Import/Export/Templates */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={savingBulk} className="h-7 text-[11px]">
-                  <Upload className="w-3 h-3 mr-1" /> {t('common.import')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadExport('csv')} className="h-7 text-[11px]" title={t('data.export_all_tooltip')}>
-                  <Download className="w-3 h-3 mr-1" /> {t('data.csv_all')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px]" title={t('data.export_all_tooltip')}>
-                  <Download className="w-3 h-3 mr-1" /> {t('data.xlsx_all')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openExportDialog('csv')}
-                  className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10"
-                  title={t('data.custom_cols_tooltip')}
-                >
-                  <FilterIcon className="w-3 h-3 mr-1" /> {t('data.custom_cols')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px]" title={t('data.template_tooltip')}>
-                  <FileDown className="w-3 h-3 mr-1" /> {t('data.template')}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={exportFilteredViewCSV}
-                  disabled={viewMode !== 'table' || processedData.length === 0}
-                  className="h-7 text-[11px] bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white"
-                  title={viewMode === 'table' ? t('data.export_view_tooltip_enabled', { count: processedData.length }) : t('data.export_view_tooltip_disabled')}
-                >
-                  <Download className="w-3 h-3 mr-1" /> {t('data.export_view')} ({viewMode === 'table' ? processedData.length : 0})
-                </Button>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--brand-ink)]/40" />
                   <Input
                     placeholder={t('data.search_entity', { entity: activeEntity })}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="h-7 pl-7 w-[180px] text-[12px]"
+                    className="h-7 pl-7 w-[160px] sm:w-[200px] text-[12px]"
                   />
                 </div>
-                <Button size="sm" onClick={openCreate} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
+                <Button size="sm" onClick={openCreate} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)] flex-shrink-0">
                   <Plus className="w-3 h-3 mr-1" />
                   {t('data.new_short')}
                 </Button>
               </div>
             </div>
 
+            {/* Row 2: Import/Export/Templates — wraps to next line on narrow screens */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={savingBulk} className="h-7 text-[11px] flex-shrink-0">
+                <Upload className="w-3 h-3 mr-1" /> {t('common.import')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadExport('csv')} className="h-7 text-[11px] flex-shrink-0" title={t('data.export_all_tooltip')}>
+                <Download className="w-3 h-3 mr-1" /> {t('data.csv_all')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadExport('xlsx')} className="h-7 text-[11px] flex-shrink-0" title={t('data.export_all_tooltip')}>
+                <Download className="w-3 h-3 mr-1" /> {t('data.xlsx_all')}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openExportDialog('csv')}
+                className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10 flex-shrink-0"
+                title={t('data.custom_cols_tooltip')}
+              >
+                <FilterIcon className="w-3 h-3 mr-1" /> {t('data.custom_cols')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadTemplate('xlsx')} className="h-7 text-[11px] flex-shrink-0" title={t('data.template_tooltip')}>
+                <FileDown className="w-3 h-3 mr-1" /> {t('data.template')}
+              </Button>
+              <Button
+                size="sm"
+                onClick={exportFilteredViewCSV}
+                disabled={viewMode !== 'table' || processedData.length === 0}
+                className="h-7 text-[11px] bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white flex-shrink-0"
+                title={viewMode === 'table' ? t('data.export_view_tooltip_enabled', { count: processedData.length }) : t('data.export_view_tooltip_disabled')}
+              >
+                <Download className="w-3 h-3 mr-1" /> {t('data.export_view')} ({viewMode === 'table' ? processedData.length : 0})
+              </Button>
+            </div>
+
             {/* View mode toggle (Table vs Spreadsheet) */}
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
               <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
                 <TabsList className="h-7">
                   <TabsTrigger value="table" className="text-[11px] h-5 px-2">

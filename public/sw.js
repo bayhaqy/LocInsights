@@ -16,7 +16,7 @@
  *   ✗ ML predictions require network (calls HuggingFace Space)
  */
 
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3'
 const CACHE_NAME = `locinsight-${CACHE_VERSION}`
 const SURVEY_CACHE = `locinsight-survey-${CACHE_VERSION}`
 
@@ -31,6 +31,7 @@ const PRECACHE_URLS = [
   '/apple-touch-icon.png',
   '/favicon.ico',
   '/survey',
+  '/locinsights.apk',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
 ]
 
