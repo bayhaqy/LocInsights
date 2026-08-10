@@ -48,17 +48,54 @@ interface ZaiConfig {
   token?: string
   userId?: string
   chatId?: string
+  model?: string
+  temperature?: number
+  maxTokens?: number
+}
+
+/**
+ * Client-provided AI configuration. The Settings page lets the user configure
+ * the LLM endpoint (base URL, API key, model, token, etc.) and persist it in
+ * localStorage. The chat client forwards these values on each request so the
+ * server can use them in lieu of env vars — this is what makes AI chat work
+ * on Vercel deployments where the dashboard env vars aren't set.
+ */
+interface ClientConfig {
+  base_url?: string
+  api_key?: string
+  model?: string
+  token?: string
+  user_id?: string
+  chat_id?: string
+  temperature?: number
+  max_tokens?: number
 }
 
 /**
  * Load Z.AI credentials. Priority:
- *   1. Process env vars (set on Vercel: ZAI_BASE_URL, ZAI_API_KEY, ZAI_TOKEN,
+ *   1. Client-provided config (from request body — set by user in Settings page)
+ *   2. Process env vars (set on Vercel: ZAI_BASE_URL, ZAI_API_KEY, ZAI_TOKEN,
  *      ZAI_USER_ID, ZAI_CHAT_ID)
- *   2. /etc/.z-ai-config (dev environment where the SDK's file lives)
- *   3. ~/.z-ai-config (user home)
- *   4. ./.z-ai-config (project-local)
+ *   3. /etc/.z-ai-config (dev environment where the SDK's file lives)
+ *   4. ~/.z-ai-config (user home)
+ *   5. ./.z-ai-config (project-local)
  */
-function loadConfig(): ZaiConfig | null {
+function loadConfig(clientCfg?: ClientConfig | null): ZaiConfig | null {
+  // 0. Client-provided config (highest priority — set by user in Settings page)
+  //     Only honored if BOTH base_url AND api_key are present.
+  if (clientCfg && clientCfg.base_url && clientCfg.api_key) {
+    return {
+      baseUrl: clientCfg.base_url,
+      apiKey: clientCfg.api_key,
+      token: clientCfg.token,
+      userId: clientCfg.user_id,
+      chatId: clientCfg.chat_id,
+      model: clientCfg.model,
+      temperature: clientCfg.temperature,
+      maxTokens: clientCfg.max_tokens,
+    }
+  }
+
   // 1. Env vars
   if (process.env.ZAI_BASE_URL && process.env.ZAI_API_KEY) {
     return {
@@ -288,7 +325,11 @@ function buildFallbackReply(userMessage: string, lang: 'en' | 'id'): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { messages, lang = 'en' } = body as { messages: ChatMessage[]; lang?: 'en' | 'id' }
+    const { messages, lang = 'en', clientConfig } = body as {
+      messages: ChatMessage[]
+      lang?: 'en' | 'id'
+      clientConfig?: ClientConfig | null
+    }
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -301,17 +342,21 @@ export async function POST(req: NextRequest) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
     const userText = String(lastUserMsg?.content || '').slice(0, 4000)
 
-    const config = loadConfig()
+    // Load config — client-provided config takes priority (lets the user
+    // configure AI access from the Settings page on Vercel without needing
+    // dashboard access).
+    const config = loadConfig(clientConfig || null)
 
     // === FALLBACK PATH ===
     // If no Z.AI config, use the rule-based LocInsight Help Bot.
-    // This ensures chat ALWAYS works on Vercel — even before env vars are set.
+    // This ensures chat ALWAYS works on Vercel — even before env vars are set
+    // and before the user configures Settings.
     if (!config) {
       const fallbackReply = buildFallbackReply(userText, lang === 'id' ? 'id' : 'en')
       return NextResponse.json({
         reply: fallbackReply,
         source: 'fallback',
-        note: 'Rule-based fallback active. Set ZAI_BASE_URL + ZAI_API_KEY env vars on Vercel for full AI responses.',
+        note: 'Rule-based fallback active. Configure AI in Settings, or set ZAI_BASE_URL + ZAI_API_KEY env vars on Vercel for full AI responses.',
       })
     }
 
@@ -341,10 +386,19 @@ export async function POST(req: NextRequest) {
     if (config.userId) headers['X-User-Id'] = config.userId
     if (config.token) headers['X-Token'] = config.token
 
-    const requestBody = {
+    // Build request body — include model if specified (client config path),
+    // temperature + max_tokens if set by client.
+    const requestBody: Record<string, any> = {
       messages: cappedMessages,
       thinking: { type: 'disabled' },
       stream: false,
+    }
+    if (config.model) requestBody.model = config.model
+    if (typeof config.temperature === 'number' && !Number.isNaN(config.temperature)) {
+      requestBody.temperature = config.temperature
+    }
+    if (typeof config.maxTokens === 'number' && config.maxTokens > 0) {
+      requestBody.max_tokens = config.maxTokens
     }
 
     const controller = new AbortController()
@@ -451,5 +505,6 @@ export async function GET() {
     })(),
     fallbackActive: !config,
     rulesCount: RULES.length,
+    note: 'Client may also pass clientConfig in POST body — see Settings page.',
   })
 }

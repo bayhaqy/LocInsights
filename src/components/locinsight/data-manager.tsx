@@ -916,7 +916,7 @@ function TableView({
           </button>
         </div>
       )}
-      <div className="overflow-auto max-h-[600px] border border-[var(--brand-border)] rounded">
+      <div className="overflow-auto max-h-[600px] border border-[var(--brand-border)] rounded scroll-styled">
         <table className="text-[11.5px] border-collapse min-w-max">
           <thead className="sticky top-0 bg-white z-10">
             <tr className="border-b border-[var(--brand-border)]">
@@ -1031,8 +1031,8 @@ function SpreadsheetView({
     return <div className="py-12 text-center text-[var(--brand-ink)]/40 text-[12px]">{t('data.no_data')}</div>
   }
   return (
-    <div className="overflow-auto max-h-[600px] border border-[var(--brand-border)] rounded">
-      <table className="w-full text-[11px] border-collapse">
+    <div className="overflow-auto max-h-[600px] border border-[var(--brand-border)] rounded scroll-styled">
+      <table className="text-[11px] border-collapse min-w-max">
         <thead className="sticky top-0 bg-[var(--brand-cream)] z-10">
           <tr>
             <th className="text-center px-1 py-1.5 border-r border-b border-[var(--brand-border)] font-semibold text-[var(--brand-ink)]/50 uppercase text-[9px] w-8 sticky left-0 bg-[var(--brand-cream)] z-20">#</th>

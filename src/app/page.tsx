@@ -20,12 +20,13 @@ import { About } from '@/components/locinsight/about'
 import { AIChat } from '@/components/locinsight/ai-chat'
 import { LanguageSwitcher } from '@/components/locinsight/language-switcher'
 import { InstallPrompt } from '@/components/locinsight/install-prompt'
+import { Settings } from '@/components/locinsight/settings'
 import { useLanguage } from '@/lib/i18n/language-provider'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
   FileText, Database, Search, Brain, Shield, GitCompareArrows, StoreIcon, Info,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon,
 } from 'lucide-react'
 
 const NAV_ITEMS: NavItem[] = [
@@ -44,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'scraper', label: 'nav.scraper', icon: Search, description: 'nav.scraper.desc' },
   { id: 'methodology', label: 'nav.methodology', icon: BookOpen, description: 'nav.methodology.desc' },
   { id: 'about', label: 'nav.about', icon: Info, description: 'nav.about.desc' },
+  { id: 'settings', label: 'nav.settings', icon: SettingsIcon, description: 'nav.settings.desc' },
 ]
 
 export default function Home() {
@@ -111,7 +113,7 @@ export default function Home() {
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
 
-      <main className="flex-1 overflow-x-hidden min-w-0">
+      <main className="flex-1 min-w-0 overflow-x-hidden">
         <header className="bg-white border-b border-[var(--brand-border)] px-4 sm:px-6 py-3 sticky top-0 z-30 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             {/* SINGLE sidebar toggle button — only in page header */}
@@ -199,6 +201,7 @@ export default function Home() {
           {activeView === 'scraper' && <Scraper />}
           {activeView === 'methodology' && <Methodology />}
           {activeView === 'about' && <About />}
+          {activeView === 'settings' && <Settings />}
         </div>
 
         <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-8">

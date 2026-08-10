@@ -38,6 +38,8 @@ export type ScrapeMode = 'keyword' | 'brand'
 export type ItemKind = 'store' | 'mall' | 'poi'
 
 export interface LocationFilter {
+  country_id?: string
+  province_code?: string
   kab_code?: string
   kec_code?: string
   kel_code?: string
@@ -221,7 +223,7 @@ interface ResolvedLocation {
 
 async function resolveLocation(loc: LocationFilter | undefined): Promise<ResolvedLocation> {
   // No filter — full Bali bbox
-  if (!loc || (!loc.kab_code && !loc.kec_code && !loc.kel_code)) {
+  if (!loc || (!loc.country_id && !loc.province_code && !loc.kab_code && !loc.kec_code && !loc.kel_code)) {
     return { bbox: BALI_BBOX, label: 'Bali (all)' }
   }
 
@@ -279,6 +281,41 @@ async function resolveLocation(loc: LocationFilter | undefined): Promise<Resolve
         centerLat: k.lat,
         centerLng: k.lng,
       }
+    }
+  }
+
+  // Province-level: 50km radius around centroid
+  if (loc.province_code) {
+    const p = await prisma.province.findUnique({
+      where: { code: loc.province_code },
+      select: { name: true, lat: true, lng: true, country: true },
+    })
+    if (p && p.lat != null && p.lng != null) {
+      const r = 50
+      const dLat = r / 111
+      const dLng = r / (111 * Math.cos((p.lat * Math.PI) / 180))
+      return {
+        bbox: [p.lat - dLat, p.lng - dLng, p.lat + dLat, p.lng + dLng],
+        label: `Prov. ${p.name}, ${p.country}`,
+        centerLat: p.lat,
+        centerLng: p.lng,
+      }
+    }
+  }
+
+  // Country-level: 200km radius around centroid (or fallback to Bali for ID)
+  if (loc.country_id) {
+    const c = await prisma.country.findUnique({
+      where: { id: loc.country_id },
+      select: { id: true, name: true, iso2: true },
+    })
+    if (c) {
+      // For Indonesia, default to Bali bbox (we don't have a country centroid)
+      if (c.id === 'ID' || c.iso2 === 'ID') {
+        return { bbox: BALI_BBOX, label: `Indonesia (Bali)` }
+      }
+      // For other countries, use a wide bbox — would need a country centroid table
+      return { bbox: BALI_BBOX, label: c.name }
     }
   }
 

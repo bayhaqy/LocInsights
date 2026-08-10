@@ -17,6 +17,8 @@ import type { OpportunityScore, Store, Mall, POI } from './types'
 import { Button } from '@/components/ui/button'
 import type { DemoMetric, DemoGranularity, DemoRegionRow } from './choropleth-demographics-layer'
 import { useLanguage } from '@/lib/i18n/language-provider'
+import { MapAnalysisPanel } from './map-analysis-panel'
+import { MapIndicatorsTable } from './map-indicators-table'
 
 interface MapExplorerProps {
   opportunities: OpportunityScore[]
@@ -526,89 +528,19 @@ export function MapExplorer({
 
         {/* Control panel — single unified scrollable panel */}
         <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto overflow-x-hidden pr-1 -mr-1 scroll-styled">
-          {/* ===== Selected card — at TOP, clickable to open Opportunities ===== */}
-          {selected ? (
-            <Card
-              className="card-premium border-[var(--brand-red)] border-2 cursor-pointer hover:shadow-md transition-shadow group"
-              onClick={onOpenOpportunities}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onOpenOpportunities) onOpenOpportunities() }}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-red)] flex items-center gap-2">
-                  <Crosshair className="w-3.5 h-3.5" />
-                  {t('map.selected')}
-                  <span className="ml-auto text-[9.5px] normal-case tracking-normal text-[var(--brand-ink)]/45 font-normal flex items-center gap-0.5 group-hover:text-[var(--brand-red)] transition-colors">
-                    {t('map.selected.open_opportunities')}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="font-display text-[18px] font-bold text-[var(--brand-ink)] leading-tight">
-                  {selected.kelurahan_name}
-                </div>
-                <div className="text-[11.5px] text-[var(--brand-ink)]/60 mb-3">
-                  {t('map.selected.region_tier', {
-                    kec: selected.kec_name,
-                    kab: selected.kab_name,
-                    tier: selected.tier,
-                  })}
-                </div>
-                <div className="space-y-1.5 text-[12px]">
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.composite_score')}</span>
-                    <strong className="text-[var(--brand-red)] num-tabular">{selected.composite_score}/100</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.market_share')}</span>
-                    <strong className="num-tabular">{(selected.potential_market_share * 100).toFixed(1)}%</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.daily_customers')}</span>
-                    <strong className="num-tabular">{selected.estimated_daily_customers}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.monthly_revenue')}</span>
-                    <strong className="num-tabular">{t('map.selected.revenue_format', { amount: selected.projected_monthly_revenue_juta })}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.nearest_mall')}</span>
-                    <span className="text-right text-[11px]">{selected.nearest_mall_name?.split(' ')[0] || '—'} ({selected.nearest_mall_distance_km}km)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--brand-ink)]/60">{t('map.selected.cannibalization')}</span>
-                    <span className="capitalize text-[11px]">{selected.cannibalization_risk}</span>
-                  </div>
-                </div>
-                <div className="mt-3 pt-3 border-t border-[var(--brand-border)] text-[11px] text-[var(--brand-ink)]/70 leading-relaxed">
-                  {selected.white_space_summary}
-                </div>
-                {onOpenAnalysis && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onOpenAnalysis() }}
-                    className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[var(--brand-ink)] text-white text-[11.5px] font-medium hover:bg-[var(--brand-ink)]/90 transition-colors"
-                    title="Open Deep Analysis"
-                  >
-                    <Crosshair className="w-3.5 h-3.5" />
-                    Open in Deep Analysis →
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="card-premium bg-[var(--brand-cream)] border-dashed">
-              <CardContent className="py-6 text-center">
-                <Crosshair className="w-6 h-6 mx-auto text-[var(--brand-ink)]/30 mb-2" />
-                <div className="text-[12px] text-[var(--brand-ink)]/60">
-                  {t('map.selected.empty')}
-                </div>
-                <div className="text-[10.5px] text-[var(--brand-ink)]/40 mt-1">
-                  {t('map.selected.empty_hint')}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* ===== Instant Site Analysis card — at TOP ===== */}
+          {/* Replaces the old "Selected" card. Now shows full click-to-analyze
+              verdict: suitability, recommended brands, supporting parameters,
+              and nearby outlets within 2 km (MAP/MAA stores, malls, competitors). */}
+          <MapAnalysisPanel
+            opportunity={selected}
+            stores={stores}
+            malls={malls}
+            competitors={filteredCompetitors}
+            brands={[]}
+            onOpenAnalysis={onOpenAnalysis}
+            onOpenOpportunities={onOpenOpportunities}
+          />
 
           <Card className="card-premium">
             <CardHeader className="pb-3">
@@ -954,6 +886,19 @@ export function MapExplorer({
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* ===== Combined Indicators Table — at BOTTOM of Map Explorer =====
+          Shows every kelurahan with all 6 scoring factors + market estimates +
+          nearby outlet counts. Mirrors the Data Manager table UX (sort / filter
+          per column / search / tier / recommendation / CSV export). */}
+      <div className="mt-4">
+        <MapIndicatorsTable
+          opportunities={filteredOpps}
+          stores={filteredStores}
+          malls={filteredMalls}
+          competitors={filteredCompetitors}
+        />
       </div>
     </div>
   )

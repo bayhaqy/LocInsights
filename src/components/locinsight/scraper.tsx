@@ -69,8 +69,19 @@ interface LocationOption {
   kec_code?: string
   kab_name?: string
   kec_name?: string
+  province_code?: string
+  province?: string
+  country_id?: string
+  country?: string
   lat?: number
   lng?: number
+}
+
+interface CountryOption {
+  id: string
+  name: string
+  iso2?: string
+  iso3?: string
 }
 
 // ============================================================================
@@ -90,10 +101,15 @@ export function Scraper() {
   // Brand sweep state
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
 
-  // Hierarchical location filter
+  // Hierarchical location filter — full 5-level cascade:
+  //   Country → Province → Kabupaten → Kecamatan → Kelurahan
+  const [countryList, setCountryList] = useState<CountryOption[]>([])
+  const [provinceList, setProvinceList] = useState<LocationOption[]>([])
   const [kabupatenList, setKabupatenList] = useState<LocationOption[]>([])
   const [kecamatanList, setKecamatanList] = useState<LocationOption[]>([])
   const [kelurahanList, setKelurahanList] = useState<LocationOption[]>([])
+  const [selCountry, setSelCountry] = useState<string>('ID') // default to Indonesia
+  const [selProvince, setSelProvince] = useState<string>('51') // default to Bali (BPS code 51)
   const [selKab, setSelKab] = useState<string>('')
   const [selKec, setSelKec] = useState<string>('')
   const [selKel, setSelKel] = useState<string>('')
@@ -115,10 +131,17 @@ export function Scraper() {
       .then(r => r.json())
       .then(j => {
         if (j.success) {
+          setCountryList(j.data.countries || [])
+          setProvinceList(j.data.provinces || [])
           setKabupatenList(j.data.kabupaten || [])
           // pre-load all kecamatan + all kelurahan for snappy UX (Bali is small)
           setKecamatanList(j.data.kecamatan || [])
           setKelurahanList(j.data.kelurahan || [])
+          // Auto-select Indonesia + Bali if present (sensible default)
+          const indo = (j.data.countries || []).find((c: CountryOption) => c.id === 'ID' || c.iso2 === 'ID')
+          if (indo) setSelCountry(indo.id)
+          const bali = (j.data.provinces || []).find((p: LocationOption) => p.name === 'Bali')
+          if (bali) setSelProvince(bali.code)
         }
       })
       .catch(() => {})
@@ -134,6 +157,42 @@ export function Scraper() {
   }
 
   // Reset downstream selectors when parent changes
+  function onCountryChange(id: string) {
+    setSelCountry(id)
+    setSelProvince('')
+    setSelKab('')
+    setSelKec('')
+    setSelKel('')
+    // Re-fetch provinces for the selected country
+    fetch(`/api/locinsight/locations?country_id=${encodeURIComponent(id)}`)
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) {
+          setProvinceList(j.data.provinces || [])
+          setKabupatenList(j.data.kabupaten || [])
+          setKecamatanList(j.data.kecamatan || [])
+          setKelurahanList(j.data.kelurahan || [])
+        }
+      })
+      .catch(() => {})
+  }
+  function onProvinceChange(code: string) {
+    setSelProvince(code)
+    setSelKab('')
+    setSelKec('')
+    setSelKel('')
+    // Re-fetch kabupaten for the selected province
+    fetch(`/api/locinsight/locations?province_code=${encodeURIComponent(code)}`)
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) {
+          setKabupatenList(j.data.kabupaten || [])
+          setKecamatanList(j.data.kecamatan || [])
+          setKelurahanList(j.data.kelurahan || [])
+        }
+      })
+      .catch(() => {})
+  }
   function onKabChange(code: string) {
     setSelKab(code)
     setSelKec('')
@@ -149,8 +208,10 @@ export function Scraper() {
     if (selKel) return { kel_code: selKel }
     if (selKec) return { kec_code: selKec }
     if (selKab) return { kab_code: selKab }
+    if (selProvince) return { province_code: selProvince }
+    if (selCountry) return { country_id: selCountry }
     return undefined
-  }, [selKab, selKec, selKel])
+  }, [selCountry, selProvince, selKab, selKec, selKel])
 
   const locationLabel = useMemo(() => {
     if (selKel) {
@@ -165,10 +226,23 @@ export function Scraper() {
       const k = kabupatenList.find(x => x.code === selKab)
       return k ? `${k.type === 'Kota' ? 'Kota' : 'Kab.'} ${k.name}` : 'Kabupaten'
     }
+    if (selProvince) {
+      const p = provinceList.find(x => x.code === selProvince)
+      return p ? `Prov. ${p.name}` : 'Province'
+    }
+    if (selCountry) {
+      const c = countryList.find(x => x.id === selCountry)
+      return c ? c.name : 'Country'
+    }
     return t('scraper.location_bali_all')
-  }, [selKab, selKec, selKel, kabupatenList, kecamatanList, kelurahanList, t])
+  }, [selCountry, selProvince, selKab, selKec, selKel, countryList, provinceList, kabupatenList, kecamatanList, kelurahanList, t])
 
-  // Filtered kecamatan/kelurahan based on parent selection
+  // Filtered kabupaten/kecamatan/kelurahan based on parent selection
+  const filteredKabupaten = useMemo(() => {
+    if (!selProvince) return kabupatenList
+    return kabupatenList.filter(k => k.province_code === selProvince)
+  }, [kabupatenList, selProvince])
+
   const filteredKecamatan = useMemo(() => {
     if (!selKab) return kecamatanList
     return kecamatanList.filter(k => k.kab_code === selKab)
@@ -437,25 +511,51 @@ export function Scraper() {
                 </button>
               </div>
 
-              {/* Hierarchical location filter */}
+              {/* Hierarchical location filter — Country → Province → Kabupaten → Kecamatan → Kelurahan */}
               <div>
                 <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block flex items-center gap-1">
                   <Globe2 className="w-3 h-3" />
                   {t('scraper.location_scope')} <span className="text-[var(--brand-red)] font-medium normal-case tracking-normal">{locationLabel}</span>
                 </Label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {/* Country */}
+                  <select
+                    value={selCountry}
+                    onChange={(e) => onCountryChange(e.target.value)}
+                    className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white"
+                  >
+                    <option value="">{t('scraper.all_countries')}</option>
+                    {countryList.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  {/* Province */}
+                  <select
+                    value={selProvince}
+                    onChange={(e) => onProvinceChange(e.target.value)}
+                    disabled={!selCountry}
+                    className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white disabled:opacity-50"
+                  >
+                    <option value="">{t('scraper.all_provinces')}</option>
+                    {provinceList.map(p => (
+                      <option key={p.code} value={p.code}>{p.name}</option>
+                    ))}
+                  </select>
+                  {/* Kabupaten */}
                   <select
                     value={selKab}
                     onChange={(e) => onKabChange(e.target.value)}
-                    className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white"
+                    disabled={!selProvince}
+                    className="text-[12px] px-2 py-1.5 border border-[var(--brand-border)] rounded bg-white disabled:opacity-50"
                   >
                     <option value="">{t('scraper.all_kabupaten')}</option>
-                    {kabupatenList.map(k => (
+                    {filteredKabupaten.map(k => (
                       <option key={k.code} value={k.code}>
                         {k.type === 'Kota' ? 'Kota ' : 'Kab. '}{k.name}
                       </option>
                     ))}
                   </select>
+                  {/* Kecamatan */}
                   <select
                     value={selKec}
                     onChange={(e) => onKecChange(e.target.value)}
@@ -467,6 +567,7 @@ export function Scraper() {
                       <option key={k.code} value={k.code}>{k.name}</option>
                     ))}
                   </select>
+                  {/* Kelurahan */}
                   <select
                     value={selKel}
                     onChange={(e) => setSelKel(e.target.value)}

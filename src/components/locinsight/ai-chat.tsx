@@ -43,7 +43,36 @@ interface Conversation {
 
 const HISTORY_KEY = 'locinsight.chat.history'
 const ACTIVE_KEY = 'locinsight.chat.active_id'
+const AI_SETTINGS_KEY = 'locinsight.settings.ai'
 const MAX_HISTORY = 50 // keep at most 50 conversations
+
+/**
+ * Read the user's AI config from localStorage (set via the Settings page).
+ * Returns null if no config or `enabled` is false — in which case the server
+ * will fall back to env vars or the rule-based help bot.
+ */
+function loadClientConfig(): any | null {
+  try {
+    const raw = localStorage.getItem(AI_SETTINGS_KEY)
+    if (!raw) return null
+    const cfg = JSON.parse(raw)
+    if (!cfg.enabled) return null
+    // Only forward if required fields are present
+    if (!cfg.base_url || !cfg.api_key) return null
+    return {
+      base_url: cfg.base_url,
+      api_key: cfg.api_key,
+      model: cfg.model || undefined,
+      token: cfg.token || undefined,
+      user_id: cfg.user_id || undefined,
+      chat_id: cfg.chat_id || undefined,
+      temperature: typeof cfg.temperature === 'number' ? cfg.temperature : undefined,
+      max_tokens: typeof cfg.max_tokens === 'number' ? cfg.max_tokens : undefined,
+    }
+  } catch {
+    return null
+  }
+}
 
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -84,6 +113,7 @@ export function AIChat() {
   const [editTitle, setEditTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [fallbackMode, setFallbackMode] = useState(false)
+  const [clientConfigEnabled, setClientConfigEnabled] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -104,9 +134,19 @@ export function AIChat() {
     const onOffline = () => setOnline(false)
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
+    // Track client-config state from Settings page
+    const refreshClientConfig = () => {
+      const cfg = loadClientConfig()
+      setClientConfigEnabled(!!cfg)
+    }
+    refreshClientConfig()
+    window.addEventListener('locinsight:ai-settings-changed', refreshClientConfig)
+    window.addEventListener('storage', refreshClientConfig)
     return () => {
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
+      window.removeEventListener('locinsight:ai-settings-changed', refreshClientConfig)
+      window.removeEventListener('storage', refreshClientConfig)
     }
   }, [])
 
@@ -251,7 +291,14 @@ export function AIChat() {
       const res = await fetch('/api/locinsight/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, lang }),
+        body: JSON.stringify({
+          messages: history,
+          lang,
+          // Forward the user's AI config from Settings so the server can
+          // call the LLM endpoint on the user's behalf. This makes AI chat
+          // work on Vercel even when server env vars aren't set.
+          clientConfig: loadClientConfig(),
+        }),
       })
 
       if (!res.ok) {
@@ -399,8 +446,20 @@ export function AIChat() {
               )}
               <img src="/logo-white.png" alt="" className="w-6 h-6 object-contain flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-bold leading-tight truncate">{t('chat.title')}</div>
-                <div className="text-[10px] text-white/50 leading-tight truncate">{t('chat.subtitle')}</div>
+                <div className="text-[13px] font-bold leading-tight truncate flex items-center gap-1.5">
+                  {t('chat.title')}
+                  {/* Status pill: shows whether the chat is using the user's
+                      custom AI config (green) or the rule-based fallback (amber). */}
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full ${clientConfigEnabled ? 'bg-green-400' : 'bg-amber-400'}`}
+                    title={clientConfigEnabled
+                      ? 'Using your custom AI endpoint (Settings → AI)'
+                      : 'Using built-in rule-based help bot — configure AI in Settings for full LLM responses'}
+                  />
+                </div>
+                <div className="text-[10px] text-white/50 leading-tight truncate">
+                  {clientConfigEnabled ? 'AI · custom endpoint' : (fallbackMode ? 'AI · help bot' : t('chat.subtitle'))}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
