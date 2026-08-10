@@ -41,7 +41,14 @@ export async function GET(req: NextRequest) {
     const kelurahanSource = dbKelurahan.length > 0 ? dbKelurahan : BALI_KELURAHAN
 
     const stats = getDashboardStats(competitors, storesSource, kelurahanSource)
-    const topOpps = getTopOpportunities(100, {
+    // Per user request (Aug 2026): "All Indicators — Combined Table" should
+    // show ALL kelurahan rows, not just the top 100. Bali has ~716 kelurahan,
+    // so we pass a large limit (9999) — getTopOpportunities slices to N, but
+    // any number larger than the dataset effectively returns everything.
+    // The function still sorts by composite_score desc, so the dashboard's
+    // top-opportunities list (which uses data.top_opportunities[0]) keeps the
+    // highest-scoring kelurahan at the top.
+    const topOpps = getTopOpportunities(9999, {
       brand_id: brandId,
       competitorStores: competitors,
       kelurahanList: kelurahanSource,

@@ -65,6 +65,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
+  // PWA full-screen on Android Chrome + iOS Safari standalone mode
+  // (combined with `display: fullscreen` in manifest.json, this hides the
+  // browser URL bar and status bar when the app is installed to home screen).
+  userScalable: false,
 };
 
 export default function RootLayout({

@@ -1263,7 +1263,7 @@ export const en: Dict = {
   'map.table.clear_all_cols': 'Clear all',
   'map.table.selected_cols_count': '{n} columns selected',
   'map.table.export_with_cols': 'Export {n} rows · {cols} cols',
-  'map.table.click_anywhere_hint': 'Tip: click anywhere on the map to analyze the nearest location.',
+  'map.table.click_anywhere_hint': 'Tip: double-click anywhere on the map to analyze the nearest location.',
   'map.viz_choropleth_cells': 'Choropleth (color-coded cells)',
   'map.choropleth_kelurahan_hint': 'Each kelurahan is rendered as a color-coded cell based on quantile breaks of the selected metric.',
 
@@ -2583,7 +2583,7 @@ export const id: Dict = {
   'map.table.clear_all_cols': 'Bersihkan semua',
   'map.table.selected_cols_count': '{n} kolom dipilih',
   'map.table.export_with_cols': 'Ekspor {n} baris · {cols} kolom',
-  'map.table.click_anywhere_hint': 'Tip: klik di mana pun pada peta untuk menganalisa lokasi terdekat.',
+  'map.table.click_anywhere_hint': 'Tip: klik dua kali di mana pun pada peta untuk menganalisa lokasi terdekat.',
   'map.viz_choropleth_cells': 'Choropleth (sel berkode warna)',
   'map.choropleth_kelurahan_hint': 'Tiap kelurahan dirender sebagai sel berkode warna berdasarkan kuantil dari metrik terpilih.',
 

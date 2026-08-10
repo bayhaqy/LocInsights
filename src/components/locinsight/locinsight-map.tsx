@@ -116,19 +116,65 @@ function FlyTo({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   return null
 }
 
-// Map click handler — fires when user clicks on the map background (not on a marker)
+// Map DOUBLE-click handler — fires when the user double-clicks anywhere on the
+// map background (not on a marker). Per user request (Aug 2026):
+//   "I want to double-click any point on the map and instantly analyze the
+//    nearest location, even outside the kecamatan points."
+//
+// 2026 best practice: use `dblclick` (not `click`) for "deep analyze" actions
+// so it doesn't conflict with single-click pan/drag, and disable the default
+// `doubleClickZoom` so the map doesn't zoom in while the user is analyzing.
+//
+// Also shows a temporary "you-clicked-here" marker + popup at the clicked
+// spot for visual feedback (cleared after 6s).
 function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number) => void }) {
   const map = useMap()
   useEffect(() => {
     if (!onClick) return
+    // Disable default double-click-zoom so it doesn't fight with the analyze action
+    map.doubleClickZoom.disable()
     const handler = (e: L.LeafletMouseEvent) => {
       onClick(e.latlng.lat, e.latlng.lng)
     }
-    map.on('click', handler)
+    map.on('dblclick', handler)
     return () => {
-      map.off('click', handler)
+      map.off('dblclick', handler)
+      // Re-enable default behavior when this handler unmounts
+      map.doubleClickZoom.enable()
     }
   }, [map, onClick])
+  return null
+}
+
+// Component to drop a temporary "you clicked here" marker + popup at the
+// clicked location, so the user gets immediate visual feedback that their
+// double-click registered — even before the analysis card finishes updating.
+function ClickFeedbackMarker({ point }: { point: { lat: number; lng: number; html: string } | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!point) return
+    // Drop a small red target marker with a popup at the clicked spot
+    const marker = L.circleMarker([point.lat, point.lng], {
+      radius: 8,
+      color: '#0F0F12',
+      fillColor: '#C8102E',
+      fillOpacity: 0.9,
+      weight: 2,
+    }).addTo(map)
+    marker.bindPopup(point.html, {
+      maxWidth: 280,
+      className: 'li-click-popup',
+      closeButton: true,
+    }).openPopup()
+    // Auto-remove after 6 seconds
+    const t = setTimeout(() => {
+      map.removeLayer(marker)
+    }, 6000)
+    return () => {
+      clearTimeout(t)
+      map.removeLayer(marker)
+    }
+  }, [point, map])
   return null
 }
 
@@ -230,8 +276,10 @@ export interface LocInsightMapProps {
   showCrowdDensity?: boolean
   /** Called when a choropleth region (kabupaten/kecamatan polygon) is clicked. */
   onRegionClick?: (regionName: string, granularity: 'kabupaten' | 'kecamatan') => void
-  /** Called when user clicks on empty map area (no marker). Receives lat/lng. */
+  /** Called when user double-clicks on empty map area (no marker). Receives lat/lng. */
   onMapClick?: (lat: number, lng: number) => void
+  /** Optional: a {lat,lng,html} tuple to render a temporary "you clicked here" marker + popup. */
+  clickFeedback?: { lat: number; lng: number; html: string } | null
   height?: string
 }
 
@@ -262,6 +310,7 @@ export function LocInsightMap({
   showCrowdDensity = false,
   onRegionClick,
   onMapClick,
+  clickFeedback = null,
   height = '600px',
 }: LocInsightMapProps) {
   const [mapReady, setMapReady] = useState(false)
@@ -383,8 +432,11 @@ export function LocInsightMap({
 
         {selected && <FlyTo lat={selected.lat} lng={selected.lng} zoom={13} />}
 
-        {/* Map click handler — finds nearest opportunity when user clicks anywhere on the map */}
+        {/* Map click handler — finds nearest opportunity when user double-clicks anywhere on the map */}
         <MapClickHandler onClick={onMapClick} />
+
+        {/* Click-feedback marker — temporary popup at the double-clicked spot */}
+        <ClickFeedbackMarker point={clickFeedback} />
 
         {/* ===== User's GPS location marker (blue dot) ===== */}
         {userLocation && (
@@ -821,6 +873,17 @@ export function LocInsightMap({
           <div className="text-sm text-[var(--brand-ink)]">Loading map…</div>
         </div>
       )}
+
+      {/* ===== "Double-click to analyze" hint pill — bottom-center ===== */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--brand-ink)]/85 backdrop-blur-sm text-white text-[10.5px] font-medium shadow-md whitespace-nowrap">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span>Double-click anywhere to analyze nearest location</span>
+        </div>
+      </div>
     </div>
   )
 }

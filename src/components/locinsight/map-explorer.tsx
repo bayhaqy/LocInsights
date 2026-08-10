@@ -478,13 +478,48 @@ export function MapExplorer({
     onSelectKelurahan(top.kelurahan_id)
   }, [filteredOpps, onSelectKelurahan])
 
-  // ===== Map click handler (click anywhere on the map background) =====
-  // Per user request (Aug 2026): "I want to click any point on the map and instantly
-  // analyze the nearest location." When the user clicks the map background (not on a
-  // marker), find the nearest opportunity within 10 km and select it. If nothing is
-  // within 10 km, do nothing.
+  // ===== Map DOUBLE-click handler (double-click anywhere on the map) =====
+  // Per user request (Aug 2026): "I want to double-click any point on the map
+  // and instantly analyze whether that location is suitable — not just on the
+  // kecamatan points."
+  //
+  // 2026 best practice:
+  //   • Use `dblclick` (handled in locinsight-map.tsx via MapClickHandler)
+  //     so it doesn't conflict with single-click pan/drag.
+  //   • Show a temporary popup at the clicked spot with feedback, even if
+  //     no nearby kelurahan is found — so the user knows the click registered.
+  //   • Use 15 km search radius (wider than the old 10 km) so sparser regions
+  //     still get useful results.
+  //   • Build a rich popup HTML showing the nearest location's name, distance,
+  //     composite score, recommendation verdict, and a hint to scroll down to
+  //     the analysis card for full details.
+  const [clickFeedback, setClickFeedback] = useState<{ lat: number; lng: number; html: string } | null>(null)
   const handleMapClick = useCallback((lat: number, lng: number) => {
-    if (filteredOpps.length === 0) return
+    // Always show a popup at the clicked spot — even if no nearby location
+    const popupHeader = `
+      <div style="font-family: Inter, system-ui, sans-serif; min-width: 220px;">
+        <div style="font-size: 11px; color: #999; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#C8102E;"></span>
+          Clicked location
+        </div>
+        <div style="font-size: 11px; color: #666; margin-bottom: 8px; font-family: 'Geist Mono', monospace;">
+          ${lat.toFixed(5)}, ${lng.toFixed(5)}
+        </div>
+    `
+    const popupFooter = `</div>`
+
+    if (filteredOpps.length === 0) {
+      setClickFeedback({
+        lat, lng,
+        html: popupHeader + `
+          <div style="font-size: 12px; color: #666; padding: 6px 0;">
+            No location data available. Try zooming out or removing filters.
+          </div>
+        ` + popupFooter,
+      })
+      return
+    }
+
     let nearest: OpportunityScore | null = null
     let nearestDist = Infinity
     const toRad = (d: number) => (d * Math.PI) / 180
@@ -498,8 +533,64 @@ export function MapExplorer({
         nearest = o
       }
     }
-    if (nearest && nearestDist <= 10) {
-      onSelectKelurahan(nearest.kelurahan_id)
+
+    // Always select the nearest kelurahan (no distance cap) — the user wants
+    // to know "is this point suitable?" and the nearest kelurahan IS the
+    // answer regardless of distance. We still show the distance in the popup.
+    if (nearest) {
+      const o = nearest
+      const recColor =
+        o.recommendation === 'high_priority' ? '#C8102E' :
+        o.recommendation === 'priority' ? '#D45F4A' :
+        o.recommendation === 'monitor' ? '#A08070' :
+        '#B0B0B0'
+      const verdictText =
+        o.recommendation === 'high_priority' ? 'Highly suitable' :
+        o.recommendation === 'priority' ? 'Moderately suitable' :
+        o.recommendation === 'monitor' ? 'Monitor — less suitable' :
+        'Less suitable — avoid'
+      const distStr = nearestDist < 1
+        ? `${Math.round(nearestDist * 1000)} m`
+        : `${nearestDist.toFixed(1)} km`
+
+      setClickFeedback({
+        lat, lng,
+        html: popupHeader + `
+          <div style="border-top: 1px solid #eee; padding-top: 8px;">
+            <div style="font-size: 13px; font-weight: 700; color: #0F0F12; margin-bottom: 2px;">
+              ${o.kelurahan_name}
+            </div>
+            <div style="font-size: 11px; color: #666; margin-bottom: 6px;">
+              ${o.kec_name} · ${o.kab_name} · Tier ${o.tier} · ${distStr} away
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #FAF7F2; border-radius: 6px; margin-bottom: 6px;">
+              <span style="font-size: 11px; color: #666;">Composite Score</span>
+              <strong style="font-size: 14px; color: #C8102E;">${o.composite_score}/100</strong>
+            </div>
+            <div style="display: inline-block; padding: 3px 8px; background: ${recColor}; color: white; font-size: 10px; font-weight: 600; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+              ${verdictText}
+            </div>
+            <div style="font-size: 10.5px; color: #888; line-height: 1.4;">
+              Est. daily customers: <strong>${o.estimated_daily_customers}</strong> ·
+              Proj. monthly rev: <strong>Rp ${o.projected_monthly_revenue_juta} jt</strong>
+            </div>
+            <div style="font-size: 10px; color: #aaa; margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee;">
+              See the analysis panel on the right for full details →
+            </div>
+          </div>
+        ` + popupFooter,
+      })
+      // Update the selection so the analysis panel + Combined Table update too
+      onSelectKelurahan(o.kelurahan_id)
+    } else {
+      setClickFeedback({
+        lat, lng,
+        html: popupHeader + `
+          <div style="font-size: 12px; color: #666; padding: 6px 0;">
+            No analyzed location found. Try a different spot.
+          </div>
+        ` + popupFooter,
+      })
     }
   }, [filteredOpps, onSelectKelurahan])
 
@@ -552,6 +643,7 @@ export function MapExplorer({
             onSelectKelurahan={onSelectKelurahan}
             onRegionClick={handleRegionClick}
             onMapClick={handleMapClick}
+            clickFeedback={clickFeedback}
             showStores={layerOn.stores}
             showMalls={layerOn.malls}
             showCivicPOIs={layerOn.civic_pois}

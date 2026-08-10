@@ -3,7 +3,7 @@
   "host": "locinsights.bayhaqy.my.id",
   "name": "LocInsight",
   "launcherName": "LocInsight",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "default",
   "themeColor": "#7A0A1A",
   "themeColorDark": "#1A1815",
@@ -21,8 +21,8 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "4.1.0",
-  "appVersionCode": 41,
+  "appVersionName": "4.2.0",
+  "appVersionCode": 42,
   "shortcuts": [
     {
       "name": "Dashboard",
@@ -63,5 +63,5 @@
   "isMetaQuest": false,
   "fullScopeUrl": "https://locinsights.bayhaqy.my.id/",
   "minSdkVersion": 24,
-  "_comment": "Run `bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json` to regenerate this file from the live PWA, then `bubblewrap build` to produce the APK."
+  "_comment": "Run `bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json` to regenerate this file from the live PWA, then `bubblewrap build` to produce the APK. IMPORTANT: after first build, copy the generated assetlinks.json to public/.well-known/assetlinks.json so the TWA can verify digital asset links and run without the URL bar (otherwise it falls back to a Chrome Custom Tab which shows the browser top bar)."
 }
