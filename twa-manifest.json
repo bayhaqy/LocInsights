@@ -28,19 +28,22 @@
       "name": "Dashboard",
       "shortName": "Dashboard",
       "url": "/?view=dashboard",
-      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
+      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png",
+      "chosenIconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
     },
     {
       "name": "Map Explorer",
       "shortName": "Map",
       "url": "/?view=map",
-      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
+      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png",
+      "chosenIconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
     },
     {
       "name": "Opportunities",
       "shortName": "Opportunities",
       "url": "/?view=opportunities",
-      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
+      "iconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png",
+      "chosenIconUrl": "https://locinsights.bayhaqy.my.id/logo-192.png"
     }
   ],
   "generatorApp": "bubblewrap-cli",
