@@ -21,8 +21,8 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "4.2.0",
-  "appVersionCode": 42,
+  "appVersionName": "5.0.0",
+  "appVersionCode": 50,
   "shortcuts": [
     {
       "name": "Dashboard",
@@ -63,5 +63,5 @@
   "isMetaQuest": false,
   "fullScopeUrl": "https://locinsights.bayhaqy.my.id/",
   "minSdkVersion": 24,
-  "_comment": "Run `bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json` to regenerate this file from the live PWA, then `bubblewrap build` to produce the APK. IMPORTANT: after first build, copy the generated assetlinks.json to public/.well-known/assetlinks.json so the TWA can verify digital asset links and run without the URL bar (otherwise it falls back to a Chrome Custom Tab which shows the browser top bar)."
+  "_comment": "Run `bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json` to regenerate this file from the live PWA, then `bubblewrap build` to produce the APK. The public/.well-known/assetlinks.json file contains the real SHA-256 fingerprint of the local android.keystore signing key (94:31:B2:1B:3E:60:C3:C4:A8:19:4A:16:3B:9B:DE:51:FD:8C:D6:0F:8C:1F:9F:52:A0:FF:F2:BB:30:A3:68:9C). With this fingerprint published, the TWA verifies digital asset links and runs true full-screen with no browser URL bar. The keystore itself is gitignored and must be kept locally + backed up securely offline."
 }

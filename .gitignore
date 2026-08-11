@@ -116,3 +116,15 @@ prompt
 local-*
 /download/*.csv
 /download/*.json
+
+# -----------------------------------------------------------------------------
+# Android / Bubblewrap TWA
+# -----------------------------------------------------------------------------
+# Keep the signing keystore LOCAL — never commit it to a public repo.
+# A backup should be stored securely offline (losing it means losing the
+# ability to update the APK on users' devices).
+android.keystore
+*.keystore
+*.jks
+/twa-app/
+/android-project/
