@@ -1,5 +1,5 @@
 ============================================================
-LocInsight Android APK — Build Instructions (v4.2 — Aug 2026)
+LocInsight Android APK — Build Instructions (v5.0 — Aug 2026)
 ============================================================
 
 LocInsight is shipped as a PWA (Progressive Web App). To distribute
@@ -8,40 +8,67 @@ Bubblewrap CLI (Trusted Web Activity wrapper).
 
 PREREQUISITES:
   - Node.js 18+ and npm
-  - Java JDK 17+ (OpenJDK recommended)
-  - Android SDK (Bubblewrap will auto-install via sdkmanager)
-  - Internet connection
+  - Java JDK 17 (Temurin 17 recommended — JDK 21 is missing javac
+    in some distro packages and breaks the Gradle toolchain)
+  - Android SDK command-line tools + build-tools 36.1.0 + platforms;android-36
+  - The local android.keystore signing key (RSA 2048, alias=android)
+    NOTE: This keystore is gitignored — never commit it. Keep a
+    secure offline backup. Losing it means users can't update the
+    APK without uninstalling first.
 
 ----------------------------------------------------------------------
-FULL-SCREEN / NO BROWSER TOP BAR — IMPORTANT
+FULL-SCREEN / NO BROWSER TOP BAR — HOW IT WORKS
 ----------------------------------------------------------------------
 The TWA APK must verify ownership of the domain via Digital Asset
 Links. Without this verification, the TWA falls back to a Chrome
-Custom Tab — which shows the browser URL bar at the top. To get a
-true full-screen experience:
+Custom Tab — which shows the browser URL bar at the top.
 
-  1. After running `bubblewrap build` once, locate the generated
-     assetlinks.json file (Bubblewrap prints its path at the end of
-     the build). It contains the SHA-256 fingerprint of your signing
-     key.
+The setup is ALREADY DONE in this repo:
 
-  2. Copy that assetlinks.json into the Next.js public folder so it
-     is served at:
-        https://locinsights.bayhaqy.my.id/.well-known/assetlinks.json
+  1. public/.well-known/assetlinks.json contains the real SHA-256
+     fingerprint of the local android.keystore signing key:
+       94:31:B2:1B:3E:60:C3:C4:A8:19:4A:16:3B:9B:DE:51:FD:8C:D6:
+       0F:8C:1F:9F:52:A0:FF:F2:BB:30:A3:68:9C
 
-     The repo already has a template at:
-        public/.well-known/assetlinks.json
-     Replace the placeholder fingerprint with the real one printed
-     by Bubblewrap.
+  2. When you build the APK with `bubblewrap build` (or the
+     scripts/build-apk.js helper), the APK is signed with the same
+     android.keystore. Android fetches /.well-known/assetlinks.json
+     from https://locinsights.bayhaqy.my.id and verifies the SHA-256
+     of the APK's signing cert matches. If it matches, the TWA runs
+     true full-screen with no URL bar.
 
-  3. Deploy the Next.js app (Vercel auto-deploys from main branch).
+  3. To verify the live APK's cert matches:
+       apksigner verify --print-certs public/locinsights.apk
+     The SHA-256 digest should be:
+       9431b21b3e60c3c4a8194a163b9bde51fd8cd60f8c1f9f52a0fff2bb30a3689c
 
-  4. Re-open the APK — the URL bar will be gone, and the app will
-     run true full-screen.
+IF YOU NEED TO REGENERATE THE KEYSTORE (e.g. lost it):
+  keytool -genkeypair -keystore android.keystore -alias android \
+    -keyalg RSA -keysize 2048 -validity 36500 -storepass <PASSWORD>
+  keytool -list -v -keystore android.keystore -alias android \
+    -storepass <PASSWORD>  # copy the SHA-256 fingerprint
+  # Update public/.well-known/assetlinks.json with the new fingerprint
+  # Rebuild + redeploy the APK
+  # NOTE: users with the old APK will need to uninstall before installing
+  # the new one (the signing keys won't match).
 
-The current twa-manifest.json sets:
-  "display": "fullscreen"            (hides Android status bar)
-  "fallbackType": "customtabs"       (used only if assetlinks fails)
+----------------------------------------------------------------------
+LAUNCHER ICON — CLEAN GLOBE
+----------------------------------------------------------------------
+The APK launcher icon is a clean, minimal globe that matches the
+animated globe shown by the web LoadingScreen:
+  - Outer ring: dashed red circle (#7A0A1A brand red)
+  - Inner: gray wireframe globe (meridians + parallels)
+  - Center: small solid red dot (focal anchor)
+  - Background: cream (#FAF7F2) for regular icons
+  - Maskable variant: globe on solid red background, content within
+    inner 80% safe zone so Android adaptive icon masking doesn't clip it
+
+To regenerate the icons (after editing the design):
+  python3 scripts/make_globe_icon.py
+  git add public/logo-*.png public/apple-touch-icon.png
+  git commit -m "fix(apk): regenerate globe launcher icon"
+  git push  # Vercel deploys, then rebuild APK (see below)
 
 ----------------------------------------------------------------------
 STEP-BY-STEP BUILD:
@@ -49,50 +76,67 @@ STEP-BY-STEP BUILD:
   1. Install Bubblewrap CLI globally:
         npm install -g @bubblewrap/cli
 
-  2. Initialize the project from the live PWA manifest:
+  2. Install JDK 17 + Android SDK (one-time setup):
+        # JDK 17 (Temurin)
+        curl -L -o jdk17.tar.gz https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.13%2B11/OpenJDK17U-jdk_x64_linux_hotspot_17.0.13_11.tar.gz
+        mkdir -p ~/.jdk && tar -xzf jdk17.tar.gz -C ~/.jdk
+        # Android SDK cmdline-tools
+        curl -L -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        mkdir -p ~/.android/sdk/cmdline-tools
+        unzip -q cmdline-tools.zip -d ~/.android/sdk/cmdline-tools/
+        mv ~/.android/sdk/cmdline-tools/cmdline-tools ~/.android/sdk/cmdline-tools/latest
+        # Symlink so bubblewrap's validatePath finds 'tools' or 'bin'
+        ln -sf ~/.android/sdk/cmdline-tools/latest/bin ~/.android/sdk/bin
+        mkdir -p ~/.android/sdk/tools
+        for f in ~/.android/sdk/cmdline-tools/latest/bin/*; do
+          ln -sf "$f" ~/.android/sdk/tools/"$(basename $f)"
+        done
+        # Accept licenses + install build-tools + platform
+        yes | ~/.android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        ~/.android/sdk/cmdline-tools/latest/bin/sdkmanager \
+          "build-tools;36.1.0" "platforms;android-36" "platform-tools"
+        # Tell bubblewrap where JDK + SDK are
+        mkdir -p ~/.bubblewrap
+        cat > ~/.bubblewrap/config.json << 'EOF'
+        {
+          "jdkPath": "$HOME/.jdk/jdk-17.0.13+11",
+          "androidSdkPath": "$HOME/.android/sdk"
+        }
+        EOF
+
+  3. Build the signed APK (non-interactive, uses scripts/build-apk.js):
+        cd <repo-root>
+        export JAVA_HOME=$HOME/.jdk/jdk-17.0.13+11
+        export PATH=$JAVA_HOME/bin:$PATH
+        export KEYSTORE_PASS=<your-keystore-password>
+        node /home/z/my-project/scripts/build-apk.js
+     Output: public/locinsights.apk (signed, ready to deploy)
+
+     Or manually:
         bubblewrap init --manifest https://locinsights.bayhaqy.my.id/manifest.json
-
-     This will create:
-       - twa-manifest.json    (TWA configuration)
-       - android-project/     (Gradle Android project)
-       - signing-key.pem      (app signing key — KEEP SAFE)
-
-  3. (Optional) Edit twa-manifest.json to set:
-       - packageId: id.my.bayhaqy.locinsight
-       - name: LocInsight
-       - launcherName: LocInsight
-       - themeColor: #7A0A1A
-       - navigationColor: #1A1815
-       - backgroundColor: #FAF7F2
-       - display: fullscreen        ← hides the status bar
-       - appVersion: "4.2.0"
-       - maskableIconUrl: /logo-maskable-512.png
-
-  4. Build the signed APK:
-        bubblewrap build
-
-     Output: app-release-signed.apk (in ./app-release-signed.apk)
-
-  5. (REQUIRED for full-screen) After the build completes, Bubblewrap
-     prints the assetlinks.json content. Update:
-        public/.well-known/assetlinks.json
-     with the real SHA-256 fingerprint, then commit + push to deploy.
-
-  6. Copy the signed APK into the repo for direct download:
+        BUBBLEWRAP_KEYSTORE_PASSWORD=<pass> BUBBLEWRAP_KEY_PASSWORD=<pass> \
+          bubblewrap build
         cp app-release-signed.apk public/locinsights.apk
 
-  7. (Optional) Generate Android App Bundle for Play Store:
-        bubblewrap build --type bundle
+  4. Commit + push:
+        git add public/locinsights.apk
+        git commit -m "fix(apk): rebuild APK v<x.y.z>"
+        git push  # Vercel auto-deploys to /locinsights.apk
 
+  5. (Optional) Generate Android App Bundle for Play Store:
+        bubblewrap build --type bundle
      Output: app-release-bundle.aab
 
 ----------------------------------------------------------------------
 INSTALL ON DEVICE (sideload):
 ----------------------------------------------------------------------
-  - Transfer app-release-signed.apk to your Android phone
-  - Enable "Install from unknown sources" in Settings
-  - Tap the .apk file to install
-  - Open LocInsight from your app drawer
+  - Uninstall any previous LocInsight APK first (different signing keys
+    cannot be updated in-place).
+  - Transfer public/locinsights.apk to your Android phone.
+  - Enable "Install from unknown sources" in Settings.
+  - Tap the .apk file to install.
+  - Open LocInsight from your app drawer — runs full-screen with the
+    clean globe icon.
 
 ALTERNATIVE: PWA INSTALL (no APK needed)
   - Open https://locinsights.bayhaqy.my.id in Chrome on Android
