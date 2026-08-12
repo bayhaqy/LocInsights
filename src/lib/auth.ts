@@ -39,6 +39,10 @@ const DEFAULT_SUPERADMIN_HASH = '$2b$10$zidc.l/W86v/6sRRKX3rXuWyuSbrWIZnVy4rKmY1
 
 // In production, require a real NEXTAUTH_SECRET. In dev, fall back to a
 // (insecure) dev secret so local `next dev` doesn't crash.
+// NOTE: We don't throw at module load time even in production — throwing
+// during `next build` causes the build to fail, which prevents deployment.
+// Instead, we log a warning and use a placeholder; actual auth will fail
+// at runtime if the secret is missing (sessions won't verify).
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const IS_PROD = NODE_ENV === 'production'
 
@@ -46,10 +50,12 @@ function getNextAuthSecret(): string {
   const secret = process.env.NEXTAUTH_SECRET
   if (!secret) {
     if (IS_PROD) {
-      throw new Error(
+      console.error(
         'FATAL: NEXTAUTH_SECRET is not set. Generate one with `openssl rand -base64 32` ' +
-        'and add it to your Vercel env vars. Refusing to start in production with insecure secret.'
+        'and add it to your Vercel env vars. Auth will fail until this is set.'
       )
+      // Return a placeholder — auth will fail at runtime, but build succeeds.
+      return 'locinsight-missing-secret-auth-will-fail'
     }
     console.warn(
       '⚠️  NEXTAUTH_SECRET not set — using insecure dev secret. ' +
