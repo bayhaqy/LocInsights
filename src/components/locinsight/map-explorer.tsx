@@ -473,18 +473,12 @@ export function MapExplorer({
 
   // Opportunity layer's region level (for choropleth mode)
   const oppRegion = layerRegion.opportunity
-  // 'cells' mode = choropleth-colored kelurahan cells (no GADM polygon needed)
-  // 'choropleth' mode = GADM polygon choropleth (kabupaten/kecamatan only)
-  // 'point' mode = leaflet.heat intensity
-  //
-  // Special case: if user picks 'choropleth' + 'kelurahan' region, we don't have
-  // GADM kelurahan polygons — so automatically fall back to 'cells' mode (kelurahan
-  // CircleMarkers colored by quantile, behaving like a pointillist choropleth).
+  // ALWAYS use choropleth fill (per user request Aug 2026 — visualization
+  // dropdown was removed). At kelurahan level we use color-coded CircleMarker
+  // 'cells' (since GADM doesn't have kelurahan polygons). At kabupaten/kecamatan
+  // level we use real GADM polygon choropleth.
   const oppHeatMode: 'region' | 'cells' | 'point' =
-    layerVizMode.opportunity === 'point' ? 'point' :
-    (layerVizMode.opportunity === 'choropleth' && oppRegion === 'kelurahan') ? 'cells' :
-    layerVizMode.opportunity === 'choropleth' ? 'region' :
-    'cells'
+    oppRegion === 'kelurahan' ? 'cells' : 'region'
   const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
 
   // ===== Region click handler (from choropleth polygon) =====
@@ -905,35 +899,26 @@ export function MapExplorer({
               />
               {layerOn.opportunity && (
                 <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.visualization')}</Label>
-                      <Select value={layerVizMode.opportunity} onValueChange={(v) => setLayerVizMode({ ...layerVizMode, opportunity: v as VizMode })}>
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cells">{t('map.viz_choropleth_cells')}</SelectItem>
-                          <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
-                          <SelectItem value="point">{t('map.viz_point_heat')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
-                      <Select
-                        value={layerRegion.opportunity}
-                        onValueChange={(v) => setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel })}
-                        disabled={layerVizMode.opportunity === 'point' || layerVizMode.opportunity === 'cells'}
-                      >
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
-                          <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
-                          <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  {/* Visualization: ALWAYS choropleth fill (per user request Aug 2026).
+                      Region level can be picked — at kelurahan level, we use color-coded
+                      CircleMarker cells (since GADM doesn't have kelurahan polygons).
+                      At kabupaten/kecamatan level, we use real GADM polygons. */}
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
+                    <Select
+                      value={layerRegion.opportunity}
+                      onValueChange={(v) => setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel })}
+                    >
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
+                        <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
+                        <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  {layerVizMode.opportunity === 'choropleth' && (
+                  {/* Metric selector — only show for kabupaten/kecamatan (kelurahan uses cells) */}
+                  {oppRegion !== 'kelurahan' && (
                     <div>
                       <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.metric')}</Label>
                       <Select value={oppMetric} onValueChange={(v) => setOppMetric(v as any)}>
@@ -947,16 +932,11 @@ export function MapExplorer({
                       </Select>
                     </div>
                   )}
-                  {layerVizMode.opportunity === 'cells' && (
-                    <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                      {t('map.choropleth_kelurahan_hint')}
-                    </div>
-                  )}
-                  {layerVizMode.opportunity === 'point' && (
-                    <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                      {t('map.point_mode_hint')}
-                    </div>
-                  )}
+                  <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
+                    {oppRegion === 'kelurahan'
+                      ? t('map.choropleth_kelurahan_hint')
+                      : t('map.choropleth_polygon_hint', { default: 'Each region is filled with a color representing the selected metric (quantile breaks).'})}
+                  </div>
                 </div>
               )}
 
@@ -971,6 +951,7 @@ export function MapExplorer({
               />
               {layerOn.demographics && (
                 <div className="pl-2 border-l-2 border-violet-500/30 space-y-2 ml-1">
+                  {/* Visualization: ALWAYS choropleth fill (per user request Aug 2026). */}
                   <div>
                     <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.metric')}</Label>
                     <Select value={demoMetric} onValueChange={(v) => setDemoMetric(v as DemoMetric)}>
@@ -982,34 +963,19 @@ export function MapExplorer({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.visualization')}</Label>
-                      <Select
-                        value={layerVizMode.demographics}
-                        onValueChange={(v) => setLayerVizMode({ ...layerVizMode, demographics: v as VizMode })}
-                      >
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
-                          <SelectItem value="point">{t('map.viz_point_village')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
-                      <Select
-                        value={layerRegion.demographics}
-                        onValueChange={(v) => setLayerRegion({ ...layerRegion, demographics: v as RegionLevel })}
-                      >
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
-                          <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
-                          <SelectItem value="kelurahan">{t('map.kelurahan_villages')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
+                    <Select
+                      value={layerRegion.demographics}
+                      onValueChange={(v) => setLayerRegion({ ...layerRegion, demographics: v as RegionLevel })}
+                    >
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
+                        <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
+                        <SelectItem value="kelurahan">{t('map.kelurahan_villages')}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
                     {t('map.demographics_hint', { n: demoData.length })}

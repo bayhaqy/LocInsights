@@ -22,6 +22,7 @@ import {
   rowsToCsv,
   rowsToXlsx,
   buildTemplate,
+  buildTemplateWithColumns,
   type EntityType,
 } from '@/lib/bulk-helpers'
 
@@ -54,8 +55,22 @@ export async function GET(req: NextRequest) {
     }
 
     if (isTemplate) {
-      const tpl = buildTemplate(entity)
-      const filename = `template_${entity}_${new Date().toISOString().slice(0,10)}.${format}`
+      // Support optional `columns` query param to build a template with only
+      // the user-selected columns (used by the "Import Selection Columns" feature).
+      const columnsParam = sp.get('columns')
+      let tpl: { csv: string; xlsx: Buffer }
+      let filename: string
+      if (columnsParam) {
+        const columnKeys = columnsParam.split(',').map(s => s.trim()).filter(Boolean)
+        const result = buildTemplateWithColumns(entity, columnKeys)
+        tpl = { csv: result.csv, xlsx: result.xlsx }
+        const colCount = result.includedKeys.length
+        filename = `template_${entity}_${colCount}cols_${new Date().toISOString().slice(0,10)}.${format}`
+      } else {
+        const t = buildTemplate(entity)
+        tpl = { csv: t.csv, xlsx: t.xlsx }
+        filename = `template_${entity}_${new Date().toISOString().slice(0,10)}.${format}`
+      }
       if (format === 'csv') {
         return new NextResponse(tpl.csv, {
           headers: {

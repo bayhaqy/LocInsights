@@ -28,7 +28,11 @@ export async function paginate<T>(
 ): Promise<NextResponse> {
   const sp = req.nextUrl.searchParams
   const page = Math.max(1, Number(sp.get('page') || 1))
-  const pageSize = Math.min(200, Math.max(1, Number(sp.get('page_size') || 50)))
+  // Allow up to 5000 rows per page when explicitly requested (used by Data
+  // Manager table view so client-side filters can apply to the FULL dataset,
+  // not just the current page — per user request Aug 2026).
+  // Default is 50 (small, fast); max is 5000 (effectively "all").
+  const pageSize = Math.min(5000, Math.max(1, Number(sp.get('page_size') || 50)))
   const skip = (page - 1) * pageSize
 
   let where: any = opts.where || {}
