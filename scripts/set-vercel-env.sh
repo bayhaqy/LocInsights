@@ -10,10 +10,15 @@
 # This script sets:
 #   - NEXTAUTH_SECRET (strong random secret for JWT signing)
 #   - NEXTAUTH_URL (production URL)
-#   - NEXTAUTH_SUPERADMIN_USERNAME (default: bayhaqy)
-#   - NEXTAUTH_SUPERADMIN_PASSWORD_HASH (bcrypt hash of "LockInsight@01!!")
 #
-# After setting these, trigger a redeploy:
+# NOTE (Aug 2026): The superadmin is NO LONGER managed via env vars.
+#   - The `bayhaqy` superadmin is seeded DIRECTLY into the Supabase users
+#     table by running: `bun run scripts/seed-superadmin.ts`
+#   - That script is idempotent — safe to re-run anytime.
+#   - To rotate the superadmin password, re-run with --reset-password or
+#     --password "NewStrongPass123".
+#
+# After setting these env vars + seeding the superadmin, trigger a redeploy:
 #   vercel --prod
 #
 
@@ -46,26 +51,25 @@ echo "$SECRET" | vercel env add NEXTAUTH_SECRET production --force
 echo "Setting NEXTAUTH_URL..."
 echo "https://locinsights.bayhaqy.my.id" | vercel env add NEXTAUTH_URL production --force
 
-echo "Setting NEXTAUTH_SUPERADMIN_USERNAME..."
-echo "bayhaqy" | vercel env add NEXTAUTH_SUPERADMIN_USERNAME production --force
+# Clean up legacy superadmin env vars (no longer used)
+echo ""
+echo "Cleaning up legacy superadmin env vars (no longer used)..."
+vercel env rm NEXTAUTH_SUPERADMIN_USERNAME production --yes 2>/dev/null || true
+vercel env rm NEXTAUTH_SUPERADMIN_PASSWORD_HASH production --yes 2>/dev/null || true
 
-# Bcrypt hash of "LockInsight@01!!" (10 rounds)
-echo "Setting NEXTAUTH_SUPERADMIN_PASSWORD_HASH..."
-echo '$2b$10$zidc.l/W86v/6sRRKX3rXuWyuSbrWIZnVy4rKmY1mcEL/yb9Ao7UW' | vercel env add NEXTAUTH_SUPERADMIN_PASSWORD_HASH production --force
-
 echo ""
-echo "✅ All env vars set!"
+echo "✅ Vercel env vars set!"
 echo ""
-echo "Next steps:"
-echo "  1. Trigger a production deploy: vercel --prod"
-echo "  2. Or push a new commit to main (auto-deploy)"
-echo "  3. Verify: curl -sS -o /dev/null -w '%{http_code}' https://locinsights.bayhaqy.my.id/"
-echo "     Should return 307 (redirect to /login)"
+echo "NEXT STEP — seed the superadmin into the Supabase users table:"
+echo "  bun run scripts/seed-superadmin.ts"
 echo ""
-echo "Login credentials:"
+echo "Then trigger a production deploy:"
+echo "  vercel --prod  (or push a new commit to main for auto-deploy)"
+echo ""
+echo "Login credentials (after seeding):"
 echo "  Username: bayhaqy"
 echo "  Password: LockInsight@01!!"
 echo ""
-echo "⚠️  To change the password:"
-echo "  1. Generate new hash: node scripts/gen-hash.js"
-echo "  2. Update NEXTAUTH_SUPERADMIN_PASSWORD_HASH on Vercel"
+echo "⚠️  To rotate the password later:"
+echo "  bun run scripts/seed-superadmin.ts --reset-password"
+echo "  bun run scripts/seed-superadmin.ts --password \"NewStrongPass123\""

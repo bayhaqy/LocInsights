@@ -14,16 +14,16 @@ import { db as prisma } from './db'
  *   - PKCE-style state validation (NextAuth default)
  *   - DB-backed brute-force lockout (failed_login_count + locked_until)
  *
- * Bootstrap behavior (env-var superadmin fallback):
- *   - On startup, if no users exist in the DB, the env-var-configured
- *     superadmin (NEXTAUTH_SUPERADMIN_USERNAME / _PASSWORD_HASH) is
- *     auto-created with role=superadmin, is_active=true.
- *   - This ensures the very first login works out-of-the-box without
- *     manual DB seeding, while subsequent users are managed via the
- *     /admin/users panel.
- *   - If the env-var user DOES exist but its hash differs from env, the
- *     hash is updated (lets the operator rotate the superadmin password
- *     via env var change + redeploy).
+ * Bootstrap behavior (DB-only — NO env vars needed for superadmin):
+ *   - The `bayhaqy` superadmin is seeded DIRECTLY into the Supabase `users`
+ *     table by running: `bun run scripts/seed-superadmin.ts`
+ *   - This script is idempotent: it creates the user if missing, or upgrades
+ *     them to superadmin if they exist with a lower role.
+ *   - The previous env-var approach (NEXTAUTH_SUPERADMIN_PASSWORD_HASH) has
+ *     been REMOVED per user request — the superadmin is now managed purely
+ *     through the DB like every other user.
+ *   - To rotate the superadmin password: re-run the seed script with
+ *     `--reset-password` or `--password "NewPass"`.
  *
  * Security best practices implemented:
  *   - Strong NEXTAUTH_SECRET required (no insecure dev fallback in production)
@@ -38,11 +38,6 @@ import { db as prisma } from './db'
  *   - analyst    : read + run ML/AI forecasts (no master data mutations)
  *   - viewer     : read-only dashboards/maps
  */
-
-// Pre-computed bcrypt hash of "LockInsight@01!!" (10 rounds).
-// Used ONLY to bootstrap the env-var superadmin if no users exist in DB.
-// To regenerate: node scripts/gen-hash.js
-const DEFAULT_SUPERADMIN_HASH = '$2b$10$zidc.l/W86v/6sRRKX3rXuWyuSbrWIZnVy4rKmY1mcEL/yb9Ao7UW'
 
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const IS_PROD = NODE_ENV === 'production'
@@ -67,12 +62,6 @@ function getNextAuthSecret(): string {
     console.warn('⚠️  NEXTAUTH_SECRET is shorter than 32 chars — consider regenerating with `openssl rand -base64 32`')
   }
   return secret
-}
-
-function getSuperadminConfig() {
-  const username = process.env.NEXTAUTH_SUPERADMIN_USERNAME || 'bayhaqy'
-  const hash = process.env.NEXTAUTH_SUPERADMIN_PASSWORD_HASH || DEFAULT_SUPERADMIN_HASH
-  return { username, hash }
 }
 
 // In-memory rate-limit (best-effort for Vercel cold-start; the DB-side
@@ -109,46 +98,11 @@ function clearAttempts(ip: string) {
   loginAttempts.delete(ip)
 }
 
-// ===== Bootstrap env-var superadmin on first run =====
-let bootstrapPromise: Promise<void> | null = null
-
-async function ensureSuperadminBootstrapped() {
-  if (bootstrapPromise) return bootstrapPromise
-  bootstrapPromise = (async () => {
-    try {
-      const { username, hash } = getSuperadminConfig()
-      const existing = await prisma.user.findUnique({ where: { username } })
-      if (!existing) {
-        // No superadmin yet — check whether the DB has ANY users
-        const userCount = await prisma.user.count()
-        if (userCount === 0) {
-          await prisma.user.create({
-            data: {
-              username,
-              email: `${username}@locinsight.local`,
-              display_name: username.charAt(0).toUpperCase() + username.slice(1),
-              password_hash: hash,
-              role: 'superadmin',
-              is_active: true,
-              created_by: 'env-bootstrap',
-            },
-          })
-          console.log(`[auth] Bootstrapped superadmin '${username}' from env vars.`)
-        }
-      } else if (existing.password_hash !== hash) {
-        // Hash differs from env — rotate it (lets ops force password change via env)
-        await prisma.user.update({
-          where: { id: existing.id },
-          data: { password_hash: hash, role: 'superadmin', is_active: true },
-        })
-        console.log(`[auth] Rotated superadmin '${username}' password hash from env vars.`)
-      }
-    } catch (err) {
-      console.error('[auth] Failed to bootstrap superadmin:', err)
-    }
-  })()
-  return bootstrapPromise
-}
+// ===== Bootstrap superadmin via DB seed script (NOT env vars) =====
+// Run `bun run scripts/seed-superadmin.ts` once to add the bayhaqy superadmin
+// to the users table. The script is idempotent — safe to re-run anytime.
+// This block is intentionally a no-op at runtime; the bootstrap is done
+// out-of-band via the seed script so we don't need any env vars for auth.
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -166,9 +120,6 @@ export const authOptions: NextAuthOptions = {
         const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0] : 'unknown') || 'unknown'
         const rl = checkRateLimit(ip)
         if (!rl.allowed) return null
-
-        // Make sure the env-var superadmin exists (idempotent)
-        await ensureSuperadminBootstrapped()
 
         // Look up the user in the DB
         const user = await prisma.user.findUnique({

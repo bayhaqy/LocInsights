@@ -7,6 +7,7 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { OfflineBanner } from "@/components/locinsight/offline-banner";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -103,6 +104,8 @@ export default function RootLayout({
             }`,
           }}
         />
+        {/* Vercel Web Analytics — privacy-friendly, no cookies, auto page-view tracking */}
+        <Analytics />
       </body>
     </html>
   );
