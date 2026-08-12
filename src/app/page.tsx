@@ -17,6 +17,7 @@ import { CompetitorIntel } from '@/components/locinsight/competitor-intel'
 import { ABTestSimulator } from '@/components/locinsight/ab-test-simulator'
 import { MallTenants } from '@/components/locinsight/mall-tenants'
 import { About } from '@/components/locinsight/about'
+import { Documentation } from '@/components/locinsight/documentation'
 import { AIChat } from '@/components/locinsight/ai-chat'
 import { LanguageSwitcher } from '@/components/locinsight/language-switcher'
 import { InstallPrompt } from '@/components/locinsight/install-prompt'
@@ -44,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'data', label: 'nav.data', icon: Database, description: 'nav.data.desc' },
   { id: 'scraper', label: 'nav.scraper', icon: Search, description: 'nav.scraper.desc' },
   { id: 'methodology', label: 'nav.methodology', icon: BookOpen, description: 'nav.methodology.desc' },
+  { id: 'docs', label: 'nav.docs', icon: FileText, description: 'nav.docs.desc' },
   { id: 'about', label: 'nav.about', icon: Info, description: 'nav.about.desc' },
   { id: 'settings', label: 'nav.settings', icon: SettingsIcon, description: 'nav.settings.desc' },
 ]
@@ -201,6 +203,7 @@ export default function Home() {
           {activeView === 'data' && <DataManager />}
           {activeView === 'scraper' && <Scraper />}
           {activeView === 'methodology' && <Methodology />}
+          {activeView === 'docs' && <Documentation />}
           {activeView === 'about' && <About />}
           {activeView === 'settings' && <Settings />}
         </div>
