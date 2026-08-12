@@ -15,6 +15,11 @@ import { NextResponse } from 'next/server'
  *
  * For client-side nav protection, see src/app/page.tsx — admin-only nav items
  * (Data Manager, Scraper, Settings) are filtered out by role via useSession().
+ *
+ * NOTE: The matcher below is intentionally narrow — it only matches mutation
+ * endpoints, NOT the entire app. This avoids accidentally wrapping public
+ * pages in NextAuth's session-check flow, which would cause redirect loops
+ * if NEXTAUTH_SECRET is missing or misconfigured on Vercel.
  */
 
 const ADMIN_PATHS = [
@@ -68,10 +73,10 @@ export default withAuth(
   }
 )
 
+// Narrow matcher — ONLY match /api/locinsight/* paths, NOT the whole app.
+// Public pages (/, /login, /survey, /docs, etc.) bypass middleware entirely.
 export const config = {
-  // Skip middleware for static assets, _next, and the login page itself
   matcher: [
     '/api/locinsight/:path*',
-    '/((?!_next/static|_next/image|favicon.ico|logo-|apple-touch-icon|manifest.json|sw.js|robots.txt|geojson|locinsights.apk|well-known|login).*)',
   ],
 }
