@@ -1,48 +1,49 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import { db as prisma } from './db'
 
 /**
  * NextAuth configuration for LocInsight (Aug 2026 best-practice overhaul).
  *
  * Authentication strategy:
  *   - Credentials provider (username + password)
- *   - Passwords hashed with bcrypt (10 rounds)
+ *   - Passwords hashed with bcrypt (10 rounds), stored in `users` table
  *   - JWT session strategy (stateless, works on Vercel serverless)
  *   - 30-day session expiry with rolling refresh
  *   - PKCE-style state validation (NextAuth default)
+ *   - DB-backed brute-force lockout (failed_login_count + locked_until)
+ *
+ * Bootstrap behavior (env-var superadmin fallback):
+ *   - On startup, if no users exist in the DB, the env-var-configured
+ *     superadmin (NEXTAUTH_SUPERADMIN_USERNAME / _PASSWORD_HASH) is
+ *     auto-created with role=superadmin, is_active=true.
+ *   - This ensures the very first login works out-of-the-box without
+ *     manual DB seeding, while subsequent users are managed via the
+ *     /admin/users panel.
+ *   - If the env-var user DOES exist but its hash differs from env, the
+ *     hash is updated (lets the operator rotate the superadmin password
+ *     via env var change + redeploy).
  *
  * Security best practices implemented:
  *   - Strong NEXTAUTH_SECRET required (no insecure dev fallback in production)
  *   - Cookies marked httpOnly + secure + sameSite=lax (NextAuth defaults)
- *   - JWT contains role + username (signed with secret)
+ *   - JWT contains role + username + user_id (signed with secret)
  *   - Credentials never logged or returned in errors
- *   - Single-user mode (only the configured superadmin can authenticate)
+ *   - Per-user DB-side lockout (5 attempts / 15 min)
+ *   - Audit log entries for login success/failure
  *
  * Roles:
- *   - superadmin → full access to all menus + mutations
- *   - (no other roles provisioned yet — single-tenant deployment)
- *
- * The superadmin user is configured via env vars:
- *   NEXTAUTH_SUPERADMIN_USERNAME (default: bayhaqy)
- *   NEXTAUTH_SUPERADMIN_PASSWORD_HASH (bcrypt hash of the password)
- *
- * PRODUCTION SECURITY: NEXTAUTH_SECRET must be set to a strong random
- * value (>= 32 chars, base64). If missing, the app refuses to start in
- * production mode. In development, a warning is logged and a dev secret
- * is used (so local dev doesn't break).
+ *   - superadmin : full CRUD + user/role management
+ *   - analyst    : read + run ML/AI forecasts (no master data mutations)
+ *   - viewer     : read-only dashboards/maps
  */
 
 // Pre-computed bcrypt hash of "LockInsight@01!!" (10 rounds).
+// Used ONLY to bootstrap the env-var superadmin if no users exist in DB.
 // To regenerate: node scripts/gen-hash.js
 const DEFAULT_SUPERADMIN_HASH = '$2b$10$zidc.l/W86v/6sRRKX3rXuWyuSbrWIZnVy4rKmY1mcEL/yb9Ao7UW'
 
-// In production, require a real NEXTAUTH_SECRET. In dev, fall back to a
-// (insecure) dev secret so local `next dev` doesn't crash.
-// NOTE: We don't throw at module load time even in production — throwing
-// during `next build` causes the build to fail, which prevents deployment.
-// Instead, we log a warning and use a placeholder; actual auth will fail
-// at runtime if the secret is missing (sessions won't verify).
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const IS_PROD = NODE_ENV === 'production'
 
@@ -54,7 +55,6 @@ function getNextAuthSecret(): string {
         'FATAL: NEXTAUTH_SECRET is not set. Generate one with `openssl rand -base64 32` ' +
         'and add it to your Vercel env vars. Auth will fail until this is set.'
       )
-      // Return a placeholder — auth will fail at runtime, but build succeeds.
       return 'locinsight-missing-secret-auth-will-fail'
     }
     console.warn(
@@ -75,12 +75,12 @@ function getSuperadminConfig() {
   return { username, hash }
 }
 
-// Rate-limit failed login attempts per IP (in-memory; resets on serverless cold start).
-// This is a basic protection against brute-force. For production at scale,
-// upgrade to Upstash Redis rate-limit.
+// In-memory rate-limit (best-effort for Vercel cold-start; the DB-side
+// `locked_until` provides the real persistent protection).
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
 const MAX_ATTEMPTS = 5
 const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
+const LOCKOUT_MS = 15 * 60 * 1000 // 15 minutes
 
 function checkRateLimit(ip: string): { allowed: boolean; retryAfterMs: number } {
   const now = Date.now()
@@ -109,6 +109,47 @@ function clearAttempts(ip: string) {
   loginAttempts.delete(ip)
 }
 
+// ===== Bootstrap env-var superadmin on first run =====
+let bootstrapPromise: Promise<void> | null = null
+
+async function ensureSuperadminBootstrapped() {
+  if (bootstrapPromise) return bootstrapPromise
+  bootstrapPromise = (async () => {
+    try {
+      const { username, hash } = getSuperadminConfig()
+      const existing = await prisma.user.findUnique({ where: { username } })
+      if (!existing) {
+        // No superadmin yet — check whether the DB has ANY users
+        const userCount = await prisma.user.count()
+        if (userCount === 0) {
+          await prisma.user.create({
+            data: {
+              username,
+              email: `${username}@locinsight.local`,
+              display_name: username.charAt(0).toUpperCase() + username.slice(1),
+              password_hash: hash,
+              role: 'superadmin',
+              is_active: true,
+              created_by: 'env-bootstrap',
+            },
+          })
+          console.log(`[auth] Bootstrapped superadmin '${username}' from env vars.`)
+        }
+      } else if (existing.password_hash !== hash) {
+        // Hash differs from env — rotate it (lets ops force password change via env)
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: { password_hash: hash, role: 'superadmin', is_active: true },
+        })
+        console.log(`[auth] Rotated superadmin '${username}' password hash from env vars.`)
+      }
+    } catch (err) {
+      console.error('[auth] Failed to bootstrap superadmin:', err)
+    }
+  })()
+  return bootstrapPromise
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -120,37 +161,89 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password) return null
 
-        // Basic rate-limit by IP (best-effort; headers may be missing on Vercel)
+        // In-memory rate-limit by IP (fast path)
         const forwarded = (req as any)?.headers?.['x-forwarded-for']
         const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0] : 'unknown') || 'unknown'
         const rl = checkRateLimit(ip)
-        if (!rl.allowed) {
-          return null
-        }
+        if (!rl.allowed) return null
 
-        const { username: adminUser, hash: adminHash } = getSuperadminConfig()
+        // Make sure the env-var superadmin exists (idempotent)
+        await ensureSuperadminBootstrapped()
 
-        // Only the configured superadmin can log in (single-user mode for now)
-        if (credentials.username !== adminUser) {
+        // Look up the user in the DB
+        const user = await prisma.user.findUnique({
+          where: { username: credentials.username },
+        })
+
+        if (!user) {
           recordFailedAttempt(ip)
           return null
         }
 
-        // Verify password against bcrypt hash (constant-time comparison via bcrypt)
-        const valid = await bcrypt.compare(credentials.password, adminHash)
+        // Check active flag
+        if (!user.is_active) {
+          recordFailedAttempt(ip)
+          return null
+        }
+
+        // Check DB-side lockout
+        if (user.locked_until && new Date(user.locked_until) > new Date()) {
+          recordFailedAttempt(ip)
+          return null
+        }
+
+        // Verify password (constant-time via bcrypt)
+        const valid = await bcrypt.compare(credentials.password, user.password_hash)
         if (!valid) {
+          // Increment failed_login_count; lock after MAX_ATTEMPTS
+          const newCount = user.failed_login_count + 1
+          const shouldLock = newCount >= MAX_ATTEMPTS
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failed_login_count: newCount,
+              locked_until: shouldLock ? new Date(Date.now() + LOCKOUT_MS) : user.locked_until,
+            },
+          })
+          // Audit log
+          await prisma.userAuditLog.create({
+            data: {
+              user_id: user.id,
+              action: 'login',
+              details: { success: false, reason: 'invalid_password', attempt: newCount },
+              ip_address: ip,
+            },
+          }).catch(() => {})
           recordFailedAttempt(ip)
           return null
         }
 
-        // Successful login — clear rate-limit counter
+        // Successful login — clear counters + update last_login_at
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failed_login_count: 0,
+            locked_until: null,
+            last_login_at: new Date(),
+          },
+        })
+        // Audit log
+        await prisma.userAuditLog.create({
+          data: {
+            user_id: user.id,
+            action: 'login',
+            details: { success: true },
+            ip_address: ip,
+          },
+        }).catch(() => {})
+
         clearAttempts(ip)
 
         return {
-          id: '1',
-          name: credentials.username,
-          email: `${credentials.username}@locinsight.local`,
-          role: 'superadmin' as const,
+          id: user.id,
+          name: user.username,
+          email: user.email || `${user.username}@locinsight.local`,
+          role: user.role,
         } as any
       },
     }),
@@ -165,15 +258,9 @@ export const authOptions: NextAuthOptions = {
     error: '/login',
   },
   cookies: {
-    // Production: secure cookies (requires HTTPS). Dev: lax for localhost.
     sessionToken: {
       name: IS_PROD ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: IS_PROD,
-      },
+      options: { httpOnly: true, sameSite: 'lax', path: '/', secure: IS_PROD },
     },
     callbackUrl: {
       name: `next-auth.callback-url`,
@@ -201,6 +288,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = (user as any).role || 'viewer'
         token.username = (user as any).name || ''
+        token.user_id = (user as any).id || ''
       }
       return token
     },
@@ -208,6 +296,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         ;(session.user as any).role = token.role
         ;(session.user as any).username = token.username
+        ;(session.user as any).id = token.user_id
       }
       return session
     },
@@ -215,4 +304,3 @@ export const authOptions: NextAuthOptions = {
   secret: getNextAuthSecret(),
   debug: !IS_PROD && process.env.NEXTAUTH_DEBUG === 'true',
 }
-

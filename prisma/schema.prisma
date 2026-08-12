@@ -569,6 +569,71 @@ model TrainingRun {
   @@index([status])
 }
 
+// ============================================================================
+// Authentication & RBAC models (Aug 2026 — DB-backed user management)
+// ============================================================================
+// Backs the NextAuth Credentials provider + the superadmin user-management
+// panel. The first superadmin (`bayhaqy`) is bootstrapped from env vars on
+// startup; subsequent users are created/managed via the admin UI.
+//
+// Roles:
+//   - superadmin : full CRUD on all master data + can manage users/roles
+//   - analyst    : read-only on analytics + can run ML/AI forecasts,
+//                  cannot edit master data or manage users
+//   - viewer     : read-only on dashboards/maps only — no mutations,
+//                  no access to Data Manager / Scraper / Settings / Users
+//
+// Security notes:
+//   - Passwords are stored as bcrypt hashes (10 rounds) — never plaintext.
+//   - `is_active=false` disables login without deleting the user record.
+//   - `failed_login_count` + `locked_until` enforce DB-side brute-force lockout.
+//   - All mutations are audited via `UserAuditLog` for traceability.
+
+enum user_role_enum {
+  superadmin
+  analyst
+  viewer
+}
+
+model User {
+  @@map("users")
+  id                String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  username          String         @unique
+  email             String?        @unique
+  display_name      String?
+  password_hash     String
+  role              user_role_enum @default(viewer)
+  is_active         Boolean        @default(true)
+  failed_login_count Int           @default(0)
+  locked_until      DateTime?
+  last_login_at     DateTime?      @db.Timestamptz(6)
+  created_at        DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime       @updatedAt @db.Timestamptz(6)
+  created_by        String?
+
+  audit_logs        UserAuditLog[]
+
+  @@index([role])
+  @@index([is_active])
+}
+
+model UserAuditLog {
+  @@map("user_audit_logs")
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_id    String
+  actor_id   String?
+  action     String   // create | update | delete | login | logout | lock | unlock | reset_password
+  details    Json?
+  ip_address String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([action])
+  @@index([created_at])
+}
+
 enum admin_tier_enum {
   tier_1 @map("1")
   tier_2 @map("2")

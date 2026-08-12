@@ -23,13 +23,14 @@ import { AIChat } from '@/components/locinsight/ai-chat'
 import { LanguageSwitcher } from '@/components/locinsight/language-switcher'
 import { InstallPrompt } from '@/components/locinsight/install-prompt'
 import { Settings } from '@/components/locinsight/settings'
+import { UserManagement } from '@/components/locinsight/user-management'
 import { useLanguage } from '@/lib/i18n/language-provider'
 import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
   FileText, Database, Search, Brain, Shield, GitCompareArrows, StoreIcon, Info,
   PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, HelpCircle,
-  LogIn, LogOut, ShieldCheck,
+  LogIn, LogOut, ShieldCheck, Users as UsersIcon,
 } from 'lucide-react'
 
 // All nav items — admin-only items are flagged via `adminOnly: true`
@@ -55,6 +56,8 @@ const ALL_NAV_ITEMS: (NavItem & { adminOnly?: boolean })[] = [
   { id: 'about', label: 'nav.about', icon: Info, description: 'nav.about.desc' },
   // Admin-only: Settings (AI config, map tiles) — requires login
   { id: 'settings', label: 'nav.settings', icon: SettingsIcon, description: 'nav.settings.desc', adminOnly: true },
+  // Admin-only: User & Role Management (superadmin only)
+  { id: 'users', label: 'nav.users', icon: UsersIcon, description: 'nav.users.desc', adminOnly: true },
 ]
 
 export default function Home() {
@@ -260,6 +263,7 @@ export default function Home() {
           {activeView === 'docs' && <Documentation />}
           {activeView === 'about' && <About />}
           {activeView === 'settings' && <Settings />}
+          {activeView === 'users' && <UserManagement />}
         </div>
 
         <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-auto">
