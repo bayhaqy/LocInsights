@@ -287,7 +287,14 @@ export function ChoroplethDemographicsLayer({
     }
   }, [map, geoData, lookup, metric, showLabels, breaks, scale, granularity])
 
-  // === Kelurahan-level point rendering (no polygons — too small to render as choropleth) ===
+  // === Kelurahan-level rendering ===
+  // Per user request (Aug 2026): "for demographics only show choropleth"
+  // At kelurahan level we don't have GADM polygons, so we render each
+  // kelurahan as a SMALL FILLED CIRCLE that visually behaves like a
+  // choropleth cell (color = metric quantile, no popup-spamming dots).
+  // The radius is intentionally small so adjacent cells form a continuous
+  // colored field — like a pointillist choropleth — rather than a
+  // sparse scatter of dots with rich popups.
   useEffect(() => {
     if (granularity !== 'kelurahan') return
 
@@ -309,21 +316,22 @@ export function ChoroplethDemographicsLayer({
       const color = hasValue ? getColor(scale, colorIdx) : '#cccccc'
       const displayValue = hasValue ? fmt(row.value as number) : 'No data'
 
-      // Larger circle for higher value (visual emphasis)
-      const radius = hasValue ? 5 + colorIdx * 1.5 : 4
+      // Fixed small radius — visual cell, NOT a clickable info dot
+      const radius = 6
 
       const marker = L.circleMarker([row.lat as number, row.lng as number], {
         radius,
         color: '#0F0F12',
-        weight: 0.8,
-        opacity: 0.7,
+        weight: 0.4,
+        opacity: 0.5,
         fillColor: color,
-        fillOpacity: hasValue ? 0.85 : 0.3,
+        fillOpacity: hasValue ? 0.85 : 0.25,
       })
 
       const popText = row.population != null ? row.population.toLocaleString() : '—'
       const tierText = row.tier ? `Tier ${row.tier}` : '—'
 
+      // Tooltip only — no popup, since the user wants pure choropleth visualization
       marker.bindTooltip(
         `<div style="font-size:11px;line-height:1.5;min-width:160px">
           <strong style="font-size:12.5px">${row.name}</strong><br/>

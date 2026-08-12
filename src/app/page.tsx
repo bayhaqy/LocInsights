@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import { Sidebar, type NavItem } from '@/components/locinsight/sidebar'
 import { Dashboard } from '@/components/locinsight/dashboard'
 import { MapExplorer } from '@/components/locinsight/map-explorer'
@@ -27,10 +28,13 @@ import type { OverviewData } from '@/components/locinsight/types'
 import {
   LayoutDashboard, Map, Target, Crosshair, Building2, Store, BookOpen,
   FileText, Database, Search, Brain, Shield, GitCompareArrows, StoreIcon, Info,
-  PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon,
+  PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, HelpCircle,
+  LogIn, LogOut, ShieldCheck,
 } from 'lucide-react'
 
-const NAV_ITEMS: NavItem[] = [
+// All nav items — admin-only items are flagged via `adminOnly: true`
+// and filtered out when the user is not authenticated as superadmin.
+const ALL_NAV_ITEMS: (NavItem & { adminOnly?: boolean })[] = [
   { id: 'dashboard', label: 'nav.dashboard', icon: LayoutDashboard, description: 'nav.dashboard.desc' },
   { id: 'map', label: 'nav.map', icon: Map, description: 'nav.map.desc' },
   { id: 'opportunities', label: 'nav.opportunities', icon: Target, description: 'nav.opportunities.desc' },
@@ -42,22 +46,43 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'ml', label: 'nav.ml', icon: Brain, description: 'nav.ml.desc' },
   { id: 'mall_tenants', label: 'nav.mall_tenants', icon: StoreIcon, description: 'nav.mall_tenants.desc' },
   { id: 'reports', label: 'nav.reports', icon: FileText, description: 'nav.reports.desc' },
-  { id: 'data', label: 'nav.data', icon: Database, description: 'nav.data.desc' },
-  { id: 'scraper', label: 'nav.scraper', icon: Search, description: 'nav.scraper.desc' },
+  // Admin-only: Data Manager (CRUD on master data) — requires login
+  { id: 'data', label: 'nav.data', icon: Database, description: 'nav.data.desc', adminOnly: true },
+  // Admin-only: Scraper (OSM Overpass trigger) — requires login
+  { id: 'scraper', label: 'nav.scraper', icon: Search, description: 'nav.scraper.desc', adminOnly: true },
   { id: 'methodology', label: 'nav.methodology', icon: BookOpen, description: 'nav.methodology.desc' },
-  { id: 'docs', label: 'nav.docs', icon: FileText, description: 'nav.docs.desc' },
+  { id: 'docs', label: 'nav.docs', icon: HelpCircle, description: 'nav.docs.desc' },
   { id: 'about', label: 'nav.about', icon: Info, description: 'nav.about.desc' },
-  { id: 'settings', label: 'nav.settings', icon: SettingsIcon, description: 'nav.settings.desc' },
+  // Admin-only: Settings (AI config, map tiles) — requires login
+  { id: 'settings', label: 'nav.settings', icon: SettingsIcon, description: 'nav.settings.desc', adminOnly: true },
 ]
 
 export default function Home() {
   const { t } = useLanguage()
+  const { data: session, status } = useSession()
+  const isAdmin = session?.user?.role === 'superadmin'
   const [activeView, setActiveView] = useState('dashboard')
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedKelurahanId, setSelectedKelurahanId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Filter nav items by role — admin-only items hidden when not authenticated.
+  // Per user request (Aug 2026): "jangan tampilkan keseluruhan akses websitenya/reponya"
+  // (don't show full access to the website/repo for non-logged-in users).
+  const NAV_ITEMS = useMemo(() => {
+    return ALL_NAV_ITEMS.filter(item => !item.adminOnly || isAdmin)
+  }, [isAdmin])
+
+  // If the current active view is admin-only and the user just logged out,
+  // gracefully fall back to dashboard.
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      const current = ALL_NAV_ITEMS.find(i => i.id === activeView)
+      if (current?.adminOnly) setActiveView('dashboard')
+    }
+  }, [status, activeView])
 
   useEffect(() => {
     fetch('/api/locinsight/overview')
@@ -140,6 +165,29 @@ export default function Home() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <InstallPrompt />
             <LanguageSwitcher />
+            {/* Login / Logout button — admin features (Data Manager, Scraper, Settings) gated behind login */}
+            {status === 'loading' ? (
+              <div className="w-8 h-8 rounded-md bg-[var(--brand-cream)] animate-pulse" />
+            ) : isAdmin ? (
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-[var(--brand-ink)]/70 hover:text-[var(--brand-red)] hover:bg-[var(--brand-cream)] transition-colors border border-[var(--brand-border)]"
+                title={`Signed in as ${session?.user?.name} (superadmin). Click to logout.`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[var(--brand-red)]" />
+                <span className="hidden sm:inline">{session?.user?.name}</span>
+                <LogOut className="w-3 h-3 ml-0.5" />
+              </button>
+            ) : (
+              <a
+                href="/login"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-white bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)] transition-colors"
+                title="Sign in as superadmin to access Data Manager, Scraper, Settings"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('nav.login')}</span>
+              </a>
+            )}
           </div>
         </header>
 

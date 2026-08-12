@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Info, BookOpen, Database, Cpu, GitBranch, Activity, Network,
   Layers, MapPin, Users, Building2, Target, Workflow, Sparkles,
-  Globe, Github,
+  Globe, ExternalLink,
 } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-provider'
 
@@ -130,7 +130,7 @@ export function About() {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <Database className="w-4 h-4 text-[var(--brand-red)]" />
-            Data Sources
+            Data Sources — Full Provenance Links
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 space-y-4">
@@ -138,48 +138,96 @@ export function About() {
             All data comes from public, verifiable sources. Each record in the master database carries a
             <code className="mx-1 px-1.5 py-0.5 bg-[var(--brand-cream)] rounded text-[11px]">source</code> field
             documenting its provenance — so analysts can audit any data point back to the original publication.
+            Click any link below to validate the source directly.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <DataSource
-              title="BPS Bali 2024"
-              desc="Population, area, density per kabupaten/kecamatan/kelurahan. GDRP per capita. HDI 2024."
+            <DataSourceWithLink
+              title="BPS Bali 2024 — Population, GDRP, HDI"
+              desc="Population per kabupaten/kecamatan/kelurahan, GDRP per capita, HDI 2024. Used for demographics + income index."
               type="Government Statistics"
+              urls={[
+                { label: 'BPS Bali Portal', href: 'https://bali.bps.go.id/' },
+                { label: 'BPS StatistikKu (API)', href: 'https://webapi.bps.go.id/developer/' },
+                { label: 'Bali Dalam Angka 2024 (PDF)', href: 'https://bali.bps.go.id/publikasi/2024/02/28/0ce40c4eb86d00f5ed80be81c192b1ae/provinsi-bali-dalam-angka-2024.html' },
+              ]}
             />
-            <DataSource
-              title="MAP Brand Directory (map.co.id)"
+            <DataSourceWithLink
+              title="MAP Brand Directory"
               desc="Verified list of MAP brands by category (F&B, Sports, Fashion, Department Store)."
               type="Company Public"
+              urls={[
+                { label: 'map.co.id', href: 'https://www.map.co.id/' },
+                { label: 'MAP Investor Relations', href: 'https://www.map.co.id/investor-relations' },
+              ]}
             />
-            <DataSource
-              title="MAP Active Brands (mapactive.id)"
-              desc="Sports/Leisure/Kids brand portfolio. Cross-referenced with sgbonline.com (2,200+ stores)."
+            <DataSourceWithLink
+              title="MAP Active Brands (MAA)"
+              desc="Sports/Leisure/Kids brand portfolio under MAP Active Adiperkasa."
               type="Company Public"
+              urls={[
+                { label: 'mapactive.id', href: 'https://www.mapactive.id/' },
+                { label: 'SGB Online Store Directory', href: 'https://www.sgbonline.com/' },
+              ]}
             />
-            <DataSource
+            <DataSourceWithLink
               title="Bali Mall Catalog"
-              desc="Mall names, location, GLA estimates, opening year. Verified against mall official sites."
+              desc="Mall names, location, GLA estimates, opening year. Verified against each mall's official website."
               type="Travel Directories"
+              urls={[
+                { label: 'Discovery Shopping Mall', href: 'https://www.discoverybalimall.com/' },
+                { label: 'Beachwalk Shopping Center', href: 'https://www.beachwalkbali.com/' },
+                { label: 'Lippo Mall Kuta', href: 'https://www.lippomallkuta.com/' },
+                { label: 'Trans Studio Mall Bali', href: 'https://www.transstudiobali.com/' },
+                { label: 'Level 21 Mall', href: 'https://www.level21mall.com/' },
+              ]}
             />
-            <DataSource
-              title="OpenStreetMap POI"
+            <DataSourceWithLink
+              title="OpenStreetMap POI Export"
               desc="Tourist attractions, beaches, temples, hotels, transit hubs, universities, hospitals. ODbL license."
               type="Open Geodata"
+              urls={[
+                { label: 'OSM Main Site', href: 'https://www.openstreetmap.org/' },
+                { label: 'Overpass API (POI queries)', href: 'https://overpass-api.de/' },
+                { label: 'Geofabrik Bali Extract', href: 'https://download.geofabrik.de/asia/indonesia.html' },
+              ]}
             />
-            <DataSource
+            <DataSourceWithLink
               title="GADM v4.1 Admin Boundaries"
-              desc="Real kabupaten & kecamatan polygons used for choropleth heatmap. Public academic-use license."
+              desc="Real kabupaten & kecamatan polygons used for choropleth. Public academic-use license."
               type="Open Geodata"
+              urls={[
+                { label: 'GADM.org', href: 'https://gadm.org/' },
+                { label: 'GADM Bali Download', href: 'https://gadm.org/maps/IDN/bali.html' },
+              ]}
             />
-            <DataSource
+            <DataSourceWithLink
               title="CARTO Light Basemap"
               desc="Vector tile basemap for visualization. Used in React-Leaflet for clean professional appearance."
               type="Map Tiles"
+              urls={[
+                { label: 'CARTO Basemaps', href: 'https://carto.com/basemaps/' },
+                { label: 'OSM Tile Usage Policy', href: 'https://operations.osmfoundation.org/policies/tiles/' },
+              ]}
             />
-            <DataSource
+            <DataSourceWithLink
               title="Nominatim + Overpass API"
               desc="Live geocoding + POI queries for the data scraper. Rate-limited per OSM usage policy (1 req/sec)."
               type="Live API"
+              urls={[
+                { label: 'Nominatim Geocoder', href: 'https://nominatim.openstreetmap.org/' },
+                { label: 'Overpass Turbo', href: 'https://overpass-turbo.eu/' },
+                { label: 'OSM API Usage Policy', href: 'https://wiki.openstreetmap.org/wiki/Usage_policy' },
+              ]}
+            />
+            <DataSourceWithLink
+              title="BPS Shapefile — Kelurahan Boundaries"
+              desc="Administrative boundaries at kelurahan (village) level for full 709 kelurahan coverage. Used for kelurahan-level choropleth."
+              type="Government Shapefile"
+              urls={[
+                { label: 'BPS Shapefile Portal', href: 'https://www.bps.go.id/id/interaktive-peta/2024/01/12/m2024fd6c4f9e0c.html' },
+                { label: 'INEGI Shapefile Spec', href: 'https://www.bps.go.id/id/publication' },
+              ]}
             />
           </div>
         </CardContent>
@@ -337,18 +385,7 @@ export function About() {
                 >
                   <Globe className="w-3.5 h-3.5" />
                   <span>bayhaqy.my.id</span>
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
-                </a>
-                <span className="text-[var(--brand-border)]">·</span>
-                <a
-                  href="https://github.com/bayhaqy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--brand-ink)]/70 hover:text-[var(--brand-ink)] transition-colors group"
-                >
-                  <Github className="w-3.5 h-3.5" />
-                  <span>github.com/bayhaqy</span>
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               </div>
             </div>
@@ -386,29 +423,57 @@ function WorkflowStage({ stage, title, desc }: { stage: string; title: string; d
   )
 }
 
-function DataSource({ title, desc, type }: { title: string; desc: string; type: string }) {
+function DataSourceWithLink({ title, desc, type, urls }: {
+  title: string
+  desc: string
+  type: string
+  urls: { label: string; href: string }[]
+}) {
   return (
-    <div className="border border-[var(--brand-border)] rounded-md p-3">
-      <div className="flex items-start justify-between mb-1">
-        <strong className="text-[12.5px] text-[var(--brand-ink)]">{title}</strong>
-        <Badge variant="outline" className="text-[9px] px-1 py-0 border-[var(--brand-red)]/30 text-[var(--brand-red)]">
+    <div className="border border-[var(--brand-border)] rounded-md p-3 bg-white">
+      <div className="flex items-start justify-between mb-1.5">
+        <strong className="text-[12.5px] text-[var(--brand-ink)] leading-tight flex-1 pr-2">{title}</strong>
+        <Badge variant="outline" className="text-[9px] px-1 py-0 border-[var(--brand-red)]/30 text-[var(--brand-red)] flex-shrink-0">
           {type}
         </Badge>
       </div>
-      <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug">{desc}</div>
+      <div className="text-[11px] text-[var(--brand-ink)]/70 leading-snug mb-2">{desc}</div>
+      <div className="space-y-1 pt-1.5 border-t border-[var(--brand-border)]/60">
+        {urls.map((u, i) => (
+          <a
+            key={i}
+            href={u.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[10.5px] font-medium text-[var(--brand-red)] hover:text-[var(--brand-red-dark)] hover:underline transition-colors group"
+          >
+            <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-60 group-hover:opacity-100" />
+            <span className="truncate">{u.label}</span>
+            <span className="text-[var(--brand-ink)]/40 font-mono text-[9.5px] truncate hidden sm:inline">{u.href.replace(/^https?:\/\//, '')}</span>
+          </a>
+        ))}
+      </div>
     </div>
   )
 }
 
 function Reference({ title, date, url }: { title: string; date: string; url: string }) {
   return (
-    <div className="flex items-start gap-2 text-[var(--brand-ink)]/80">
+    <a
+      href={`https://${url}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-start gap-2 text-[var(--brand-ink)]/80 hover:bg-[var(--brand-cream)] -mx-1 px-1 py-0.5 rounded transition-colors group"
+    >
       <span className="text-[var(--brand-red)] font-bold mt-0.5">▸</span>
-      <div className="flex-1">
-        <div className="text-[12px]">{title} <span className="text-[var(--brand-ink)]/50">({date})</span></div>
-        <div className="text-[10px] text-[var(--brand-ink)]/50 font-mono">{url}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] group-hover:text-[var(--brand-red)] transition-colors">
+          {title} <span className="text-[var(--brand-ink)]/50">({date})</span>
+        </div>
+        <div className="text-[10px] text-[var(--brand-ink)]/50 font-mono truncate group-hover:text-[var(--brand-red-dark)] transition-colors">{url}</div>
       </div>
-    </div>
+      <ExternalLink className="w-3 h-3 flex-shrink-0 text-[var(--brand-ink)]/40 group-hover:text-[var(--brand-red)] transition-colors mt-0.5" />
+    </a>
   )
 }
 

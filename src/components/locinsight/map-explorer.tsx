@@ -114,10 +114,12 @@ export function MapExplorer({
   })
 
   // Per-layer visualization mode (choropleth vs point vs cells)
-  // Default opportunity to 'cells' = choropleth-colored kelurahan cells (per user request Aug 2026:
-  // "by default show smallest region level for opportunity score" + "add choropleth option for kelurahan")
+  // Default opportunity to 'choropleth' = true GADM polygon choropleth (per user request Aug 2026:
+  // "by default show filled color in the area, not dots" — applies to opportunity + demographics).
+  // 'cells' (quantile-colored kelurahan CircleMarkers) and 'point' (heatmap intensity) remain
+  // available as opt-in alternatives for users who want finer kelurahan-level granularity.
   const [layerVizMode, setLayerVizMode] = useState<Record<LayerId, VizMode>>({
-    opportunity: 'cells',
+    opportunity: 'choropleth',
     demographics: 'choropleth',
     stores: 'point',
     malls: 'point',
@@ -129,8 +131,10 @@ export function MapExplorer({
 
   // Per-layer region level (only meaningful when vizMode = choropleth)
   // Default to 'kelurahan' = smallest region level per user request
+  // (but choropleth-layer only supports kabupaten/kecamatan for true GADM polygons;
+  // kelurahan falls back to 'cells' mode which uses CircleMarkers as colored cells)
   const [layerRegion, setLayerRegion] = useState<Record<LayerId, RegionLevel>>({
-    opportunity: 'kelurahan',
+    opportunity: 'kabupaten',
     demographics: 'kelurahan',
     stores: 'kabupaten',
     malls: 'kabupaten',
@@ -187,7 +191,9 @@ export function MapExplorer({
       .catch(() => {})
   }, [])
 
-  // ===== Region Filter (applies to ALL layers) =====
+  // ===== Region Filter (applies to ALL layers) — Country → Province → Kabupaten → Kecamatan → Kelurahan =====
+  const [countryFilter, setCountryFilter] = useState<string>('ID')   // Default: Indonesia (Bali scope)
+  const [provinceFilter, setProvinceFilter] = useState<string>('Bali') // Default: Bali province
   const [kabFilter, setKabFilter] = useState<string>('all')
   const [kecFilter, setKecFilter] = useState<string>('all')
   const [kelurahanFilter, setKelurahanFilter] = useState<string>('all')
@@ -199,6 +205,15 @@ export function MapExplorer({
   const [scoreRange, setScoreRange] = useState<[number, number]>([0, 100])
 
   const selected = opportunities.find(o => o.kelurahan_id === selectedKelurahanId)
+
+  // Static list of supported countries (Aug 2026: only Indonesia — but cascade architecture supports more)
+  const COUNTRY_OPTIONS = [
+    { code: 'ID', label: 'Indonesia' },
+  ]
+  // Static list of supported provinces for Indonesia (Aug 2026: only Bali — but cascade architecture supports more)
+  const PROVINCE_OPTIONS_BY_COUNTRY: Record<string, { code: string; label: string }[]> = {
+    ID: [{ code: 'Bali', label: 'Bali' }],
+  }
 
   // Build cascading dropdown options from opportunities data
   const kabOptions = useMemo(() => {
@@ -234,6 +249,8 @@ export function MapExplorer({
   }, [kecFilter, kelurahanFilter])
 
   const resetFilters = () => {
+    setCountryFilter('ID')
+    setProvinceFilter('Bali')
     setTierFilter('all')
     setRecFilter('all')
     setKabFilter('all')
@@ -446,7 +463,10 @@ export function MapExplorer({
     }))
   }, [layerOn.demographics, demoMetric, demoGranularity, kelurahanAll, kecamatanAll, kabupatenAll, kabFilter, kecFilter, kelurahanFilter])
 
-  const isFilterActive = tierFilter !== 'all' || recFilter !== 'all' || kabFilter !== 'all' ||
+  const isFilterActive =
+    countryFilter !== 'ID' ||
+    provinceFilter !== 'Bali' ||
+    tierFilter !== 'all' || recFilter !== 'all' || kabFilter !== 'all' ||
     kecFilter !== 'all' || kelurahanFilter !== 'all' ||
     categoryFilter !== 'all' || parentFilter !== 'all' || search !== '' ||
     scoreRange[0] !== 0 || scoreRange[1] !== 100
@@ -456,9 +476,15 @@ export function MapExplorer({
   // 'cells' mode = choropleth-colored kelurahan cells (no GADM polygon needed)
   // 'choropleth' mode = GADM polygon choropleth (kabupaten/kecamatan only)
   // 'point' mode = leaflet.heat intensity
-  const oppHeatMode = layerVizMode.opportunity === 'choropleth' ? 'region'
-    : layerVizMode.opportunity === 'cells' ? 'cells'
-    : 'point'
+  //
+  // Special case: if user picks 'choropleth' + 'kelurahan' region, we don't have
+  // GADM kelurahan polygons — so automatically fall back to 'cells' mode (kelurahan
+  // CircleMarkers colored by quantile, behaving like a pointillist choropleth).
+  const oppHeatMode: 'region' | 'cells' | 'point' =
+    layerVizMode.opportunity === 'point' ? 'point' :
+    (layerVizMode.opportunity === 'choropleth' && oppRegion === 'kelurahan') ? 'cells' :
+    layerVizMode.opportunity === 'choropleth' ? 'region' :
+    'cells'
   const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
 
   // ===== Region click handler (from choropleth polygon) =====
@@ -707,9 +733,48 @@ export function MapExplorer({
                 </div>
               </div>
 
-              {/* Cascading region filter */}
+              {/* Country → Province cascade (top of cascade) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.country')}</Label>
+                  <Select
+                    value={countryFilter}
+                    onValueChange={(v) => {
+                      setCountryFilter(v)
+                      // Reset province to first option of new country, or 'all' if none
+                      const provs = PROVINCE_OPTIONS_BY_COUNTRY[v] || []
+                      setProvinceFilter(provs[0]?.code || 'all')
+                      setKabFilter('all'); setKecFilter('all'); setKelurahanFilter('all')
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_OPTIONS.map(c => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.province')}</Label>
+                  <Select
+                    value={provinceFilter}
+                    onValueChange={(v) => {
+                      setProvinceFilter(v)
+                      setKabFilter('all'); setKecFilter('all'); setKelurahanFilter('all')
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(PROVINCE_OPTIONS_BY_COUNTRY[countryFilter] || []).map(p => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Cascading region filter: Kabupaten → Kecamatan → Kelurahan */}
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.region_cascading')}</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                  {t('map.kabupaten')} ({kabOptions.length})
+                </Label>
                 <Select value={kabFilter} onValueChange={(v) => { setKabFilter(v); setKecFilter('all'); setKelurahanFilter('all'); }}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>

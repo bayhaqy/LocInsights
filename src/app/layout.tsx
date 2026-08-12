@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { OfflineBanner } from "@/components/locinsight/offline-banner";
+import { AuthProvider } from "@/components/auth/auth-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -81,13 +82,15 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <LanguageProvider>
-          {children}
-          <Toaster />
-          <SonnerToaster position="top-right" richColors closeButton />
-          {/* Offline banner — shows full-screen message when no internet connection */}
-          <OfflineBanner />
-        </LanguageProvider>
+        <AuthProvider>
+          <LanguageProvider>
+            {children}
+            <Toaster />
+            <SonnerToaster position="top-right" richColors closeButton />
+            {/* Offline banner — shows full-screen message when no internet connection */}
+            <OfflineBanner />
+          </LanguageProvider>
+        </AuthProvider>
         {/* PWA service worker — registers after page load, defers to avoid blocking */}
         <script
           dangerouslySetInnerHTML={{
