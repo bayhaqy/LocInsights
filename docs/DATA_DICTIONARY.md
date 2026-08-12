@@ -14,7 +14,7 @@ owner: Data Team
 
 ## Database Overview
 
-LocInsight menggunakan PostgreSQL (Supabase) dengan PostGIS extension. Schema lengkap ada di [`prisma/schema.prisma`](https://github.com/bayhaqy/LocInsights/blob/main/prisma/schema.prisma).
+LocInsight menggunakan PostgreSQL (Supabase) dengan PostGIS extension. Schema lengkap ada di `prisma/schema.prisma`.
 
 ### Tabel Utama / Main Tables
 
@@ -281,7 +281,7 @@ Setelah di-review dan disetujui via Data Manager, data dipindahkan ke tabel utam
 
 ## Untuk Pertanyaan Data / For Data Questions
 
-Hubungi **Data Team** — data@map.co.id
+Hubungi **Data Team** — https://bayhaqy.my.id
 
 Untuk permintaan akses data raw (CSV/Excel) untuk audit eksternal, email dengan subject `[DATA AUDIT REQUEST]` dan sertakan:
 1. Nama dataset yang diminta

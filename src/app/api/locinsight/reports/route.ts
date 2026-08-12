@@ -19,6 +19,7 @@ import { BALI_KELURAHAN } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { BALI_POIS } from '@/lib/data/bali-poi'
 import { KABUPATEN_LIST } from '@/lib/data/bali-admin'
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 // NOTE: fs/path intentionally not imported — Vercel serverless can't write
 // arbitrary disk paths. CSV/JSON content is returned inline as the response.
 
@@ -266,6 +267,9 @@ function toCSV(data: any[]): string {
 // ============================================================
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const sp = req.nextUrl.searchParams
     const type = sp.get('type') || 'executive_summary'

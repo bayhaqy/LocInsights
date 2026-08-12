@@ -14,6 +14,7 @@
  *   - Idempotent: upsert by primary key, so re-uploading same file is safe
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 import {
   ENTITY_CONFIG,
   bulkUpsert,
@@ -30,6 +31,9 @@ export const maxDuration = 60
 const VALID_ENTITIES = new Set<string>(Object.keys(ENTITY_CONFIG))
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const sp = req.nextUrl.searchParams
     const entity = sp.get('entity') as EntityType | null
@@ -98,6 +102,9 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/locinsight/bulk — JSON body: { entity, rows } */
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const entity = body.entity as EntityType | null
@@ -138,6 +145,9 @@ export async function POST(req: NextRequest) {
 
 /** PUT /api/locinsight/bulk — bulk update only (no create). Body: { entity, rows } */
 export async function PUT(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const entity = body.entity as EntityType | null

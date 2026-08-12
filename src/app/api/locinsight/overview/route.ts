@@ -8,6 +8,7 @@ import { BALI_POIS } from '@/lib/data/bali-poi'
 import { loadCompetitorStores, loadStoresFromDB, loadKelurahanFromDB } from '@/lib/scoring/db-engine'
 import { prisma } from '@/lib/db'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 
 /**
@@ -21,6 +22,9 @@ export const dynamic = 'force-dynamic'
  * (income, urban, tourist, transport, poi_density, coastal) — opportunity scoring uses these.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const searchParams = req.nextUrl.searchParams
     const brandId = searchParams.get('brand_id') || undefined

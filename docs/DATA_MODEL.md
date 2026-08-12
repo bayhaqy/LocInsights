@@ -3,7 +3,7 @@
 > Schema explanation for the LocInsight PostgreSQL database (Supabase).
 > For the formal schema, see [`prisma/schema.prisma`](../prisma/schema.prisma)
 > in this repo, or the SQL migrations in the
-> [`Locinsights_db`](https://github.com/bayhaqy/Locinsights_db) repo.
+> `Locinsights_db` repo.
 
 ## Entity-relationship diagram
 
@@ -187,7 +187,7 @@ are mapped offshore.
 
 ## RLS policies
 
-See [`Locinsights_db/policies/README.md`](https://github.com/bayhaqy/Locinsights_db)
+See `Locinsights_db/policies/README.md`
 for the full RLS policy catalog. Summary:
 
 | Table | anon SELECT | anon INSERT | anon UPDATE | anon DELETE |
@@ -202,7 +202,7 @@ All writes go through the Next.js API (using the `service_role` key server-side)
 
 ## Migration order
 
-Migrations in [`Locinsights_db`](https://github.com/bayhaqy/Locinsights_db) MUST
+Migrations in `Locinsights_db` MUST
 be applied in numerical order:
 
 1. `0001_init_extensions_and_enums.sql` — PostGIS + pg_trgm + all ENUMs + `is_on_bali_land()`

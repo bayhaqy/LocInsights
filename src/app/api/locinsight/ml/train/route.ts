@@ -24,10 +24,14 @@ import { trainGBR, computeFeatureImportance, type GBRModel } from '@/lib/ml/gbr'
 import { buildTrainingDataset, FEATURE_NAMES } from '@/lib/ml/dataset'
 import { setTrainedModel } from '@/lib/ml/model-cache'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   let model_id = 'mdl_gbr_revenue_v1'
   let trainDuration = 0
   let datasetSize = 0
@@ -174,6 +178,9 @@ export async function POST(req: NextRequest) {
  * GET /api/locinsight/ml/train — list previous training runs
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const sp = req.nextUrl.searchParams
     const limit = Math.min(50, Number(sp.get('limit') || 20))

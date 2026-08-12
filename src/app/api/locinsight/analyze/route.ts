@@ -8,6 +8,7 @@ import { BALI_POIS } from '@/lib/data/bali-poi'
 import { prisma } from '@/lib/db'
 import { getKelurahanFromDB, loadStoresFromDB } from '@/lib/scoring/db-engine'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 
 /**
@@ -20,6 +21,9 @@ export const dynamic = 'force-dynamic'
  * the Map Explorer.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   const sp = req.nextUrl.searchParams
   const kelurahanId = sp.get('kelurahan_id')
   const brandId = sp.get('brand_id') || undefined

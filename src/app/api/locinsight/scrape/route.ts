@@ -26,10 +26,14 @@ import { db, handleError } from '@/lib/api-helpers'
 import { runScrape } from '@/lib/scraper-engine'
 import type { ScrapeRequest, ScrapeMode, ItemKind } from '@/lib/scraper-engine'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const mode: ScrapeMode = body.mode === 'brand' ? 'brand' : 'keyword'
@@ -85,6 +89,9 @@ export async function POST(req: NextRequest) {
  * GET /api/locinsight/scrape — list previous scraper runs
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const sp = req.nextUrl.searchParams
     const limit = Math.min(100, Number(sp.get('limit') || 50))

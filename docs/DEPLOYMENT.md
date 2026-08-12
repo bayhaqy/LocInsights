@@ -22,16 +22,17 @@ Browser → Vercel (Next.js) → Supabase (Postgres+PostGIS)
 
 ### 1.2 Apply database migrations
 
-Clone the [`Locinsights_db`](https://github.com/bayhaqy/Locinsights_db) repo and
-apply migrations in order. Easiest: paste each SQL file into Supabase SQL Editor.
+Contact the project maintainer via **https://bayhaqy.my.id** to obtain the
+`Locinsights_db` repo, then apply migrations in order. Easiest: paste each
+SQL file into Supabase SQL Editor.
 
 ```bash
-git clone https://github.com/bayhaqy/Locinsights_db.git
+# After obtaining repo access:
 cd Locinsights_db
 # Apply 0001 → 0006 in order via Supabase SQL Editor
 ```
 
-See [`Locinsights_db/README.md`](https://github.com/bayhaqy/Locinsights_db) for
+See `Locinsights_db/README.md` for
 automated options (psql or REST API).
 
 ### 1.3 Get connection strings

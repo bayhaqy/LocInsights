@@ -75,6 +75,16 @@ export default function Home() {
     return ALL_NAV_ITEMS.filter(item => !item.adminOnly || isAdmin)
   }, [isAdmin])
 
+  // === Strict auth gate (Aug 2026) ===
+  // Middleware already redirects unauthenticated users to /login server-side,
+  // but we double-check client-side too so the app shell never flashes for
+  // unauthenticated users (e.g., during session hydration race conditions).
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      window.location.href = '/login?callbackUrl=' + encodeURIComponent(window.location.pathname)
+    }
+  }, [status])
+
   // If the current active view is admin-only and the user just logged out,
   // gracefully fall back to dashboard.
   useEffect(() => {
@@ -85,6 +95,8 @@ export default function Home() {
   }, [status, activeView])
 
   useEffect(() => {
+    // Don't fetch overview until we know the user is authenticated.
+    if (status !== 'authenticated') return
     fetch('/api/locinsight/overview')
       .then(r => r.json())
       .then(j => {
@@ -99,9 +111,16 @@ export default function Home() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [status])
 
-  if (loading) {
+  // Show loading screen while session is being verified.
+  // This prevents the app shell from flashing before the auth gate resolves.
+  if (status === 'loading' || (status === 'authenticated' && loading)) {
+    return <LoadingScreen />
+  }
+
+  // If unauthenticated (shouldn't happen — middleware redirects — but be safe)
+  if (status === 'unauthenticated') {
     return <LoadingScreen />
   }
 
@@ -165,29 +184,16 @@ export default function Home() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <InstallPrompt />
             <LanguageSwitcher />
-            {/* Login / Logout button — admin features (Data Manager, Scraper, Settings) gated behind login */}
-            {status === 'loading' ? (
-              <div className="w-8 h-8 rounded-md bg-[var(--brand-cream)] animate-pulse" />
-            ) : isAdmin ? (
-              <button
-                onClick={() => signOut({ callbackUrl: '/' })}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-[var(--brand-ink)]/70 hover:text-[var(--brand-red)] hover:bg-[var(--brand-cream)] transition-colors border border-[var(--brand-border)]"
-                title={`Signed in as ${session?.user?.name} (superadmin). Click to logout.`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                <span className="hidden sm:inline">{session?.user?.name}</span>
-                <LogOut className="w-3 h-3 ml-0.5" />
-              </button>
-            ) : (
-              <a
-                href="/login"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-white bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)] transition-colors"
-                title="Sign in as superadmin to access Data Manager, Scraper, Settings"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t('nav.login')}</span>
-              </a>
-            )}
+            {/* Logout button — user is always authenticated at this point (middleware enforces auth) */}
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-[var(--brand-ink)]/70 hover:text-[var(--brand-red)] hover:bg-[var(--brand-cream)] transition-colors border border-[var(--brand-border)]"
+              title={`Signed in as ${session?.user?.name}${isAdmin ? ' (superadmin)' : ''}. Click to logout.`}
+            >
+              {isAdmin ? <ShieldCheck className="w-3.5 h-3.5 text-[var(--brand-red)]" /> : <LogIn className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{session?.user?.name}</span>
+              <LogOut className="w-3 h-3 ml-0.5" />
+            </button>
           </div>
         </header>
 

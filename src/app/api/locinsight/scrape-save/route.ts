@@ -31,12 +31,16 @@ import { haversineKm } from '@/lib/data/bali-kelurahan'
 import { classifyScrapedBrand } from '@/lib/brand-classifier'
 import type { ScraperResultRow } from '@/lib/scraper-types'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 interface SaveItem extends ScraperResultRow {}
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const { run_id, items } = body as {

@@ -23,10 +23,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { scoreAllKelurahan, DEFAULT_WEIGHTS, type ScoringWeights, type OpportunityScore } from '@/lib/scoring/engine'
 import { buildScoringConfig } from '@/lib/scoring/db-engine'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const {

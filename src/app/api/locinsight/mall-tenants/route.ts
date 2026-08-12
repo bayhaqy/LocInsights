@@ -11,6 +11,7 @@ import { haversineKm } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { COMPETITOR_BRANDS } from '@/lib/data/competitor-brands'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
@@ -69,6 +70,9 @@ function classifyBrand(name: string): { brand_name: string; brand_category: stri
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const sp = req.nextUrl.searchParams
     const mallId = sp.get('mall_id')
@@ -97,6 +101,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const { mall_id, mall_name, lat, lng, radius_km = 0.8 } = body

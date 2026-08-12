@@ -34,6 +34,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
@@ -323,6 +324,9 @@ function buildFallbackReply(userMessage: string, lang: 'en' | 'id'): string {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const { messages, lang = 'en', clientConfig } = body as {
@@ -480,6 +484,9 @@ export async function POST(req: NextRequest) {
  * GET endpoint — health check. Returns whether the chat service is configured.
  */
 export async function GET() {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   const config = loadConfig()
   return NextResponse.json({
     configured: !!config,

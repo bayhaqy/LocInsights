@@ -199,7 +199,7 @@ LocInsight menggabungkan data dari **6 kategori sumber**. Setiap dataset memilik
 - Tracked competitor brand → `competitor_stores` table
 - Unknown brand → `competitor_stores` table with `brand_category='other'`
 
-**Full list of tracked competitor brands**: see [`competitor-brands.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/data/competitor-brands.ts) (20+ brands across 7 categories).
+**Full list of tracked competitor brands**: see `competitor-brands.ts` (20+ brands across 7 categories).
 
 ---
 
@@ -345,4 +345,4 @@ Untuk audit eksternal, informasi berikut tersedia di setiap dataset:
 7. **Known limitations** — keterbatasan yang diketahui
 8. **Credibility rating** — rating 1-5 bintang
 
-Untuk pertanyaan terkait data provenance, hubungi: **Data Team** — data@map.co.id
+Untuk pertanyaan terkait data provenance, hubungi: **Data Team** — https://bayhaqy.my.id

@@ -101,8 +101,7 @@ function LoginInner() {
               Superadmin Login
             </CardTitle>
             <p className="text-[11.5px] text-[var(--brand-ink)]/60 mt-1 leading-relaxed">
-              Sign in to access admin features (Data Manager, Scraper, ML Training, Settings).
-              Public dashboards remain accessible without login.
+              Sign in to access LocInsight platform. All features require authentication.
             </p>
           </CardHeader>
           <CardContent>
@@ -172,12 +171,9 @@ function LoginInner() {
             </form>
 
             <div className="mt-4 pt-3 border-t border-[var(--brand-border)] text-center">
-              <a
-                href="/"
-                className="text-[11px] text-[var(--brand-ink)]/60 hover:text-[var(--brand-red)] transition-colors"
-              >
-                ← Back to public dashboards
-              </a>
+              <p className="text-[11px] text-[var(--brand-ink)]/50 leading-relaxed">
+                Access restricted to authorized personnel only.
+              </p>
             </div>
           </CardContent>
         </Card>

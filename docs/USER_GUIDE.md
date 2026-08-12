@@ -276,10 +276,10 @@ owner: Product Team
 **A**: Data kompetitor di-scrape dari OpenStreetMap Overpass API on-demand. Setiap kali Anda klik "Scrape" di Data Scraper, data terbaru diambil. OSM data di-update oleh komunitas global, jadi mungkin ada delay 1-7 hari dari perubahan sebenarnya di lapangan.
 
 ### Q: Bisakah saya export semua data untuk audit?
-**A**: Ya. Setiap tabel di Data Manager dan Map Explorer punya tombol "Export CSV". Untuk export massal (semua tabel sekaligus), hubungi data@map.co.id.
+**A**: Ya. Setiap tabel di Data Manager dan Map Explorer punya tombol "Export CSV". Untuk export massal (semua tabel sekaligus), hubungi https://bayhaqy.my.id.
 
 ### Q: Bagaimana cara melaporkan data yang salah?
-**A**: Email data@map.co.id dengan subject `[DATA CORRECTION]` dan sertakan: nama tabel, ID record, field yang salah, nilai yang benar, sumber verifikasi.
+**A**: Email https://bayhaqy.my.id dengan subject `[DATA CORRECTION]` dan sertakan: nama tabel, ID record, field yang salah, nilai yang benar, sumber verifikasi.
 
 ### Q: Bisakah scoring weights diubah permanen?
 **A**: Ya, di Settings page. Perubahan tersimpan di database dan berlaku untuk semua user. Hanya admin yang bisa ubah weights.
@@ -315,6 +315,6 @@ Atau download APK langsung: https://locinsights.bayhaqy.my.id/locinsights.apk
 
 ## Untuk Bantuan / For Support
 
-- **Technical issues**: github.com/bayhaqy/LocInsights/issues
-- **Data questions**: data@map.co.id
+- **Website**: https://bayhaqy.my.id
+- **Data questions**: https://bayhaqy.my.id
 - **Developer**: Achmad Bayhaqy — https://bayhaqy.my.id

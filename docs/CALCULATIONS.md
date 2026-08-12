@@ -129,7 +129,7 @@ composite_score = (
 | 40-54 | `monitor` | Pantau perkembangan — bukan prioritas |
 | < 40 | `avoid` | Hindari ekspansi — risiko tinggi |
 
-Source: [`src/lib/scoring/engine.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/scoring/engine.ts)
+Source: `src/lib/scoring/engine.ts`
 
 ---
 
@@ -194,7 +194,7 @@ Where `avg_transaction_value` varies by brand category:
 - lifestyle: Rp 100,000
 - beauty: Rp 180,000
 
-Source: [`src/lib/scoring/engine.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/scoring/engine.ts)
+Source: `src/lib/scoring/engine.ts`
 
 ---
 
@@ -255,7 +255,7 @@ Where `heuristic_revenue` is the output of the Huff model above.
 
 Until real sales data is integrated, GBR predictions should be treated as **directional guidance**, not precise forecasts.
 
-Source: [`src/lib/ml/gbr.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/ml/gbr.ts)
+Source: `src/lib/ml/gbr.ts`
 
 ---
 
@@ -280,7 +280,7 @@ cannibalization_risk:
 - > 4 stores within 2 km indicates high saturation
 - Thresholds calibrated based on MAP Active's historical Bali data
 
-Source: [`src/lib/scoring/engine.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/scoring/engine.ts)
+Source: `src/lib/scoring/engine.ts`
 
 ---
 
@@ -354,7 +354,7 @@ Gianyar, Sukawati, Tabanan, Negara, Singaraja, Buleleng
 
 All others (Karangasem, Bangli, Klungkung, remote areas)
 
-Source: [`src/lib/data/bali-admin.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/data/bali-admin.ts)
+Source: `src/lib/data/bali-admin.ts`
 
 ---
 
@@ -389,7 +389,7 @@ else:
     → competitor_stores table (brand_category = "other")
 ```
 
-Source: [`src/lib/brand-classifier.ts`](https://github.com/bayhaqy/LocInsights/blob/main/src/lib/brand-classifier.ts)
+Source: `src/lib/brand-classifier.ts`
 
 ---
 
@@ -407,12 +407,12 @@ Default weights (population 20%, income 20%, tourism 15%, accessibility 15%, com
 ### How often are formulas updated?
 
 - **Weights**: Adjustable in real-time via Settings page (no code change needed)
-- **Formulas**: Versioned in git; changes documented in [`CHANGELOG.md`](https://github.com/bayhaqy/LocInsights/blob/main/docs/CHANGELOG.md)
+- **Formulas**: Versioned in git; changes documented in `CHANGELOG.md`
 - **ML model**: Re-trainable via ML Engine page; new model versions saved with timestamp
 
 ### External validation
 
-For audit purposes, all formulas can be replicated in Excel/Python using the data dictionary and this document. A Jupyter notebook with replicable calculations is available on request: data@map.co.id
+For audit purposes, all formulas can be replicated in Excel/Python using the data dictionary and this document. A Jupyter notebook with replicable calculations is available on request: https://bayhaqy.my.id
 
 ---
 

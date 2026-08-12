@@ -160,7 +160,7 @@ LocInsights/
 
 ## Database Schema
 
-Full schema: [`prisma/schema.prisma`](https://github.com/bayhaqy/LocInsights/blob/main/prisma/schema.prisma)
+Full schema: `prisma/schema.prisma`
 
 Key relationships:
 
@@ -325,6 +325,4 @@ bun run seed
 ## Contact
 
 - **Developer**: Achmad Bayhaqy — https://bayhaqy.my.id
-- **Email**: bayhaqy@map.co.id
-- **GitHub**: https://github.com/bayhaqy/LocInsights
-- **Issues**: https://github.com/bayhaqy/LocInsights/issues
+- **Website**: https://bayhaqy.my.id

@@ -93,6 +93,26 @@ export const en: Dict = {
   'nav.docs.desc': 'User & technical docs, data sources, data dictionary',
   'nav.about.desc': 'Project overview & data sources',
 
+  // ---- docs (Documentation page) ----
+  'docs.title': 'Documentation',
+  'docs.subtitle': 'Data sources, data dictionary, calculations & user guides',
+  'docs.loading': 'Loading documentation…',
+  'docs.search_placeholder': 'Search docs…',
+  'docs.no_results': 'No matching documents',
+  'docs.toc': 'On this page',
+  'docs.edit': 'Edit',
+  'docs.save': 'Save',
+  'docs.print': 'Print / PDF',
+  'docs.owner': 'Owner',
+  'docs.last_updated': 'Last updated',
+  'docs.save_success': 'Document saved successfully',
+  'docs.save_error': 'Failed to save document',
+  'docs.edit_mode': 'Edit',
+  'docs.split_mode': 'Split',
+  'docs.preview_mode': 'Preview',
+  'docs.chars': 'chars',
+  'docs.editor_placeholder': 'Write markdown here…',
+
   // ---- header ----
   'header.show_sidebar': 'Show sidebar',
   'header.hide_sidebar': 'Hide sidebar',
@@ -1420,6 +1440,26 @@ export const id: Dict = {
   'nav.methodology.desc': 'Kerangka scoring & matematika',
   'nav.docs.desc': 'Dokumen user & teknis, sumber data, kamus data',
   'nav.about.desc': 'Ikhtisar proyek & sumber data',
+
+  // ---- docs (Documentation page) ----
+  'docs.title': 'Dokumentasi',
+  'docs.subtitle': 'Sumber data, kamus data, perhitungan & panduan pengguna',
+  'docs.loading': 'Memuat dokumentasi…',
+  'docs.search_placeholder': 'Cari dokumen…',
+  'docs.no_results': 'Tidak ada dokumen yang cocok',
+  'docs.toc': 'Di halaman ini',
+  'docs.edit': 'Edit',
+  'docs.save': 'Simpan',
+  'docs.print': 'Cetak / PDF',
+  'docs.owner': 'Pemilik',
+  'docs.last_updated': 'Terakhir diupdate',
+  'docs.save_success': 'Dokumen berhasil disimpan',
+  'docs.save_error': 'Gagal menyimpan dokumen',
+  'docs.edit_mode': 'Edit',
+  'docs.split_mode': 'Split',
+  'docs.preview_mode': 'Preview',
+  'docs.chars': 'karakter',
+  'docs.editor_placeholder': 'Tulis markdown di sini…',
 
   // ---- header ----
   'header.show_sidebar': 'Tampilkan sidebar',

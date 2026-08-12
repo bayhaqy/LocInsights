@@ -26,6 +26,7 @@ import { getTrainedModel } from '@/lib/ml/model-cache'
 import { promises as fs } from 'fs'
 import path from 'path'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 
 const MODEL_PATH = path.join(process.cwd(), 'prisma', 'ml-models', 'gbr-revenue-bali-v1.json')
@@ -82,6 +83,9 @@ const HEURISTIC_MODELS = [
 ]
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const sp = req.nextUrl.searchParams
     const action = sp.get('action') || 'models'
