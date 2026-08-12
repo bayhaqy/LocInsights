@@ -62,7 +62,7 @@ type LayerId =
   | 'crowd_density'
 
 type VizMode = 'choropleth' | 'point' | 'cells'
-type RegionLevel = 'kabupaten' | 'kecamatan' | 'kelurahan'
+type RegionLevel = 'kelurahan' | 'kecamatan' | 'kabupaten' | 'province' | 'country'
 
 const BRAND_CATEGORY_OPTIONS = [
   { value: 'all', labelKey: 'map.cat.all' },
@@ -397,7 +397,11 @@ export function MapExplorer({
 
   // ===== Aggregate demographic data based on selected metric + granularity =====
   // Aug 2026: demographics uses the UNIFIED region level (single dropdown at top of Filters card)
-  const demoGranularity: DemoGranularity = unifiedRegionLevel
+  // Province/country fall back to kabupaten (we only have Bali/Indonesia data).
+  const demoGranularity: DemoGranularity =
+    (unifiedRegionLevel === 'province' || unifiedRegionLevel === 'country')
+      ? 'kabupaten'
+      : unifiedRegionLevel
 
   const demoData: DemoRegionRow[] = useMemo(() => {
     if (!layerOn.demographics) return []
@@ -514,9 +518,14 @@ export function MapExplorer({
   // dropdown was removed). At kelurahan level we use color-coded CircleMarker
   // 'cells' (since GADM doesn't have kelurahan polygons). At kabupaten/kecamatan
   // level we use real GADM polygon choropleth.
+  // Province/country fall back to kabupaten polygons (showing the aggregated
+  // value across all kabupaten) since we only have Bali/Indonesia data.
   const oppHeatMode: 'region' | 'cells' | 'point' =
     oppRegion === 'kelurahan' ? 'cells' : 'region'
-  const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
+  const oppHeatGranularity: 'kabupaten' | 'kecamatan' =
+    (oppRegion === 'kelurahan' || oppRegion === 'province' || oppRegion === 'country')
+      ? 'kabupaten'
+      : oppRegion // choropleth-layer only supports kab/kec
 
   // ===== Region click handler (from choropleth polygon) =====
   // When a choropleth region is clicked, find the top-scoring opportunity in that region
@@ -782,6 +791,8 @@ export function MapExplorer({
                     <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
                     <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
                     <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
+                    <SelectItem value="province">{t('map.province_regions')}</SelectItem>
+                    <SelectItem value="country">{t('map.country_regions')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-[var(--brand-ink)]/50 mt-1 leading-snug">
@@ -933,47 +944,9 @@ export function MapExplorer({
                     </Select>
                   </div>
                 </div>
-                {/* Brand Name + Store Name filters (Aug 2026) — for MAA Store layer */}
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div>
-                    <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.brand_name')}</Label>
-                    <Select value={storeBrandFilter} onValueChange={setStoreBrandFilter}>
-                      <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t('common.all')}</SelectItem>
-                        {Array.from(new Set(stores.map(s => s.brand_name).filter(Boolean))).sort().map(b => (
-                          <SelectItem key={b} value={b}>{b} ({stores.filter(s => s.brand_name === b).length})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.store_name')}</Label>
-                    <Select value={storeNameFilter} onValueChange={setStoreNameFilter}>
-                      <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t('common.all')}</SelectItem>
-                        {Array.from(new Set(stores.map(s => s.name).filter(Boolean))).sort().slice(0, 200).map(n => (
-                          <SelectItem key={n} value={n}>{n}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {/* Mall Class filter (Aug 2026) — for Shopping Malls layer */}
-                <div className="mt-2">
-                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.mall_class')}</Label>
-                  <Select value={mallClassFilter} onValueChange={setMallClassFilter}>
-                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('common.all')}</SelectItem>
-                      <SelectItem value="super_regional">{t('map.mall_class_super_regional')}</SelectItem>
-                      <SelectItem value="regional">{t('map.mall_class_regional')}</SelectItem>
-                      <SelectItem value="community">{t('map.mall_class_community')}</SelectItem>
-                      <SelectItem value="specialty">{t('map.mall_class_specialty')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <p className="text-[10px] text-[var(--brand-ink)]/50 mt-2 leading-snug">
+                  {t('map.region_level_unified_hint')}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -1066,6 +1039,46 @@ export function MapExplorer({
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, stores: v })}
                 color="var(--brand-red)"
               />
+              {layerOn.stores && stores.length > 0 && (
+                <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
+                  {/* Aug 2026: brand filter + category filter + store name filter — inline like competitor */}
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.brand_filter')}</Label>
+                    <Select value={storeBrandFilter} onValueChange={setStoreBrandFilter}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('map.all_brands', { n: stores.length })}</SelectItem>
+                        {Array.from(new Set(stores.map(s => s.brand_name).filter(Boolean))).sort().map(b => (
+                          <SelectItem key={b} value={b}>{b} ({stores.filter(s => s.brand_name === b).length})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.brand_category')}</Label>
+                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {BRAND_CATEGORY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.store_name')}</Label>
+                      <Select value={storeNameFilter} onValueChange={setStoreNameFilter}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('common.all')}</SelectItem>
+                          {Array.from(new Set(stores.map(s => s.name).filter(Boolean))).sort().slice(0, 200).map(n => (
+                            <SelectItem key={n} value={n}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ===== Malls ===== */}
               <LayerToggle
@@ -1076,6 +1089,24 @@ export function MapExplorer({
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, malls: v })}
                 color="var(--brand-ink)"
               />
+              {layerOn.malls && malls.length > 0 && (
+                <div className="pl-2 border-l-2 border-[var(--brand-ink)]/30 space-y-2 ml-1">
+                  {/* Aug 2026: Mall Class filter — inline next to layer toggle */}
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.mall_class')}</Label>
+                    <Select value={mallClassFilter} onValueChange={setMallClassFilter}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('common.all')}</SelectItem>
+                        <SelectItem value="super_regional">{t('map.mall_class_super_regional')}</SelectItem>
+                        <SelectItem value="regional">{t('map.mall_class_regional')}</SelectItem>
+                        <SelectItem value="community">{t('map.mall_class_community')}</SelectItem>
+                        <SelectItem value="specialty">{t('map.mall_class_specialty')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               {/* ===== Competitor Stores ===== */}
               <LayerToggle

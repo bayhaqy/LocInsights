@@ -25,6 +25,7 @@
  */
 
 import { useMemo, useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -113,6 +114,9 @@ export function MapIndicatorsTable({
   onClearSelection,
 }: MapIndicatorsTableProps) {
   const { t } = useLanguage()
+  const { data: session } = useSession()
+  // Aug 2026: viewer role cannot use any export options (read-only).
+  const canExport = session?.user?.role === 'superadmin' || session?.user?.role === 'analyst'
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState<string>('all')
   const [recFilter, setRecFilter] = useState<string>('all')
@@ -334,18 +338,21 @@ export function MapIndicatorsTable({
               </Button>
             )}
             {/* Quick export — uses current column selection (defaults to all) */}
-            <Button
-              size="sm"
-              onClick={() => exportCSV(true)}
-              disabled={sorted.length === 0 || exportCols.size === 0}
-              className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
-              title={t('map.table.export_with_cols', { n: sorted.length, cols: exportCols.size })}
-            >
-              <Download className="w-3 h-3 mr-1" />
-              {t('map.table.export_filtered', { n: sorted.length })}
-            </Button>
+            {canExport && (
+              <Button
+                size="sm"
+                onClick={() => exportCSV(true)}
+                disabled={sorted.length === 0 || exportCols.size === 0}
+                className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]"
+                title={t('map.table.export_with_cols', { n: sorted.length, cols: exportCols.size })}
+              >
+                <Download className="w-3 h-3 mr-1" />
+                {t('map.table.export_filtered', { n: sorted.length })}
+              </Button>
+            )}
             {/* Column picker button — opens POPOVER anchored to the button
                 (not a centered dialog, which appeared awkwardly below the map) */}
+            {canExport && (
             <Popover open={showExportPopover} onOpenChange={setShowExportPopover}>
               <PopoverTrigger asChild>
                 <Button
@@ -427,6 +434,7 @@ export function MapIndicatorsTable({
                 </div>
               </PopoverContent>
             </Popover>
+            )}
           </div>
         </div>
         {/* Subtitle: shows whether we're showing all data or filtered to selection */}

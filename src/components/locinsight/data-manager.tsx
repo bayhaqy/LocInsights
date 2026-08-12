@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +49,10 @@ const ENTITIES: EntityMeta[] = [
 
 export function DataManager() {
   const { t } = useLanguage()
+  const { data: session } = useSession()
+  // Per user request (Aug 2026): viewer role cannot use ANY export/import options.
+  // Only superadmin and analyst can export/import. Viewer is read-only.
+  const canExport = session?.user?.role === 'superadmin' || session?.user?.role === 'analyst'
   const [activeEntity, setActiveEntity] = useState<EntityType>('stores')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -703,28 +708,37 @@ export function DataManager() {
 
             {/* Row 2: Import Selection Cols | Export Selection Cols (CSV/XLSX in dialog)
                 Per user request Aug 2026: removed CSV (All), XLSX (All), Export View buttons.
-                Import Selection Cols on the LEFT, Export Selection Cols on the RIGHT. */}
+                Import Selection Cols on the LEFT, Export Selection Cols on the RIGHT.
+                Aug 2026 update: viewer role cannot see any export/import buttons (read-only). */}
             <div className="flex items-center gap-1.5 flex-wrap mt-2">
-              {/* Import Selection Columns — opens dialog with column picker + template download + file upload */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={openImportDialog}
-                className="h-7 text-[11px] flex-shrink-0 border-[var(--brand-ink)]/30 text-[var(--brand-ink)] hover:bg-[var(--brand-cream)]"
-                title={t('data.import_selected_tooltip')}
-              >
-                <FileUp className="w-3 h-3 mr-1" /> {t('data.import_selection_cols')}
-              </Button>
-              {/* Export Selection Columns — opens dialog with column picker + format toggle (CSV/XLSX) */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openExportDialog('csv')}
-                className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10 flex-shrink-0"
-                title={t('data.export_selection_tooltip')}
-              >
-                <FilterIcon className="w-3 h-3 mr-1" /> {t('data.export_selection_cols')}
-              </Button>
+              {canExport ? (
+                <>
+                  {/* Import Selection Columns — opens dialog with column picker + template download + file upload */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={openImportDialog}
+                    className="h-7 text-[11px] flex-shrink-0 border-[var(--brand-ink)]/30 text-[var(--brand-ink)] hover:bg-[var(--brand-cream)]"
+                    title={t('data.import_selected_tooltip')}
+                  >
+                    <FileUp className="w-3 h-3 mr-1" /> {t('data.import_selection_cols')}
+                  </Button>
+                  {/* Export Selection Columns — opens dialog with column picker + format toggle (CSV/XLSX) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openExportDialog('csv')}
+                    className="h-7 text-[11px] border-[var(--brand-red)]/30 text-[var(--brand-red)] hover:bg-[var(--brand-red)]/10 flex-shrink-0"
+                    title={t('data.export_selection_tooltip')}
+                  >
+                    <FilterIcon className="w-3 h-3 mr-1" /> {t('data.export_selection_cols')}
+                  </Button>
+                </>
+              ) : (
+                <Badge variant="outline" className="text-[10px] text-[var(--brand-ink)]/50 border-[var(--brand-border)] bg-[var(--brand-cream)]">
+                  <Shield className="w-3 h-3 mr-1 inline" /> {t('data.viewer_read_only', { default: 'Read-only — export/import disabled for viewer role' })}
+                </Badge>
+              )}
               {viewMode === 'table' && (
                 <Badge variant="outline" className="text-[10px] ml-auto text-[var(--brand-ink)]/60 border-[var(--brand-border)] bg-[var(--brand-cream)]">
                   {t('data.filter_all_data_hint', { total })}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -92,6 +93,9 @@ function buildColumns(t: TFunc): ColumnDef[] {
 
 export function CompetitorIntel({ onScrapeMore }: Props) {
   const { t } = useLanguage()
+  const { data: session } = useSession()
+  // Aug 2026: viewer role cannot use any export options (read-only).
+  const canExport = session?.user?.role === 'superadmin' || session?.user?.role === 'analyst'
   const [competitors, setCompetitors] = useState<CompetitorRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<CompetitorRow | null>(null)
@@ -413,8 +417,10 @@ export function CompetitorIntel({ onScrapeMore }: Props) {
           <Button variant="outline" size="sm" onClick={resetFilters} disabled={!isFilterActive} className="h-8">
             <FilterIcon className="w-3 h-3 mr-1" /> {t('ab.reset')}
           </Button>
-          <Button size="sm" onClick={exportFilteredCSV} disabled={filtered.length === 0}
-            className="bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white h-8">
+          <Button size="sm" onClick={exportFilteredCSV} disabled={!canExport || filtered.length === 0}
+            className="bg-[var(--brand-ink)] hover:bg-[var(--brand-ink)]/90 text-white h-8"
+            title={!canExport ? t('data.viewer_read_only', { default: 'Read-only — export disabled for viewer role' }) : undefined}
+          >
             <Download className="w-3 h-3 mr-1.5" />
             {t('competitors.export_filtered', { n: filtered.length })}
           </Button>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,6 +26,9 @@ interface ReportHistoryItem {
 
 export function Reports() {
   const { t } = useLanguage()
+  const { data: session } = useSession()
+  // Aug 2026: viewer role cannot generate/download reports (read-only).
+  const canExport = session?.user?.role === 'superadmin' || session?.user?.role === 'analyst'
   const [reportType, setReportType] = useState<'executive_summary' | 'site_analysis' | 'brand_expansion' | 'regional_comparison'>('executive_summary')
   const [format, setFormat] = useState<'json' | 'csv' | 'html'>('html')
   const [tier, setTier] = useState<string>('all')
@@ -228,8 +232,9 @@ export function Reports() {
 
               <Button
                 onClick={generateReport}
-                disabled={loading}
+                disabled={loading || !canExport}
                 className="w-full bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)] text-white"
+                title={!canExport ? t('data.viewer_read_only', { default: 'Read-only — export disabled for viewer role' }) : undefined}
               >
                 {loading ? (
                   <>
