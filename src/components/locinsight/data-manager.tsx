@@ -41,6 +41,9 @@ const ENTITIES: EntityMeta[] = [
   { id: 'stores',       label: 'data.stores',        icon: StoreIcon, searchFields: ['name', 'brand_name'] },
   { id: 'competitors',  label: 'data.competitors',   icon: Shield,   searchFields: ['name', 'brand_name', 'kab'] },
   { id: 'pois',         label: 'data.pois',          icon: MapPin,   searchFields: ['name'] },
+  // Note: POIs include all sub-types (Beaches, Temples, Attractions, Hotels,
+  // Universities, Hospitals, Transit Hubs, Ports, Office/Govt Clusters).
+  // Use the POI Type filter dropdown or quick-access chips to view specific types.
 ]
 
 export function DataManager() {
@@ -729,32 +732,69 @@ export function DataManager() {
               )}
             </div>
 
-            {/* POI type filter (only shown when entity === 'pois') */}
+            {/* POI type filter + quick-stats (only shown when entity === 'pois') */}
             {activeEntity === 'pois' && (
-              <div className="flex items-center gap-2 mt-2">
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 whitespace-nowrap">
-                  {t('data.type_filter')}:
-                </Label>
-                <Select value={poiTypeFilter} onValueChange={setPoiTypeFilter}>
-                  <SelectTrigger className="h-7 w-[200px] text-[11px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('common.all')}</SelectItem>
-                    <SelectItem value="beach">🏖 Beaches</SelectItem>
-                    <SelectItem value="temple">🛕 Temples</SelectItem>
-                    <SelectItem value="tourist_attraction">🎢 Tourist Attractions</SelectItem>
-                    <SelectItem value="hotel_cluster">🏨 Hotel Clusters</SelectItem>
-                    <SelectItem value="university">🎓 Universities</SelectItem>
-                    <SelectItem value="hospital">🏥 Hospitals</SelectItem>
-                    <SelectItem value="transit_hub">🚉 Transit Hubs</SelectItem>
-                    <SelectItem value="port">⚓ Ports</SelectItem>
-                    <SelectItem value="office_cluster">🏢 Office/Govt Clusters</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Badge variant="secondary" className="text-[10px]">
-                  {poiTypeFilter === 'all' ? `${total} total` : `${data.length} filtered`}
-                </Badge>
+              <div className="mt-3 p-3 border border-[var(--brand-border)] rounded-md bg-[var(--brand-cream)]/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 whitespace-nowrap">
+                    {t('data.type_filter')}:
+                  </Label>
+                  <Select value={poiTypeFilter} onValueChange={setPoiTypeFilter}>
+                    <SelectTrigger className="h-7 w-[220px] text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('common.all')} ({data.length})</SelectItem>
+                      <SelectItem value="beach">🏖 Beaches ({data.filter(p => p.type === 'beach').length})</SelectItem>
+                      <SelectItem value="temple">🛕 Temples ({data.filter(p => p.type === 'temple').length})</SelectItem>
+                      <SelectItem value="tourist_attraction">🎢 Tourist Attractions ({data.filter(p => p.type === 'tourist_attraction').length})</SelectItem>
+                      <SelectItem value="hotel_cluster">🏨 Hotel Clusters ({data.filter(p => p.type === 'hotel_cluster').length})</SelectItem>
+                      <SelectItem value="university">🎓 Universities ({data.filter(p => p.type === 'university').length})</SelectItem>
+                      <SelectItem value="hospital">🏥 Hospitals ({data.filter(p => p.type === 'hospital').length})</SelectItem>
+                      <SelectItem value="transit_hub">🚉 Transit Hubs ({data.filter(p => p.type === 'transit_hub').length})</SelectItem>
+                      <SelectItem value="port">⚓ Ports ({data.filter(p => p.type === 'port').length})</SelectItem>
+                      <SelectItem value="office_cluster">🏢 Office/Govt Clusters ({data.filter(p => p.type === 'office_cluster').length})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {poiTypeFilter === 'all' ? `${data.length} total` : `${data.filter(p => p.type === poiTypeFilter).length} filtered`}
+                  </Badge>
+                </div>
+                {/* Quick-access type chips with counts — Aug 2026 */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { v: 'all', label: 'All', icon: '📋' },
+                    { v: 'beach', label: 'Beaches', icon: '🏖' },
+                    { v: 'temple', label: 'Temples', icon: '🛕' },
+                    { v: 'tourist_attraction', label: 'Attractions', icon: '🎢' },
+                    { v: 'hotel_cluster', label: 'Hotels', icon: '🏨' },
+                    { v: 'university', label: 'Universities', icon: '🎓' },
+                    { v: 'hospital', label: 'Hospitals', icon: '🏥' },
+                    { v: 'transit_hub', label: 'Transit', icon: '🚉' },
+                    { v: 'port', label: 'Ports', icon: '⚓' },
+                    { v: 'office_cluster', label: 'Govt/Office', icon: '🏢' },
+                  ].map(opt => {
+                    const count = opt.v === 'all'
+                      ? data.length
+                      : data.filter(p => p.type === opt.v).length
+                    const isActive = poiTypeFilter === opt.v
+                    return (
+                      <button
+                        key={opt.v}
+                        onClick={() => setPoiTypeFilter(opt.v)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium transition-colors border ${
+                          isActive
+                            ? 'bg-[var(--brand-red)] text-white border-[var(--brand-red)]'
+                            : 'bg-white text-[var(--brand-ink)]/70 border-[var(--brand-border)] hover:bg-[var(--brand-cream)]'
+                        }`}
+                      >
+                        <span>{opt.icon}</span>
+                        <span>{opt.label}</span>
+                        <span className={`text-[9px] px-1 rounded ${isActive ? 'bg-white/20' : 'bg-[var(--brand-cream)]'}`}>{count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
@@ -820,9 +860,11 @@ export function DataManager() {
               />
             ) : (
               <SpreadsheetView
-                // Spreadsheet view: limit to first 100 rows for inline editing
-                // (the rest are still in `data` and accessible via pagination)
-                data={data.slice(0, 100)}
+                // Aug 2026: Spreadsheet view now ALSO applies colFilters + sort
+                // (so the filter works across ALL data — not just first 100 rows).
+                // The first 100 filtered rows are shown for inline editing; the
+                // rest are accessible via Prev/Next pagination below.
+                data={processedData.slice((page - 1) * 100, page * 100)}
                 loading={loading}
                 fields={fieldConfig}
                 draft={draft || {}}
@@ -834,7 +876,9 @@ export function DataManager() {
 
             {/* Pagination — since we fetch up to 5000 rows in table view, pagination
                 is rarely needed. We still show it for spreadsheet mode (which paginates
-                client-side for inline editing) and for entities that exceed 5000 rows. */}
+                client-side for inline editing) and for entities that exceed 5000 rows.
+                Aug 2026: Spreadsheet view now uses processedData (filter+sort applied)
+                so totalPages reflects the FILTERED row count, not the raw count. */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--brand-border)]">
               <div className="text-[11px] text-[var(--brand-ink)]/60">
                 {viewMode === 'table' ? (
@@ -844,7 +888,14 @@ export function DataManager() {
                     : t('data.showing_all_n', { n: total })
                 ) : (
                   <>
-                    {t('data.page_info', { page, totalPages, total })}
+                    {/* Spreadsheet view: totalPages computed from FILTERED data (processedData) */}
+                    {(() => {
+                      const filteredTotalPages = Math.max(1, Math.ceil(processedData.length / 100))
+                      const showingFiltered = processedData.length !== data.length
+                      return showingFiltered
+                        ? t('data.page_info_filtered', { page, totalPages: filteredTotalPages, total: processedData.length, raw: data.length })
+                        : t('data.page_info', { page, totalPages: filteredTotalPages, total: processedData.length })
+                    })()}
                     {t('data.showing_100_per_page')}
                   </>
                 )}
@@ -854,7 +905,7 @@ export function DataManager() {
                   <Button size="sm" variant="outline" disabled={page === 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))} className="h-7 text-[11px]">
                     {t('common.previous')}
                   </Button>
-                  <Button size="sm" variant="outline" disabled={page === totalPages || loading} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="h-7 text-[11px]">
+                  <Button size="sm" variant="outline" disabled={page >= Math.max(1, Math.ceil(processedData.length / 100)) || loading} onClick={() => setPage(p => p + 1)} className="h-7 text-[11px]">
                     {t('common.next')}
                   </Button>
                 </div>
