@@ -26,10 +26,14 @@ import { setTrainedModel } from '@/lib/ml/model-cache'
 import { requirePermission } from '@/lib/auth-server'
 import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   let model_id = 'mdl_gbr_revenue_v1'
   let trainDuration = 0
   let datasetSize = 0
@@ -183,6 +187,9 @@ export async function POST(req: NextRequest) {
  * GET /api/locinsight/ml/train — list previous training runs
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requirePermission('ml', 'read')
     if (!auth.ok) return auth.response

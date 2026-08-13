@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db'
 import { requirePermission } from '@/lib/auth-server'
 import { setTenantContext, tenantFilter } from '@/lib/tenant-context'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 
 /**
@@ -23,6 +24,9 @@ export const dynamic = 'force-dynamic'
  * (income, urban, tourist, transport, poi_density, coastal) — opportunity scoring uses these.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requirePermission('dashboard', 'read')
     if (!auth.ok) return auth.response

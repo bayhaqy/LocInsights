@@ -62,7 +62,7 @@ type LayerId =
   | 'crowd_density'
 
 type VizMode = 'choropleth' | 'point' | 'cells'
-type RegionLevel = 'kabupaten' | 'kecamatan' | 'kelurahan'
+type RegionLevel = 'kelurahan' | 'kecamatan' | 'kabupaten' | 'province' | 'country'
 
 const BRAND_CATEGORY_OPTIONS = [
   { value: 'all', labelKey: 'map.cat.all' },
@@ -114,10 +114,12 @@ export function MapExplorer({
   })
 
   // Per-layer visualization mode (choropleth vs point vs cells)
-  // Default opportunity to 'cells' = choropleth-colored kelurahan cells (per user request Aug 2026:
-  // "by default show smallest region level for opportunity score" + "add choropleth option for kelurahan")
+  // Default opportunity to 'choropleth' = true GADM polygon choropleth (per user request Aug 2026:
+  // "by default show filled color in the area, not dots" — applies to opportunity + demographics).
+  // 'cells' (quantile-colored kelurahan CircleMarkers) and 'point' (heatmap intensity) remain
+  // available as opt-in alternatives for users who want finer kelurahan-level granularity.
   const [layerVizMode, setLayerVizMode] = useState<Record<LayerId, VizMode>>({
-    opportunity: 'cells',
+    opportunity: 'choropleth',
     demographics: 'choropleth',
     stores: 'point',
     malls: 'point',
@@ -129,8 +131,10 @@ export function MapExplorer({
 
   // Per-layer region level (only meaningful when vizMode = choropleth)
   // Default to 'kelurahan' = smallest region level per user request
+  // (but choropleth-layer only supports kabupaten/kecamatan for true GADM polygons;
+  // kelurahan falls back to 'cells' mode which uses CircleMarkers as colored cells)
   const [layerRegion, setLayerRegion] = useState<Record<LayerId, RegionLevel>>({
-    opportunity: 'kelurahan',
+    opportunity: 'kabupaten',
     demographics: 'kelurahan',
     stores: 'kabupaten',
     malls: 'kabupaten',
@@ -149,6 +153,19 @@ export function MapExplorer({
   // Competitor data (loaded from DB via API)
   const [competitors, setCompetitors] = useState<any[]>([])
   const [competitorBrandFilter, setCompetitorBrandFilter] = useState<string>('all')
+  const [competitorCategoryFilter, setCompetitorCategoryFilter] = useState<string>('all')
+  const [competitorStoreNameFilter, setCompetitorStoreNameFilter] = useState<string>('all')
+
+  // Store-specific filters (Aug 2026 — brand_name + store_name + category + parent)
+  const [storeBrandFilter, setStoreBrandFilter] = useState<string>('all')
+  const [storeNameFilter, setStoreNameFilter] = useState<string>('all')
+
+  // Mall Class filter (Aug 2026 — super_regional / regional / community / specialty)
+  const [mallClassFilter, setMallClassFilter] = useState<string>('all')
+
+  // Unified region level filter — applies to Opportunity + Demographics choropleth (Aug 2026)
+  // Per user request: "Lebih baik filter region level diubah saja kebagian filters yang di atas agar cukup 1 saja"
+  const [unifiedRegionLevel, setUnifiedRegionLevel] = useState<RegionLevel>('kelurahan')
 
   // Demographic data (loaded from DB via API)
   const [kelurahanAll, setKelurahanAll] = useState<any[]>([])
@@ -187,7 +204,9 @@ export function MapExplorer({
       .catch(() => {})
   }, [])
 
-  // ===== Region Filter (applies to ALL layers) =====
+  // ===== Region Filter (applies to ALL layers) — Country → Province → Kabupaten → Kecamatan → Kelurahan =====
+  const [countryFilter, setCountryFilter] = useState<string>('ID')   // Default: Indonesia (Bali scope)
+  const [provinceFilter, setProvinceFilter] = useState<string>('Bali') // Default: Bali province
   const [kabFilter, setKabFilter] = useState<string>('all')
   const [kecFilter, setKecFilter] = useState<string>('all')
   const [kelurahanFilter, setKelurahanFilter] = useState<string>('all')
@@ -199,6 +218,15 @@ export function MapExplorer({
   const [scoreRange, setScoreRange] = useState<[number, number]>([0, 100])
 
   const selected = opportunities.find(o => o.kelurahan_id === selectedKelurahanId)
+
+  // Static list of supported countries (Aug 2026: only Indonesia — but cascade architecture supports more)
+  const COUNTRY_OPTIONS = [
+    { code: 'ID', label: 'Indonesia' },
+  ]
+  // Static list of supported provinces for Indonesia (Aug 2026: only Bali — but cascade architecture supports more)
+  const PROVINCE_OPTIONS_BY_COUNTRY: Record<string, { code: string; label: string }[]> = {
+    ID: [{ code: 'Bali', label: 'Bali' }],
+  }
 
   // Build cascading dropdown options from opportunities data
   const kabOptions = useMemo(() => {
@@ -234,6 +262,8 @@ export function MapExplorer({
   }, [kecFilter, kelurahanFilter])
 
   const resetFilters = () => {
+    setCountryFilter('ID')
+    setProvinceFilter('Bali')
     setTierFilter('all')
     setRecFilter('all')
     setKabFilter('all')
@@ -241,8 +271,15 @@ export function MapExplorer({
     setKelurahanFilter('all')
     setCategoryFilter('all')
     setParentFilter('all')
+    setStoreBrandFilter('all')
+    setStoreNameFilter('all')
+    setCompetitorBrandFilter('all')
+    setCompetitorCategoryFilter('all')
+    setCompetitorStoreNameFilter('all')
+    setMallClassFilter('all')
     setSearch('')
     setScoreRange([0, 100])
+    setUnifiedRegionLevel('kelurahan')
   }
 
   // Helper: check if a record is in the current region filter
@@ -269,7 +306,7 @@ export function MapExplorer({
     })
   }, [opportunities, tierFilter, recFilter, kabFilter, kecFilter, kelurahanFilter, scoreRange, search])
 
-  // ===== Filter stores (region + brand filters) =====
+  // ===== Filter stores (region + brand + store_name + category + parent) =====
   const filteredStores = useMemo(() => {
     if (!layerOn.stores) return []
     return stores.filter(s => {
@@ -284,6 +321,10 @@ export function MapExplorer({
       if (!isInRegion(s.kab, s.kec)) return false
       if (categoryFilter !== 'all' && s.brand_category !== categoryFilter) return false
       if (parentFilter !== 'all' && s.parent !== parentFilter) return false
+      // Per-brand filter (Aug 2026)
+      if (storeBrandFilter !== 'all' && s.brand_name !== storeBrandFilter) return false
+      // Per-store-name filter (Aug 2026)
+      if (storeNameFilter !== 'all' && s.name !== storeNameFilter) return false
       if (search) {
         const q = search.toLowerCase()
         const hay = `${s.name} ${s.brand_name} ${s.kab} ${s.kec} ${s.address}`.toLowerCase()
@@ -291,9 +332,9 @@ export function MapExplorer({
       }
       return true
     })
-  }, [stores, layerOn.stores, tierFilter, kabFilter, kecFilter, categoryFilter, parentFilter, search])
+  }, [stores, layerOn.stores, tierFilter, kabFilter, kecFilter, categoryFilter, parentFilter, storeBrandFilter, storeNameFilter, search])
 
-  // ===== Filter malls (region) =====
+  // ===== Filter malls (region + class) =====
   const filteredMalls = useMemo(() => {
     if (!layerOn.malls) return []
     return malls.filter(m => {
@@ -306,6 +347,8 @@ export function MapExplorer({
         if (kabTier[m.kab] !== tierFilter) return false
       }
       if (!isInRegion(m.kab, m.kec)) return false
+      // Mall Class filter (Aug 2026): super_regional / regional / community / specialty
+      if (mallClassFilter !== 'all' && (m as any).class !== mallClassFilter) return false
       if (search) {
         const q = search.toLowerCase()
         const hay = `${m.name} ${m.kab} ${m.kec}`.toLowerCase()
@@ -313,7 +356,7 @@ export function MapExplorer({
       }
       return true
     })
-  }, [malls, layerOn.malls, tierFilter, kabFilter, kecFilter, search])
+  }, [malls, layerOn.malls, tierFilter, kabFilter, kecFilter, mallClassFilter, search])
 
   // ===== Filter POIs (region) =====
   const filteredPOIs = useMemo(() => {
@@ -328,12 +371,18 @@ export function MapExplorer({
     })
   }, [pois, kabFilter, kecFilter, search])
 
-  // ===== Filter competitors (region) =====
+  // ===== Filter competitors (region + brand + category + store name) =====
   const filteredCompetitors = useMemo(() => {
     if (!layerOn.competitors) return []
     let list = competitors
     if (competitorBrandFilter !== 'all') {
       list = list.filter(c => c.brand_name === competitorBrandFilter)
+    }
+    if (competitorCategoryFilter !== 'all') {
+      list = list.filter(c => (c as any).brand_category === competitorCategoryFilter)
+    }
+    if (competitorStoreNameFilter !== 'all') {
+      list = list.filter(c => c.name === competitorStoreNameFilter)
     }
     return list.filter(c => {
       if (!isInRegion(c.kab, c.kec)) return false
@@ -344,11 +393,15 @@ export function MapExplorer({
       }
       return true
     })
-  }, [competitors, layerOn.competitors, competitorBrandFilter, kabFilter, kecFilter, search])
+  }, [competitors, layerOn.competitors, competitorBrandFilter, competitorCategoryFilter, competitorStoreNameFilter, kabFilter, kecFilter, search])
 
   // ===== Aggregate demographic data based on selected metric + granularity =====
-  // The demographics layer always uses layerRegion.demographics as the region level
-  const demoGranularity: DemoGranularity = layerRegion.demographics
+  // Aug 2026: demographics uses the UNIFIED region level (single dropdown at top of Filters card)
+  // Province/country fall back to kabupaten (we only have Bali/Indonesia data).
+  const demoGranularity: DemoGranularity =
+    (unifiedRegionLevel === 'province' || unifiedRegionLevel === 'country')
+      ? 'kabupaten'
+      : unifiedRegionLevel
 
   const demoData: DemoRegionRow[] = useMemo(() => {
     if (!layerOn.demographics) return []
@@ -444,22 +497,35 @@ export function MapExplorer({
       lat: kl.lat ?? null,
       lng: kl.lng ?? null,
     }))
-  }, [layerOn.demographics, demoMetric, demoGranularity, kelurahanAll, kecamatanAll, kabupatenAll, kabFilter, kecFilter, kelurahanFilter])
+  }, [layerOn.demographics, demoMetric, demoGranularity, kelurahanAll, kecamatanAll, kabupatenAll, kabFilter, kecFilter, kelurahanFilter, unifiedRegionLevel])
 
-  const isFilterActive = tierFilter !== 'all' || recFilter !== 'all' || kabFilter !== 'all' ||
+  const isFilterActive =
+    countryFilter !== 'ID' ||
+    provinceFilter !== 'Bali' ||
+    tierFilter !== 'all' || recFilter !== 'all' || kabFilter !== 'all' ||
     kecFilter !== 'all' || kelurahanFilter !== 'all' ||
-    categoryFilter !== 'all' || parentFilter !== 'all' || search !== '' ||
+    categoryFilter !== 'all' || parentFilter !== 'all' ||
+    storeBrandFilter !== 'all' || storeNameFilter !== 'all' ||
+    competitorBrandFilter !== 'all' || competitorCategoryFilter !== 'all' || competitorStoreNameFilter !== 'all' ||
+    mallClassFilter !== 'all' ||
+    search !== '' ||
     scoreRange[0] !== 0 || scoreRange[1] !== 100
 
-  // Opportunity layer's region level (for choropleth mode)
-  const oppRegion = layerRegion.opportunity
-  // 'cells' mode = choropleth-colored kelurahan cells (no GADM polygon needed)
-  // 'choropleth' mode = GADM polygon choropleth (kabupaten/kecamatan only)
-  // 'point' mode = leaflet.heat intensity
-  const oppHeatMode = layerVizMode.opportunity === 'choropleth' ? 'region'
-    : layerVizMode.opportunity === 'cells' ? 'cells'
-    : 'point'
-  const oppHeatGranularity = oppRegion === 'kelurahan' ? 'kabupaten' : oppRegion // choropleth-layer only supports kab/kec
+  // Aug 2026: unified region level — both Opportunity Score and Demographics use
+  // the SAME region level from the top "Filters" card. No more per-layer dropdown.
+  const oppRegion = unifiedRegionLevel
+  // ALWAYS use choropleth fill (per user request Aug 2026 — visualization
+  // dropdown was removed). At kelurahan level we use color-coded CircleMarker
+  // 'cells' (since GADM doesn't have kelurahan polygons). At kabupaten/kecamatan
+  // level we use real GADM polygon choropleth.
+  // Province/country fall back to kabupaten polygons (showing the aggregated
+  // value across all kabupaten) since we only have Bali/Indonesia data.
+  const oppHeatMode: 'region' | 'cells' | 'point' =
+    oppRegion === 'kelurahan' ? 'cells' : 'region'
+  const oppHeatGranularity: 'kabupaten' | 'kecamatan' =
+    (oppRegion === 'kelurahan' || oppRegion === 'province' || oppRegion === 'country')
+      ? 'kabupaten'
+      : oppRegion // choropleth-layer only supports kab/kec
 
   // ===== Region click handler (from choropleth polygon) =====
   // When a choropleth region is clicked, find the top-scoring opportunity in that region
@@ -686,7 +752,7 @@ export function MapExplorer({
             <CardHeader className="pb-3">
               <CardTitle className="text-[12px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
                 <Filter className="w-3.5 h-3.5 text-[var(--brand-red)]" />
-                {t('map.region_filters')}
+                {t('map.filters_title')}
                 <span className="ml-auto text-[10px] normal-case tracking-normal text-[var(--brand-ink)]/50 font-normal">
                   {t('map.affects_all_layers')}
                 </span>
@@ -707,9 +773,75 @@ export function MapExplorer({
                 </div>
               </div>
 
-              {/* Cascading region filter */}
+              {/* Unified Region Level (Aug 2026 — single dropdown shared by Opportunity + Demographics choropleth)
+                  Per user request: "Lebih baik filter region level diubah saja kebagian filters yang di atas agar cukup 1 saja" */}
               <div>
-                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.region_cascading')}</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                  {t('map.region_level_unified')}
+                </Label>
+                <Select
+                  value={unifiedRegionLevel}
+                  onValueChange={(v) => {
+                    setUnifiedRegionLevel(v as RegionLevel)
+                    setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel, demographics: v as RegionLevel })
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
+                    <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
+                    <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
+                    <SelectItem value="province">{t('map.province_regions')}</SelectItem>
+                    <SelectItem value="country">{t('map.country_regions')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-[var(--brand-ink)]/50 mt-1 leading-snug">
+                  {t('map.region_level_unified_hint')}
+                </p>
+              </div>
+
+              {/* Country → Province cascade (top of cascade) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.country')}</Label>
+                  <Select
+                    value={countryFilter}
+                    onValueChange={(v) => {
+                      setCountryFilter(v)
+                      // Reset province to first option of new country, or 'all' if none
+                      const provs = PROVINCE_OPTIONS_BY_COUNTRY[v] || []
+                      setProvinceFilter(provs[0]?.code || 'all')
+                      setKabFilter('all'); setKecFilter('all'); setKelurahanFilter('all')
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_OPTIONS.map(c => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">{t('map.province')}</Label>
+                  <Select
+                    value={provinceFilter}
+                    onValueChange={(v) => {
+                      setProvinceFilter(v)
+                      setKabFilter('all'); setKecFilter('all'); setKelurahanFilter('all')
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(PROVINCE_OPTIONS_BY_COUNTRY[countryFilter] || []).map(p => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Cascading region filter: Kabupaten → Kecamatan → Kelurahan */}
+              <div>
+                <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1.5 block">
+                  {t('map.kabupaten')} ({kabOptions.length})
+                </Label>
                 <Select value={kabFilter} onValueChange={(v) => { setKabFilter(v); setKecFilter('all'); setKelurahanFilter('all'); }}>
                   <SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -812,6 +944,9 @@ export function MapExplorer({
                     </Select>
                   </div>
                 </div>
+                <p className="text-[10px] text-[var(--brand-ink)]/50 mt-2 leading-snug">
+                  {t('map.region_level_unified_hint')}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -840,35 +975,10 @@ export function MapExplorer({
               />
               {layerOn.opportunity && (
                 <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.visualization')}</Label>
-                      <Select value={layerVizMode.opportunity} onValueChange={(v) => setLayerVizMode({ ...layerVizMode, opportunity: v as VizMode })}>
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cells">{t('map.viz_choropleth_cells')}</SelectItem>
-                          <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
-                          <SelectItem value="point">{t('map.viz_point_heat')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
-                      <Select
-                        value={layerRegion.opportunity}
-                        onValueChange={(v) => setLayerRegion({ ...layerRegion, opportunity: v as RegionLevel })}
-                        disabled={layerVizMode.opportunity === 'point' || layerVizMode.opportunity === 'cells'}
-                      >
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="kelurahan">{t('map.kelurahan_finest')}</SelectItem>
-                          <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
-                          <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {layerVizMode.opportunity === 'choropleth' && (
+                  {/* Aug 2026: Region level is now UNIFIED (single dropdown at top of Filters card).
+                      No more per-layer dropdown. Visualization is ALWAYS choropleth fill. */}
+                  {/* Metric selector — only show for kabupaten/kecamatan (kelurahan uses cells) */}
+                  {oppRegion !== 'kelurahan' && (
                     <div>
                       <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.metric')}</Label>
                       <Select value={oppMetric} onValueChange={(v) => setOppMetric(v as any)}>
@@ -882,16 +992,11 @@ export function MapExplorer({
                       </Select>
                     </div>
                   )}
-                  {layerVizMode.opportunity === 'cells' && (
-                    <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                      {t('map.choropleth_kelurahan_hint')}
-                    </div>
-                  )}
-                  {layerVizMode.opportunity === 'point' && (
-                    <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
-                      {t('map.point_mode_hint')}
-                    </div>
-                  )}
+                  <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
+                    {oppRegion === 'kelurahan'
+                      ? t('map.choropleth_kelurahan_hint')
+                      : t('map.choropleth_polygon_hint', { default: 'Each region is filled with a color representing the selected metric (quantile breaks).'})}
+                  </div>
                 </div>
               )}
 
@@ -906,6 +1011,8 @@ export function MapExplorer({
               />
               {layerOn.demographics && (
                 <div className="pl-2 border-l-2 border-violet-500/30 space-y-2 ml-1">
+                  {/* Aug 2026: Region level is now UNIFIED (single dropdown at top of Filters card).
+                      No more per-layer dropdown. Visualization is ALWAYS choropleth fill. */}
                   <div>
                     <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.metric')}</Label>
                     <Select value={demoMetric} onValueChange={(v) => setDemoMetric(v as DemoMetric)}>
@@ -916,35 +1023,6 @@ export function MapExplorer({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.visualization')}</Label>
-                      <Select
-                        value={layerVizMode.demographics}
-                        onValueChange={(v) => setLayerVizMode({ ...layerVizMode, demographics: v as VizMode })}
-                      >
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="choropleth">{t('map.viz_choropleth')}</SelectItem>
-                          <SelectItem value="point">{t('map.viz_point_village')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.region_level')}</Label>
-                      <Select
-                        value={layerRegion.demographics}
-                        onValueChange={(v) => setLayerRegion({ ...layerRegion, demographics: v as RegionLevel })}
-                      >
-                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="kabupaten">{t('map.kabupaten_regions')}</SelectItem>
-                          <SelectItem value="kecamatan">{t('map.kecamatan_regions')}</SelectItem>
-                          <SelectItem value="kelurahan">{t('map.kelurahan_villages')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
                   <div className="text-[10px] text-[var(--brand-ink)]/50 leading-relaxed bg-[var(--brand-cream)] p-2 rounded">
                     {t('map.demographics_hint', { n: demoData.length })}
@@ -961,6 +1039,46 @@ export function MapExplorer({
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, stores: v })}
                 color="var(--brand-red)"
               />
+              {layerOn.stores && stores.length > 0 && (
+                <div className="pl-2 border-l-2 border-[var(--brand-red)]/30 space-y-2 ml-1">
+                  {/* Aug 2026: brand filter + category filter + store name filter — inline like competitor */}
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.brand_filter')}</Label>
+                    <Select value={storeBrandFilter} onValueChange={setStoreBrandFilter}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('map.all_brands', { n: stores.length })}</SelectItem>
+                        {Array.from(new Set(stores.map(s => s.brand_name).filter(Boolean))).sort().map(b => (
+                          <SelectItem key={b} value={b}>{b} ({stores.filter(s => s.brand_name === b).length})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.brand_category')}</Label>
+                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {BRAND_CATEGORY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.store_name')}</Label>
+                      <Select value={storeNameFilter} onValueChange={setStoreNameFilter}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('common.all')}</SelectItem>
+                          {Array.from(new Set(stores.map(s => s.name).filter(Boolean))).sort().slice(0, 200).map(n => (
+                            <SelectItem key={n} value={n}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ===== Malls ===== */}
               <LayerToggle
@@ -971,6 +1089,24 @@ export function MapExplorer({
                 onCheckedChange={(v) => setLayerOn({ ...layerOn, malls: v })}
                 color="var(--brand-ink)"
               />
+              {layerOn.malls && malls.length > 0 && (
+                <div className="pl-2 border-l-2 border-[var(--brand-ink)]/30 space-y-2 ml-1">
+                  {/* Aug 2026: Mall Class filter — inline next to layer toggle */}
+                  <div>
+                    <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.mall_class')}</Label>
+                    <Select value={mallClassFilter} onValueChange={setMallClassFilter}>
+                      <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('common.all')}</SelectItem>
+                        <SelectItem value="super_regional">{t('map.mall_class_super_regional')}</SelectItem>
+                        <SelectItem value="regional">{t('map.mall_class_regional')}</SelectItem>
+                        <SelectItem value="community">{t('map.mall_class_community')}</SelectItem>
+                        <SelectItem value="specialty">{t('map.mall_class_specialty')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               {/* ===== Competitor Stores ===== */}
               <LayerToggle
@@ -983,17 +1119,44 @@ export function MapExplorer({
               />
               {layerOn.competitors && competitors.length > 0 && (
                 <div className="pl-2 border-l-2 border-red-500/30 space-y-2 ml-1">
+                  {/* Aug 2026: brand filter + category filter + store name filter */}
                   <div>
                     <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.brand_filter')}</Label>
                     <Select value={competitorBrandFilter} onValueChange={setCompetitorBrandFilter}>
                       <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t('map.all_brands', { n: competitors.length })}</SelectItem>
-                        {Array.from(new Set(competitors.map(c => c.brand_name))).sort().map(b => (
+                        {Array.from(new Set(competitors.map(c => c.brand_name).filter(Boolean))).sort().map(b => (
                           <SelectItem key={b} value={b}>{b} ({competitors.filter(c => c.brand_name === b).length})</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.competitor_category')}</Label>
+                      <Select value={competitorCategoryFilter} onValueChange={setCompetitorCategoryFilter}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('common.all')}</SelectItem>
+                          {Array.from(new Set(competitors.map(c => (c as any).brand_category).filter(Boolean))).sort().map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10.5px] uppercase tracking-wider text-[var(--brand-ink)]/60 mb-1 block">{t('map.store_name')}</Label>
+                      <Select value={competitorStoreNameFilter} onValueChange={setCompetitorStoreNameFilter}>
+                        <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('common.all')}</SelectItem>
+                          {Array.from(new Set(competitors.map(c => c.name).filter(Boolean))).sort().slice(0, 200).map(n => (
+                            <SelectItem key={n} value={n}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               )}

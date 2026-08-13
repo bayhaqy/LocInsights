@@ -21,14 +21,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { requireAuth } from '@/lib/auth-server'
 import { setTenantContext, tenantFilter, withTenantId, withTenantContext } from '@/lib/tenant-context'
 import { getCurrentTenantId } from '@/lib/auth-server'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 15
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requireAuth()
     if (!auth.ok) return auth.response
@@ -64,6 +67,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // POST is used by field surveyors (separate PWA at /survey) to submit
+  // survey data. Surveyors only need to be authenticated (any role), not
+  // superadmin. The PATCH endpoint (review status update) is admin-only.
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const body = await req.json()
     const {
@@ -136,6 +145,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requireAuth()
     if (!auth.ok) return auth.response

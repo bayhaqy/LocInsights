@@ -33,12 +33,16 @@ import type { ScraperResultRow } from '@/lib/scraper-types'
 import { requirePermission } from '@/lib/auth-server'
 import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 interface SaveItem extends ScraperResultRow {}
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requirePermission('scraper', 'create')
     if (!auth.ok) return auth.response

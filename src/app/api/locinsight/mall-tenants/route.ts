@@ -13,6 +13,7 @@ import { COMPETITOR_BRANDS } from '@/lib/data/competitor-brands'
 import { requirePermission } from '@/lib/auth-server'
 import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
@@ -71,6 +72,9 @@ function classifyBrand(name: string): { brand_name: string; brand_category: stri
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requirePermission('mall_tenants', 'read')
     if (!auth.ok) return auth.response
@@ -103,6 +107,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requirePermission('mall_tenants', 'create')
     if (!auth.ok) return auth.response

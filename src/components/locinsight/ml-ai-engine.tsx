@@ -496,7 +496,6 @@ export function MLAIEngine() {
               <div className="mt-3 flex items-center justify-between text-[11px] text-[var(--brand-ink)]/50">
                 <span>
                   {t('common.powered_by')} <a href="https://huggingface.co/spaces/Bayhaqy/LocInsights_ml" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-red)] hover:underline">Hugging Face Space</a>
-                  {' · '}<a href="https://github.com/bayhaqy/LocInsights_ml" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-red)] hover:underline">{t('ml.source_code')}</a>
                 </span>
                 <span>scikit-learn · numpy · Pyodide (WASM)</span>
               </div>

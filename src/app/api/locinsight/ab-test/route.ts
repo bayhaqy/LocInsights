@@ -25,10 +25,14 @@ import { buildScoringConfig } from '@/lib/scoring/db-engine'
 import { requirePermission } from '@/lib/auth-server'
 import { setTenantContext } from '@/lib/tenant-context'
 
+import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin()
+  if (!auth.ok) return auth.response
+
   try {
     const auth = await requirePermission('ab', 'read')
     if (!auth.ok) return auth.response

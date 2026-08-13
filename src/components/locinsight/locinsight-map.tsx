@@ -482,41 +482,111 @@ export function LocInsightMap({
         {/* Opportunity markers
          *  - heatMode 'cells'  = choropleth-colored kelurahan cells (quantile-based YlOrRd)
          *  - heatMode 'point' or 'region' = recommendation-colored circle markers
+         *
+         * IMPORTANT (Aug 2026 user feedback): When the Opportunity layer is OFF
+         * (showHeat === false), NO markers should appear at all. Previously the
+         * LayerGroup rendered unconditionally — dots stayed visible even after
+         * unchecking, with popups showing Composite Score, Daily Customers, etc.
+         * Now the whole LayerGroup is gated behind showHeat.
+         *
+         * Additionally, when heatMode === 'region' (true GADM polygon choropleth),
+         * we suppress these markers entirely — the ChoroplethLayer above handles
+         * visualization with filled polygons, and dots would just clutter the map.
          */}
-        <LayerGroup>
-          {filteredOpps.map(o => {
-            const isSelected = o.kelurahan_id === selectedKelurahanId
-            // Choropleth-cells mode: use YlOrRd quantile coloring based on composite_score
-            if (heatMode === 'cells') {
-              // ColorBrewer YlOrRd 7-step (matches choropleth-layer.tsx)
-              const CELL_COLORS = ['#ffffcc', '#ffeda0', '#fed976', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#b10026']
-              // Compute quantile breaks from current filteredOpps scores
-              const scores: number[] = filteredOpps.map(x => x.composite_score).sort((a, b) => a - b)
-              const breaks: number[] = []
-              for (let i = 1; i < 7; i++) breaks.push(scores[Math.floor((i / 7) * scores.length)] ?? 0)
-              let colorIdx = 0
-              for (let i = breaks.length - 1; i >= 0; i--) {
-                if (o.composite_score >= breaks[i]) { colorIdx = Math.min(i + 1, CELL_COLORS.length - 1); break }
+        {showHeat && heatMode !== 'region' && (
+          <LayerGroup>
+            {filteredOpps.map(o => {
+              const isSelected = o.kelurahan_id === selectedKelurahanId
+              // Choropleth-cells mode: use YlOrRd quantile coloring based on composite_score
+              if (heatMode === 'cells') {
+                // ColorBrewer YlOrRd 7-step (matches choropleth-layer.tsx)
+                const CELL_COLORS = ['#ffffcc', '#ffeda0', '#fed976', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#b10026']
+                // Compute quantile breaks from current filteredOpps scores
+                const scores: number[] = filteredOpps.map(x => x.composite_score).sort((a, b) => a - b)
+                const breaks: number[] = []
+                for (let i = 1; i < 7; i++) breaks.push(scores[Math.floor((i / 7) * scores.length)] ?? 0)
+                let colorIdx = 0
+                for (let i = breaks.length - 1; i >= 0; i--) {
+                  if (o.composite_score >= breaks[i]) { colorIdx = Math.min(i + 1, CELL_COLORS.length - 1); break }
+                }
+                const cellColor = CELL_COLORS[colorIdx]
+                return (
+                  <CircleMarker
+                    key={o.kelurahan_id}
+                    center={[o.lat, o.lng]}
+                    radius={isSelected ? 14 : 9}
+                    pathOptions={{
+                      color: isSelected ? '#0F0F12' : '#0F0F12',
+                      fillColor: cellColor,
+                      fillOpacity: isSelected ? 0.95 : 0.78,
+                      weight: isSelected ? 3 : 0.6,
+                    }}
+                    eventHandlers={{ click: () => onSelectKelurahan(o.kelurahan_id) }}
+                  >
+                    <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+                      <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
+                        <strong>{o.kelurahan_name}</strong><br />
+                        {o.kec_name}, {o.kab_name}<br />
+                        Score: <strong style={{ color: cellColor === '#ffffcc' || cellColor === '#ffeda0' ? '#666' : cellColor }}>{o.composite_score}</strong> · {o.recommendation.replace('_', ' ')}
+                      </div>
+                    </Tooltip>
+                    <Popup>
+                      <div style={{ minWidth: 220 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{o.kelurahan_name}</div>
+                        <div style={{ color: '#666', fontSize: 11, marginBottom: 8 }}>
+                          {o.kec_name} · {o.kab_name} · Tier {o.tier}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                          <span>Composite Score</span>
+                          <strong style={{ color: '#C8102E' }}>{o.composite_score}/100</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                          <span>Est. Daily Customers</span>
+                          <strong>{o.estimated_daily_customers}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                          <span>Proj. Monthly Rev.</span>
+                          <strong>Rp {o.projected_monthly_revenue_juta} jt</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
+                          <span>Market Share</span>
+                          <strong>{(o.potential_market_share * 100).toFixed(1)}%</strong>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#666', borderTop: '1px solid #eee', paddingTop: 8 }}>
+                          {o.nearest_mall_name ? `Nearest mall: ${o.nearest_mall_name} (${o.nearest_mall_distance_km}km)` : 'No mall nearby'}
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                )
               }
-              const cellColor = CELL_COLORS[colorIdx]
+              // Default: recommendation-colored markers (heatMode === 'point')
+              const color =
+                o.recommendation === 'high_priority' ? '#C8102E' :
+                o.recommendation === 'priority' ? '#D45F4A' :
+                o.recommendation === 'monitor' ? '#A08070' :
+                '#B0B0B0'
+              const radius = isSelected ? 14 : 6 + Math.round(o.composite_score / 12)
               return (
                 <CircleMarker
                   key={o.kelurahan_id}
                   center={[o.lat, o.lng]}
-                  radius={isSelected ? 14 : 9}
+                  radius={radius}
                   pathOptions={{
-                    color: isSelected ? '#0F0F12' : '#0F0F12',
-                    fillColor: cellColor,
-                    fillOpacity: isSelected ? 0.95 : 0.78,
-                    weight: isSelected ? 3 : 0.6,
+                    color: isSelected ? '#0F0F12' : color,
+                    fillColor: color,
+                    fillOpacity: isSelected ? 0.95 : 0.6,
+                    weight: isSelected ? 3 : 1,
                   }}
-                  eventHandlers={{ click: () => onSelectKelurahan(o.kelurahan_id) }}
+                  eventHandlers={{
+                    click: () => onSelectKelurahan(o.kelurahan_id),
+                  }}
                 >
                   <Tooltip direction="top" offset={[0, -5]} opacity={1}>
                     <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
                       <strong>{o.kelurahan_name}</strong><br />
                       {o.kec_name}, {o.kab_name}<br />
-                      Score: <strong style={{ color: cellColor === '#ffffcc' || cellColor === '#ffeda0' ? '#666' : cellColor }}>{o.composite_score}</strong> · {o.recommendation.replace('_', ' ')}
+                      Score: <strong style={{ color: '#C8102E' }}>{o.composite_score}</strong> · {o.recommendation.replace('_', ' ')}
                     </div>
                   </Tooltip>
                   <Popup>
@@ -548,67 +618,9 @@ export function LocInsightMap({
                   </Popup>
                 </CircleMarker>
               )
-            }
-            // Default: recommendation-colored markers
-            const color =
-              o.recommendation === 'high_priority' ? '#C8102E' :
-              o.recommendation === 'priority' ? '#D45F4A' :
-              o.recommendation === 'monitor' ? '#A08070' :
-              '#B0B0B0'
-            const radius = isSelected ? 14 : 6 + Math.round(o.composite_score / 12)
-            return (
-              <CircleMarker
-                key={o.kelurahan_id}
-                center={[o.lat, o.lng]}
-                radius={radius}
-                pathOptions={{
-                  color: isSelected ? '#0F0F12' : color,
-                  fillColor: color,
-                  fillOpacity: isSelected ? 0.95 : 0.6,
-                  weight: isSelected ? 3 : 1,
-                }}
-                eventHandlers={{
-                  click: () => onSelectKelurahan(o.kelurahan_id),
-                }}
-              >
-                <Tooltip direction="top" offset={[0, -5]} opacity={1}>
-                  <div style={{ fontSize: '11px', lineHeight: 1.4 }}>
-                    <strong>{o.kelurahan_name}</strong><br />
-                    {o.kec_name}, {o.kab_name}<br />
-                    Score: <strong style={{ color: '#C8102E' }}>{o.composite_score}</strong> · {o.recommendation.replace('_', ' ')}
-                  </div>
-                </Tooltip>
-                <Popup>
-                  <div style={{ minWidth: 220 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{o.kelurahan_name}</div>
-                    <div style={{ color: '#666', fontSize: 11, marginBottom: 8 }}>
-                      {o.kec_name} · {o.kab_name} · Tier {o.tier}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span>Composite Score</span>
-                      <strong style={{ color: '#C8102E' }}>{o.composite_score}/100</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span>Est. Daily Customers</span>
-                      <strong>{o.estimated_daily_customers}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span>Proj. Monthly Rev.</span>
-                      <strong>Rp {o.projected_monthly_revenue_juta} jt</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
-                      <span>Market Share</span>
-                      <strong>{(o.potential_market_share * 100).toFixed(1)}%</strong>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#666', borderTop: '1px solid #eee', paddingTop: 8 }}>
-                      {o.nearest_mall_name ? `Nearest mall: ${o.nearest_mall_name} (${o.nearest_mall_distance_km}km)` : 'No mall nearby'}
-                    </div>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            )
-          })}
-        </LayerGroup>
+            })}
+          </LayerGroup>
+        )}
 
         {/* Mall markers */}
         {showMalls && malls.filter(m => m.visitor_estimate_daily > 0).map(m => (

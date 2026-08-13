@@ -620,6 +620,26 @@ model TrainingRun {
   @@index([tenant_id])
 }
 
+// ============================================================================
+// Authentication & RBAC models (Aug 2026 — DB-backed user management)
+// ============================================================================
+// Backs the NextAuth Credentials provider + the superadmin user-management
+// panel. The first superadmin (`bayhaqy`) is bootstrapped from env vars on
+// startup; subsequent users are created/managed via the admin UI.
+//
+// Roles:
+//   - superadmin : full CRUD on all master data + can manage users/roles
+//   - analyst    : read-only on analytics + can run ML/AI forecasts,
+//                  cannot edit master data or manage users
+//   - viewer     : read-only on dashboards/maps only — no mutations,
+//                  no access to Data Manager / Scraper / Settings / Users
+//
+// Security notes:
+//   - Passwords are stored as bcrypt hashes (10 rounds) — never plaintext.
+//   - `is_active=false` disables login without deleting the user record.
+//   - `failed_login_count` + `locked_until` enforce DB-side brute-force lockout.
+//   - All mutations are audited via `UserAuditLog` for traceability.
+
 enum admin_tier_enum {
   tier_1 @map("1")
   tier_2 @map("2")

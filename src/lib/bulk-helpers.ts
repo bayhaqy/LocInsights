@@ -466,6 +466,165 @@ export function buildTemplate(entity: EntityType): { csv: string; xlsx: Buffer; 
   return { csv, xlsx, fields }
 }
 
+/**
+ * Build a template with ONLY the user-selected columns.
+ *
+ * Used by the "Import Selection Columns" feature: user picks a subset of
+ * columns, downloads a template containing only those columns (in the order
+ * selected), then uploads a file that must match exactly.
+ *
+ * Best practices (Aug 2026):
+ *   - Always include the primary key (idField) — required for upsert
+ *   - Always include required fields — user can't omit them
+ *   - Columns are deduplicated (Set semantics) and ordered by user selection
+ *   - Example row shows realistic placeholder values
+ */
+export function buildTemplateWithColumns(
+  entity: EntityType,
+  selectedColumnKeys: string[],
+): { csv: string; xlsx: Buffer; fields: FieldDef[]; includedKeys: string[] } {
+  const cfg = ENTITY_CONFIG[entity]
+  if (!cfg) throw new Error(`Unknown entity: ${entity}`)
+
+  // Deduplicate while preserving order
+  const seen = new Set<string>()
+  const orderedKeys: string[] = []
+  for (const k of selectedColumnKeys) {
+    if (!seen.has(k)) {
+      seen.add(k)
+      orderedKeys.push(k)
+    }
+  }
+
+  // Always include the primary key + required fields (force-include even if user didn't pick them)
+  const mustInclude = new Set<string>([cfg.idField])
+  for (const f of cfg.fields) {
+    if (f.required) mustInclude.add(f.key)
+  }
+  for (const k of mustInclude) {
+    if (!seen.has(k)) {
+      seen.add(k)
+      orderedKeys.unshift(k)
+    }
+  }
+
+  // Build filtered fields list (preserve config order if user didn't reorder)
+  const fields = cfg.fields.filter(f => seen.has(f.key))
+
+  const exampleRow: Record<string, any> = {}
+  for (const f of fields) {
+    if (f.type === 'number') exampleRow[f.key] = f.required ? 0 : ''
+    else if (f.type === 'boolean') exampleRow[f.key] = f.default ?? false
+    else if (f.required) exampleRow[f.key] = `EXAMPLE_${f.key.toUpperCase()}`
+    else if (f.default !== undefined) exampleRow[f.key] = f.default
+    else exampleRow[f.key] = ''
+  }
+
+  const csv = rowsToCsv([exampleRow], fields)
+  const xlsx = rowsToXlsx([exampleRow], fields)
+  return { csv, xlsx, fields, includedKeys: orderedKeys }
+}
+
+/**
+ * Validate that an uploaded file's headers match the expected template columns.
+ *
+ * Returns a list of validation issues:
+ *   - missing: required columns that are not in the file
+ *   - extra:   columns in the file that aren't in the expected set (warning only)
+ *   - mismatchedLabels: headers that don't match any known column key/label
+ *
+ * Best practices (Aug 2026):
+ *   - Match against both field.key and field.label (case-insensitive)
+ *   - Required fields must be present (else error)
+ *   - Extra columns are tolerated but flagged (warning)
+ *   - Returns clear, actionable error messages for the UI
+ */
+export function validateImportColumns(
+  entity: EntityType,
+  fileHeaders: string[],
+  expectedColumnKeys: string[],
+): { valid: boolean; errors: string[]; warnings: string[]; missing: string[]; extra: string[] } {
+  const cfg = ENTITY_CONFIG[entity]
+  if (!cfg) throw new Error(`Unknown entity: ${entity}`)
+
+  // Build label→key and key→key lookup (case-insensitive)
+  const labelToKey = new Map<string, string>()
+  for (const f of cfg.fields) {
+    labelToKey.set(f.label.toLowerCase(), f.key)
+    labelToKey.set(f.key.toLowerCase(), f.key)
+  }
+
+  // Normalize file headers to lowercase strings
+  const fileHeadersLower = fileHeaders.map(h => String(h).trim().toLowerCase())
+  const fileKeysFound = new Set<string>()
+  const unmatched: string[] = []
+  for (const h of fileHeadersLower) {
+    const key = labelToKey.get(h)
+    if (key) fileKeysFound.add(key)
+    else unmatched.push(h)
+  }
+
+  // Deduplicate expected columns (Set semantics)
+  const expectedKeys = new Set(expectedColumnKeys)
+  // Always require the primary key + required fields
+  expectedKeys.add(cfg.idField)
+  for (const f of cfg.fields) {
+    if (f.required) expectedKeys.add(f.key)
+  }
+
+  const missing: string[] = []
+  for (const k of expectedKeys) {
+    if (!fileKeysFound.has(k)) {
+      const f = cfg.fields.find(x => x.key === k)
+      missing.push(f?.label || k)
+    }
+  }
+
+  const extra: string[] = unmatched
+
+  const errors: string[] = []
+  const warnings: string[] = []
+  if (missing.length > 0) {
+    errors.push(`Missing required columns: ${missing.join(', ')}`)
+  }
+  if (extra.length > 0) {
+    warnings.push(`Unexpected columns (will be ignored): ${extra.join(', ')}`)
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    missing,
+    extra,
+  }
+}
+
+/**
+ * Filter rows to only the selected columns, after parsing.
+ * Used during import to strip unwanted columns before upsert.
+ */
+export function filterRowsToColumns(
+  rows: Record<string, any>[],
+  entity: EntityType,
+  selectedColumnKeys: string[],
+): Record<string, any>[] {
+  const cfg = ENTITY_CONFIG[entity]
+  if (!cfg) throw new Error(`Unknown entity: ${entity}`)
+  const keysToKeep = new Set(selectedColumnKeys)
+  keysToKeep.add(cfg.idField)
+  for (const f of cfg.fields) {
+    if (f.required) keysToKeep.add(f.key)
+  }
+  return rows.map(r => {
+    const out: Record<string, any> = {}
+    for (const k of keysToKeep) {
+      if (k in r) out[k] = r[k]
+    }
+    return out
+  })
+}
+
 /** Parse CSV string into rows. */
 export function parseCsv(text: string): Record<string, any>[] {
   const result = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: h => h.trim() })
