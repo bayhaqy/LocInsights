@@ -15,7 +15,7 @@ import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const USER_AGENT = 'LocInsight/1.0 (MAP Active Adiperkasa Data Team)'
+const USER_AGENT = 'LocInsights/1.0 (MAP Active Adiperkasa Data Team)'
 
 interface OverpassElement {
   type: string

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Info, BookOpen, Database, Cpu, GitBranch, Activity, Network,
   Layers, MapPin, Users, Building2, Target, Workflow, Sparkles,
-  Globe, ExternalLink,
+  Globe, ExternalLink, Shield,
 } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-provider'
 
@@ -26,7 +26,7 @@ export function About() {
         </p>
       </div>
 
-      {/* What is LocInsight */}
+      {/* What is LocInsights */}
       <Card className="card-premium">
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
@@ -36,7 +36,7 @@ export function About() {
         </CardHeader>
         <CardContent className="pt-0 space-y-4 text-[13px] leading-relaxed text-[var(--brand-ink)]/85">
           <p>
-            LocInsight is an enterprise-grade location intelligence system designed to help MAP Active Adiperkasa (MAA)
+            LocInsights is an enterprise-grade location intelligence system designed to help MAP Active Adiperkasa (MAA)
             make data-driven retail expansion decisions. It identifies <strong>white-space opportunities</strong> —
             underserved areas where new stores can thrive — and quantifies the revenue potential of each candidate site
             using a combination of composite scoring, the Huff Gravity Model, and Gradient-Boosted Regression (GBR).
@@ -55,7 +55,7 @@ export function About() {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[var(--brand-red)]" />
-            Why Use LocInsight? — Key Use Cases
+            Why Use LocInsights? — Key Use Cases
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -98,7 +98,7 @@ export function About() {
         </CardHeader>
         <CardContent className="pt-0 space-y-4 text-[13px] leading-relaxed text-[var(--brand-ink)]/85">
           <p>
-            LocInsight follows the <strong>3-stage retail site selection framework</strong> recommended by
+            LocInsights follows the <strong>3-stage retail site selection framework</strong> recommended by
             industry leaders like OnSpot Data (2026), Placer.ai (2024), Felt.com (2026), and GrowthFactor.ai (2025):
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -318,6 +318,80 @@ export function About() {
         </CardContent>
       </Card>
 
+      {/* Authentication & RBAC */}
+      <Card className="card-premium border-[var(--brand-red)]/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[var(--brand-red)]" />
+            Authentication & Role-Based Access Control
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3 text-[13px] leading-relaxed text-[var(--brand-ink)]/85">
+          <p>
+            LocInsights v5.0 ships with a complete authentication system built on NextAuth v4
+            and bcrypt. All routes (except <code className="px-1 bg-[var(--brand-cream)] rounded text-[11px]">/login</code>,
+            the public overview API, and the AI chat fallback) require authentication.
+            Sessions are JWT-based with a 30-day expiry, and the user's role + permissions
+            matrix travels inside the token so permission checks need no DB round-trip.
+          </p>
+          <p>
+            Five built-in roles are seeded by <code className="px-1 bg-[var(--brand-cream)] rounded text-[11px]">bun run seed:users</code>:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px] border border-[var(--brand-border)] rounded">
+              <thead className="bg-[var(--brand-cream)]">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium">Role</th>
+                  <th className="text-left px-3 py-2 font-medium">Default permissions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-[var(--brand-border)]">
+                  <td className="px-3 py-2 font-mono font-medium text-purple-700">superadmin</td>
+                  <td className="px-3 py-2">Full CRUD + export on all 17 menus, including Users Management</td>
+                </tr>
+                <tr className="border-t border-[var(--brand-border)]">
+                  <td className="px-3 py-2 font-mono font-medium text-blue-700">admin</td>
+                  <td className="px-3 py-2">Full CRUD + export on all features except Users Management</td>
+                </tr>
+                <tr className="border-t border-[var(--brand-border)]">
+                  <td className="px-3 py-2 font-mono font-medium text-emerald-700">data</td>
+                  <td className="px-3 py-2">Full CRUD + export ONLY on Reports, Data Manager, Data Scraper; read-only elsewhere</td>
+                </tr>
+                <tr className="border-t border-[var(--brand-border)]">
+                  <td className="px-3 py-2 font-mono font-medium text-violet-700">analyst</td>
+                  <td className="px-3 py-2">Read + run ML/AI forecasts (no master data mutations)</td>
+                </tr>
+                <tr className="border-t border-[var(--brand-border)]">
+                  <td className="px-3 py-2 font-mono font-medium text-gray-700">viewer</td>
+                  <td className="px-3 py-2">Read-only across the app — no exports, no create/update/delete</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The superadmin can customize any role's permissions from the <strong>Users Management</strong>
+            page (sidebar → Users Management → Roles tab), using a 17-menu × 5-action
+            (read/create/update/delete/export) matrix editor. <strong>Superadmin permissions are
+            locked</strong> — they always have full access. The viewer role is the most restricted
+            and is intended for stakeholder demos where data export must be disabled.
+          </p>
+          <div className="bg-[var(--brand-cream)] rounded-md p-3 text-[11.5px] text-[var(--brand-ink)]/75 mt-2">
+            <strong>Default seeded accounts:</strong>
+            <div className="mt-1 font-mono">
+              <div>bayhaqy / LocInsights@01!!  → superadmin</div>
+              <div>admin    / admin            → admin</div>
+              <div>data     / data             → data</div>
+              <div>demo     / demo             → viewer</div>
+            </div>
+            <div className="mt-2 text-[var(--brand-ink)]/60">
+              Passwords can be reset from Users Management (superadmin) or by running
+              <code className="mx-1 px-1 bg-white rounded">bun run seed:users --reset-password &lt;username&gt; &lt;newPassword&gt;</code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tech stack */}
       <Card className="bg-[var(--brand-ink)] text-white border-0 rounded-xl shadow-sm">
         <CardContent className="p-5">
@@ -369,7 +443,7 @@ export function About() {
                 Developer &amp; Data Engineer · MAP Active Adiperkasa (MAA) Data Team
               </div>
               <p className="text-[12.5px] text-[var(--brand-ink)]/80 leading-relaxed mt-2">
-                Designed and built LocInsight end-to-end — from data ingestion and PostGIS schema design through
+                Designed and built LocInsights end-to-end — from data ingestion and PostGIS schema design through
                 composite scoring, Huff gravity modelling, and the GBR revenue predictor. Responsible for the
                 continuous data pipeline that keeps competitor, POI, and demographic layers fresh, and for
                 evolving the platform as new market signals and brand segments are added.

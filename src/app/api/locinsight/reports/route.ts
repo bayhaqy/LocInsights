@@ -79,7 +79,7 @@ function generateExecutiveSummary(filters: ReportFilters) {
   })
 
   return {
-    title: 'LocInsight Executive Summary',
+    title: 'LocInsights Executive Summary',
     generated_at: new Date().toISOString(),
     filters,
     summary: {
@@ -114,7 +114,7 @@ function generateSiteAnalysis(filters: ReportFilters) {
   const filtered = filters.min_score ? opps.filter(o => o.composite_score >= filters.min_score!) : opps
 
   return {
-    title: 'LocInsight Site Analysis',
+    title: 'LocInsights Site Analysis',
     generated_at: new Date().toISOString(),
     filters,
     sites: filtered.map((o, i) => ({
@@ -176,7 +176,7 @@ function generateBrandExpansion(filters: ReportFilters) {
   })
 
   return {
-    title: 'LocInsight Brand Expansion Matrix',
+    title: 'LocInsights Brand Expansion Matrix',
     generated_at: new Date().toISOString(),
     filters,
     brands_analyzed: brands.length,
@@ -216,7 +216,7 @@ function generateRegionalComparison(filters: ReportFilters) {
   })
 
   return {
-    title: 'LocInsight Regional Comparison',
+    title: 'LocInsights Regional Comparison',
     generated_at: new Date().toISOString(),
     filters,
     kabupaten_count: KABUPATEN_LIST.length,
@@ -364,7 +364,7 @@ export async function GET(req: NextRequest) {
 // ============================================================
 
 function renderHTML(content: any, type: string): string {
-  const title = content.title || 'LocInsight Report'
+  const title = content.title || 'LocInsights Report'
   const generated = content.generated_at || new Date().toISOString()
 
   const tierTable = content.tier_breakdown ? `
@@ -566,7 +566,7 @@ function renderHTML(content: any, type: string): string {
   ${regTable}
 
   <div class="footer">
-    LocInsight · Powered by MAP Active Data Team · Generated on ${new Date(generated).toLocaleString('en-GB')}
+    LocInsights · Powered by MAP Active Data Team · Generated on ${new Date(generated).toLocaleString('en-GB')}
     <br/>Best-practice methodology: Huff Gravity Model · XGBoost · Random Forest · K-Means · Validated against Aug 2026 industry benchmarks (Placer.ai, GrowthFactor.ai, Felt.com)
   </div>
 </body>

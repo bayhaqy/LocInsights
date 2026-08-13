@@ -8,13 +8,13 @@ owner: Data Team
 
 # Data Sources & Provenance
 
-> **Tujuan halaman ini**: Memberikan transparansi penuh atas asal-usul setiap data yang digunakan di LocInsight, agar pihak manajemen dapat melakukan validasi menyeluruh terhadap kredibilitas sumber data.
+> **Tujuan halaman ini**: Memberikan transparansi penuh atas asal-usul setiap data yang digunakan di LocInsights, agar pihak manajemen dapat melakukan validasi menyeluruh terhadap kredibilitas sumber data.
 >
-> **Purpose**: Full transparency on the origin of every dataset used in LocInsight, so management can validate data credibility end-to-end.
+> **Purpose**: Full transparency on the origin of every dataset used in LocInsights, so management can validate data credibility end-to-end.
 
 ## Ringkasan Sumber Data / Summary
 
-LocInsight menggabungkan data dari **6 kategori sumber**. Setiap dataset memiliki metadata lengkap: URL sumber, format, tanggal refresh, metodologi pengumpulan, lisensi, dan tingkat kredibilitas.
+LocInsights menggabungkan data dari **6 kategori sumber**. Setiap dataset memiliki metadata lengkap: URL sumber, format, tanggal refresh, metodologi pengumpulan, lisensi, dan tingkat kredibilitas.
 
 | # | Dataset | Source | Format | Refresh | Credibility |
 |---|---------|--------|--------|---------|-------------|
@@ -26,7 +26,7 @@ LocInsight menggabungkan data dari **6 kategori sumber**. Setiap dataset memilik
 | 6 | Points of Interest (POI) | Google Maps, OSM, Bali Tourism Board | Static (TS) | Aug 2026 | ★★★★☆ Multi-source |
 | 7 | Competitor Stores | OpenStreetMap Overpass API | Live API | Real-time | ★★★★☆ Community-vetted |
 | 8 | Bali Land Polygon | GADM v4.1 | Static (TS) | Aug 2026 | ★★★★★ Authoritative |
-| 9 | ML Training Data | LocInsight heuristic engine output | Derived | Aug 2026 | ★★★☆☆ Synthetic |
+| 9 | ML Training Data | LocInsights heuristic engine output | Derived | Aug 2026 | ★★★☆☆ Synthetic |
 | 10 | Field Survey Data | Surveyor PWA (`/survey`) | User input | Live | ★★★★☆ Primary |
 
 ---
@@ -77,7 +77,7 @@ LocInsight menggabungkan data dari **6 kategori sumber**. Setiap dataset memilik
 | **Verification method** | Spot-checked against BPS 2024 area-share percentages for 9 kabupaten |
 
 **Known limitations**:
-- Bali has ~709 kelurahan/desa total — LocInsight includes ~220 representative subset for demo. Production should integrate full BPS shapefile.
+- Bali has ~709 kelurahan/desa total — LocInsights includes ~220 representative subset for demo. Production should integrate full BPS shapefile.
 - Demographic indices (income, tourism, transport, POI density) are **proxies** derived from kecamatan-level urban_score, kabupaten GDRP, and POI proximity — not direct measurements.
 
 ---
@@ -231,12 +231,12 @@ LocInsight menggabungkan data dari **6 kategori sumber**. Setiap dataset memilik
 
 | Field | Value |
 |-------|-------|
-| **Source** | LocInsight heuristic engine output (derived) |
+| **Source** | LocInsights heuristic engine output (derived) |
 | **Generation method** | `target = projected_monthly_revenue_juta + multiplicative log-normal noise` |
 | **Format** | JSON model file (`prisma/ml-models/gbr-revenue-bali-v1.json`) |
 | **Last refreshed** | August 2026 |
 | **Refresh cadence** | On-demand (via ML Engine → Train) |
-| **License** | Internal (LocInsight) |
+| **License** | Internal (LocInsights) |
 | **Credibility** | ★★★☆☆ Synthetic (derived from heuristic, not real sales) |
 
 **IMPORTANT — Honest ML disclaimer**: This is honest ML — the model learns the heuristic AND noise, so its predictions will diverge from the heuristic in production. As real sales data arrives, the same trainer can be re-run on actual revenue targets. Until then, GBR predictions should be treated as **directional guidance**, not precise forecasts.
@@ -254,7 +254,7 @@ LocInsight menggabungkan data dari **6 kategori sumber**. Setiap dataset memilik
 | **API Endpoint** | `POST /api/locinsight/field-survey` |
 | **Last refreshed** | Real-time (on submit) |
 | **Refresh cadence** | Real-time |
-| **License** | Internal (LocInsight) |
+| **License** | Internal (LocInsights) |
 | **Credibility** | ★★★★☆ Primary data (collected directly) |
 
 **Survey fields**: kelurahan_id, brand_id, store_format, foot_traffic_observation, competitor_presence, photo_url, notes, surveyor_name, survey_date.

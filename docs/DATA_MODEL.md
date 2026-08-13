@@ -1,6 +1,6 @@
 # Data Model
 
-> Schema explanation for the LocInsight PostgreSQL database (Supabase).
+> Schema explanation for the LocInsights PostgreSQL database (Supabase).
 > For the formal schema, see [`prisma/schema.prisma`](../prisma/schema.prisma)
 > in this repo, or the SQL migrations in the
 > `Locinsights_db` repo.

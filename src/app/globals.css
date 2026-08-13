@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   LocInsight Theme — Adiperkasa-inspired (White / Red / Black)
+   LocInsights Theme — Adiperkasa-inspired (White / Red / Black)
    ============================================================ */
 
 @theme inline {
@@ -43,7 +43,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* LocInsight brand tokens */
+  /* LocInsights brand tokens */
   --color-brand-red: var(--brand-red);
   --color-brand-red-dark: var(--brand-red-dark);
   --color-brand-red-light: var(--brand-red-light);
@@ -107,7 +107,7 @@
   --sidebar-border: oklch(0.25 0.01 270);
   --sidebar-ring: oklch(0.55 0.22 27);
 
-  /* LocInsight explicit brand tokens (used directly in components) */
+  /* LocInsights explicit brand tokens (used directly in components) */
   --brand-red: #C8102E;
   --brand-red-dark: #9B0E24;
   --brand-red-light: #FDE8EC;
@@ -164,7 +164,7 @@
 }
 
 /* ============================================================
-   LocInsight custom utilities
+   LocInsights custom utilities
    ============================================================ */
 
 @layer utilities {

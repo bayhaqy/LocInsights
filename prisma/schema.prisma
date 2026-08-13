@@ -591,6 +591,8 @@ model TrainingRun {
 
 enum user_role_enum {
   superadmin
+  admin
+  data
   analyst
   viewer
 }
@@ -615,6 +617,21 @@ model User {
 
   @@index([role])
   @@index([is_active])
+}
+
+/// Role definitions — 5 built-in roles. The `permissions` JSON field stores
+/// per-menu CRUD permissions: { menu_id: { read, create, update, delete, export } }
+/// Used by the Roles tab in Users Management to give superadmins fine-grained
+/// control over what each role can do on each menu.
+model Role {
+  @@map("roles")
+  id          String         @id // 'superadmin', 'admin', 'data', 'analyst', 'viewer'
+  name        String         @unique
+  description String?        @default("")
+  permissions Json           @default("{}") // { menu_id: { read, create, update, delete, export } }
+  is_system   Boolean        @default(true) // system roles cannot be deleted
+  created_at  DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime       @default(now()) @db.Timestamptz(6)
 }
 
 model UserAuditLog {

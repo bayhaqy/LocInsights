@@ -178,7 +178,7 @@ export default function Home() {
                 : <PanelLeftClose className="w-4 h-4" />}
             </button>
             <div className="text-[12px] text-[var(--brand-ink)]/60 truncate">
-              <span className="text-[var(--brand-ink)]/40">LocInsight /</span>{' '}
+              <span className="text-[var(--brand-ink)]/40">LocInsights /</span>{' '}
               <span className="font-medium text-[var(--brand-ink)]">
                 {t(NAV_ITEMS.find(n => n.id === activeView)?.label || '')}
               </span>
@@ -269,8 +269,8 @@ export default function Home() {
         <footer className="bg-[var(--brand-ink)] text-white/70 text-[11px] px-6 py-4 mt-auto">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <img src="/logo-white.png" alt="LocInsight" className="w-5 h-5 object-contain" />
-              <strong className="text-white">LocInsight</strong> — {t('common.location_intelligence')} for MAP Active Adiperkasa
+              <img src="/logo-white.png" alt="LocInsights" className="w-5 h-5 object-contain" />
+              <strong className="text-white">LocInsights</strong> — {t('common.location_intelligence')} for MAP Active Adiperkasa
             </div>
             <div className="text-white/45">
               © {new Date().getFullYear()} · Built by{' '}
@@ -349,7 +349,7 @@ function LoadingScreen() {
                 boxShadow: '0 8px 24px -8px rgba(200, 16, 46, 0.5), inset 0 -6px 12px rgba(0,0,0,0.25)',
               }}
             >
-              <img src="/logo-icon.png" alt="LocInsight" className="w-12 h-12 object-contain" draggable={false} />
+              <img src="/logo-icon.png" alt="LocInsights" className="w-12 h-12 object-contain" draggable={false} />
             </div>
           </div>
         </div>
@@ -357,7 +357,7 @@ function LoadingScreen() {
         {/* Wordmark + tagline */}
         <div className="li-fade-up text-center">
           <div className="font-display text-[18px] font-bold text-[var(--brand-ink)] tracking-tight">
-            LocInsight
+            LocInsights
           </div>
           <div className="text-[12px] text-[var(--brand-ink)]/55 mt-1.5 flex items-center justify-center gap-1">
             <span>{t('loading.message')}</span>

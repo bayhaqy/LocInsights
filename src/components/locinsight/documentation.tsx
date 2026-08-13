@@ -162,7 +162,17 @@ export function Documentation() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editContent }),
       })
-      const j = await res.json()
+      // DEFENSIVE JSON PARSING — read text first, then parse.
+      // Prevents "Failed to execute 'json' on 'Response': Unexpected end of JSON input"
+      // when the server returns an empty body (e.g. uncaught errors on Vercel
+      // serverless can produce empty 500 responses).
+      const text = await res.text()
+      let j: any
+      try {
+        j = text ? JSON.parse(text) : { success: false, error: `Server returned empty response (HTTP ${res.status})` }
+      } catch {
+        j = { success: false, error: `Server returned invalid JSON (HTTP ${res.status}). First 200 chars: ${text.slice(0, 200)}` }
+      }
       if (j.success) {
         setSaveMsg({ type: 'success', text: t('docs.save_success') })
         setIsEditing(false)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Apply all LocInsight migrations to Supabase.
+Apply all LocInsights migrations to Supabase.
 
 Robust SQL splitter handles:
   - Single-quoted strings ('...' with '' escape)

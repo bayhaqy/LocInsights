@@ -17,7 +17,7 @@
  *   - https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html
  *   - Friedman 2001: https://projecteuclid.org/euclid.aos/1013203451
  *
- * The training data is derived from the LocInsight heuristic engine output:
+ * The training data is derived from the LocInsights heuristic engine output:
  *   target = projected_monthly_revenue_juta + multiplicative log-normal noise
  *
  * This is honest ML: the model learns the heuristic AND noise, so its

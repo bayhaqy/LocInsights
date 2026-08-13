@@ -1,8 +1,8 @@
 {
   "packageId": "id.my.bayhaqy.locinsight",
   "host": "locinsights.bayhaqy.my.id",
-  "name": "LocInsight",
-  "launcherName": "LocInsight",
+  "name": "LocInsights",
+  "launcherName": "LocInsights",
   "display": "fullscreen",
   "orientation": "default",
   "themeColor": "#7A0A1A",

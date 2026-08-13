@@ -8,7 +8,7 @@ owner: Engineering Team
 
 # API Reference
 
-> **Tujuan**: Dokumentasi setiap API endpoint di LocInsight untuk developer.
+> **Tujuan**: Dokumentasi setiap API endpoint di LocInsights untuk developer.
 >
 > **Purpose**: Document every API endpoint for developers.
 

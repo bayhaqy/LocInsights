@@ -6,11 +6,11 @@ last_updated: 2026-08-12
 owner: Product Team
 ---
 
-# User Guide — LocInsight
+# User Guide — LocInsights
 
-> **Tujuan**: Panduan penggunaan setiap menu di LocInsight untuk user baru maupun manajemen.
+> **Tujuan**: Panduan penggunaan setiap menu di LocInsights untuk user baru maupun manajemen.
 >
-> **Purpose**: How-to guide for every menu in LocInsight.
+> **Purpose**: How-to guide for every menu in LocInsights.
 
 ## Quick Start
 
@@ -304,10 +304,10 @@ owner: Product Team
 
 ## Mobile Usage
 
-LocInsight adalah PWA (Progressive Web App). Cara install di Android:
+LocInsights adalah PWA (Progressive Web App). Cara install di Android:
 1. Buka https://locinsights.bayhaqy.my.id di Chrome Android
 2. Menu (⋮) → "Install app"
-3. LocInsight muncul di app drawer, full-screen
+3. LocInsights muncul di app drawer, full-screen
 
 Atau download APK langsung: https://locinsights.bayhaqy.my.id/locinsights.apk
 

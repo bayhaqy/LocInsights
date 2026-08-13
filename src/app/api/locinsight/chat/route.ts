@@ -1,5 +1,5 @@
 /**
- * LocInsight AI Chat API route — server-side only.
+ * LocInsights AI Chat API route — server-side only.
  *
  * WHY THIS IS A DIRECT FETCH (not the z-ai-web-dev-sdk):
  *   The SDK only reads config from `./.z-ai-config`, `~/.z-ai-config`, or
@@ -12,13 +12,13 @@
  *   endpoint directly. The SDK is a thin wrapper around fetch anyway.
  *
  * GUARDRAILS:
- *   The system prompt strictly restricts the assistant to LocInsight /
+ *   The system prompt strictly restricts the assistant to LocInsights /
  *   location-intelligence / retail-site-selection topics. Off-topic questions
  *   get a polite refusal suggesting related topics.
  *
  * FALLBACK (RULE-BASED):
  *   If Z.AI credentials are not configured (e.g. Vercel env vars not set),
- *   the route falls back to a rule-based LocInsight Help Bot that answers
+ *   the route falls back to a rule-based LocInsights Help Bot that answers
  *   common questions about the platform using local knowledge. This ensures
  *   the chat ALWAYS works for end users — full AI responses activate
  *   automatically once ZAI_BASE_URL + ZAI_API_KEY are set in Vercel.
@@ -138,13 +138,13 @@ function loadConfig(clientCfg?: ClientConfig | null): ZaiConfig | null {
 
 /**
  * Build the guardrail system prompt. The assistant is restricted to
- * LocInsight-related topics and answers in the user's chosen language.
+ * LocInsights-related topics and answers in the user's chosen language.
  */
 function buildSystemPrompt(lang: 'en' | 'id'): string {
-  const baseEnglish = `You are the LocInsight AI Assistant — a specialized help bot for the LocInsight location intelligence platform built for PT MAP Aktif Adiperkasa Tbk (MAA/MAP Active).
+  const baseEnglish = `You are the LocInsights AI Assistant — a specialized help bot for the LocInsights location intelligence platform built for PT MAP Aktif Adiperkasa Tbk (MAA/MAP Active).
 
 YOUR SCOPE — you ONLY answer questions about:
-1. LocInsight platform features (Dashboard, Map Explorer, Opportunities, Deep Analysis, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Mall Tenants, Reports, Data Manager, Data Scraper, Methodology)
+1. LocInsights platform features (Dashboard, Map Explorer, Opportunities, Deep Analysis, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Mall Tenants, Reports, Data Manager, Data Scraper, Methodology)
 2. Location intelligence & retail site selection concepts
 3. Bali administrative geography (kabupaten / kecamatan / kelurahan)
 4. The scoring framework used: Composite Scoring (6 factors: Population, Income, Competition, Tourism, Accessibility, Density), Huff Gravity Model, Gradient-Boosted Regression (GBR) for revenue prediction
@@ -152,17 +152,17 @@ YOUR SCOPE — you ONLY answer questions about:
 6. MAP Active Adiperkasa brand portfolio (sports, fashion, F&B, department stores)
 7. Practical questions about how to use the platform, interpret scores, or read the choropleth maps
 
-STRICT GUARDRAIL — If the user asks about ANYTHING outside this scope (politics, religion, sports scores, celebrity gossip, general coding help unrelated to LocInsight, math homework, personal advice, other companies' products, etc.), you MUST politely refuse with a message like:
-"I'm the LocInsight AI Assistant and can only help with LocInsight, location intelligence, retail site selection, and Bali expansion analysis. Please ask a question related to those topics."
+STRICT GUARDRAIL — If the user asks about ANYTHING outside this scope (politics, religion, sports scores, celebrity gossip, general coding help unrelated to LocInsights, math homework, personal advice, other companies' products, etc.), you MUST politely refuse with a message like:
+"I'm the LocInsights AI Assistant and can only help with LocInsights, location intelligence, retail site selection, and Bali expansion analysis. Please ask a question related to those topics."
 Do NOT attempt to answer off-topic questions even partially.
 
 RESPONSE STYLE:
 - Be concise and direct (2-4 short paragraphs max, unless user explicitly asks for detail)
 - Use bullet points for step-by-step instructions
-- Reference specific LocInsight features by their exact names
+- Reference specific LocInsights features by their exact names
 - For numeric/scoring questions, mention the formula or factor if relevant
 - Do not invent capabilities the platform doesn't have
-- If you don't know something specific about LocInsight internals, say so honestly and suggest checking the Methodology page
+- If you don't know something specific about LocInsights internals, say so honestly and suggest checking the Methodology page
 
 LANGUAGE: Always reply in {LANG} (the user's selected interface language). If the user writes in Indonesian but lang=en, reply in English. If lang=id, reply in Indonesian regardless of the input language.`
 
@@ -171,22 +171,22 @@ LANGUAGE: Always reply in {LANG} (the user's selected interface language). If th
       /Always reply in \{LANG\}[\s\S]*?regardless of the input language\./,
       `SELALU balas dalam Bahasa Indonesia. Jika pengguna bertanya dalam bahasa lain, tetap balas dalam Bahasa Indonesia.`
     ).replace(
-      /You are the LocInsight AI Assistant — a specialized help bot for the LocInsight location intelligence platform built for PT MAP Aktif Adiperkasa Tbk \(MAA\/MAP Active\)\./,
-      `Anda adalah Asisten AI LocInsight — bot bantuan khusus untuk platform inteligensi lokasi LocInsight yang dibangun untuk PT MAP Aktif Adiperkasa Tbk (MAA/MAP Active).`
+      /You are the LocInsights AI Assistant — a specialized help bot for the LocInsights location intelligence platform built for PT MAP Aktif Adiperkasa Tbk \(MAA\/MAP Active\)\./,
+      `Anda adalah Asisten AI LocInsights — bot bantuan khusus untuk platform inteligensi lokasi LocInsights yang dibangun untuk PT MAP Aktif Adiperkasa Tbk (MAA/MAP Active).`
     ).replace(
       /YOUR SCOPE — you ONLY answer questions about:/,
       `RUANG LINGUP — Anda HANYA menjawab pertanyaan tentang:`
     ).replace(
       /STRICT GUARDRAIL — If the user asks about ANYTHING outside this scope[\s\S]*?related to those topics\."\)/,
-      `GUARDRAIL KETAT — Jika pengguna bertanya hal DI LUAR lingkup ini (politik, agama, skor olahraga, gosip selebriti, bantuan coding umum tidak terkait LocInsight, PR matematika, saran pribadi, produk perusahaan lain, dll.), Anda HARUS menolak dengan sopan dengan pesan seperti:
-"Saya adalah Asisten AI LocInsight dan hanya bisa membantu seputar LocInsight, inteligensi lokasi, pemilihan lokasi retail, dan analisis ekspansi Bali. Silakan ajukan pertanyaan terkait."
+      `GUARDRAIL KETAT — Jika pengguna bertanya hal DI LUAR lingkup ini (politik, agama, skor olahraga, gosip selebriti, bantuan coding umum tidak terkait LocInsights, PR matematika, saran pribadi, produk perusahaan lain, dll.), Anda HARUS menolak dengan sopan dengan pesan seperti:
+"Saya adalah Asisten AI LocInsights dan hanya bisa membantu seputar LocInsights, inteligensi lokasi, pemilihan lokasi retail, dan analisis ekspansi Bali. Silakan ajukan pertanyaan terkait."
 JANGAN mencoba menjawab pertanyaan di luar topik bahkan sebagian.`
     ).replace(
       /RESPONSE STYLE:/,
       `GAYA RESPONS:`
     ).replace(
       /Be concise and direct[\s\S]*?Methodology page/,
-      `Ringkas dan langsung (maksimal 2-4 paragraf pendek, kecuali pengguna secara eksplisit minta detail). Gunakan bullet point untuk instruksi langkah demi langkah. Referensikan fitur LocInsight spesifik dengan nama persisnya. Untuk pertanyaan numerik/scoring, sebutkan formula atau faktor jika relevan. Jangan mengarang kapabilitas yang tidak dimiliki platform. Jika tidak tahu hal spesifik tentang internal LocInsight, akui jujur dan sarankan cek halaman Metodologi.`
+      `Ringkas dan langsung (maksimal 2-4 paragraf pendek, kecuali pengguna secara eksplisit minta detail). Gunakan bullet point untuk instruksi langkah demi langkah. Referensikan fitur LocInsights spesifik dengan nama persisnya. Untuk pertanyaan numerik/scoring, sebutkan formula atau faktor jika relevan. Jangan mengarang kapabilitas yang tidak dimiliki platform. Jika tidak tahu hal spesifik tentang internal LocInsights, akui jujur dan sarankan cek halaman Metodologi.`
     )
   }
 
@@ -194,7 +194,7 @@ JANGAN mencoba menjawab pertanyaan di luar topik bahkan sebagian.`
 }
 
 // ============================================================================
-// FALLBACK: Rule-based LocInsight Help Bot
+// FALLBACK: Rule-based LocInsights Help Bot
 // ============================================================================
 // Activated when Z.AI credentials aren't set on Vercel. This ensures the chat
 // ALWAYS returns a useful response — never an error. Once env vars are set,
@@ -211,20 +211,20 @@ const RULES: Rule[] = [
   // Greetings
   {
     patterns: [/^\s*(hi|hello|hey|halo|hai|assalamualaikum|good (morning|afternoon|evening))\b/i],
-    en: "Hello! 👋 I'm the LocInsight AI Assistant. I can help you with:\n\n- **Platform features** — Dashboard, Map Explorer, Deep Analysis, Opportunities, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Reports, Data Manager\n- **Methodology** — Composite Scoring (6 factors), Huff Gravity Model, GBR revenue prediction\n- **Bali geography** — kabupaten/kecamatan/kelurahan hierarchy\n- **Retail site selection** concepts\n\nWhat would you like to know? You can also ask things like \"How is the composite score calculated?\" or \"Which kabupaten has the highest opportunity?\"",
-    id: "Halo! 👋 Saya adalah Asisten AI LocInsight. Saya bisa membantu Anda dengan:\n\n- **Fitur platform** — Dashboard, Map Explorer, Deep Analysis, Opportunities, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Reports, Data Manager\n- **Metodologi** — Composite Scoring (6 faktor), Huff Gravity Model, prediksi revenue GBR\n- **Geografi Bali** — hierarki kabupaten/kecamatan/kelurahan\n- **Pemilihan lokasi retail** konsep\n\nApa yang ingin Anda ketahui? Anda juga bisa bertanya seperti \"Bagaimana composite score dihitung?\" atau \"Kabupaten mana yang punya opportunity tertinggi?\"",
+    en: "Hello! 👋 I'm the LocInsights AI Assistant. I can help you with:\n\n- **Platform features** — Dashboard, Map Explorer, Deep Analysis, Opportunities, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Reports, Data Manager\n- **Methodology** — Composite Scoring (6 factors), Huff Gravity Model, GBR revenue prediction\n- **Bali geography** — kabupaten/kecamatan/kelurahan hierarchy\n- **Retail site selection** concepts\n\nWhat would you like to know? You can also ask things like \"How is the composite score calculated?\" or \"Which kabupaten has the highest opportunity?\"",
+    id: "Halo! 👋 Saya adalah Asisten AI LocInsights. Saya bisa membantu Anda dengan:\n\n- **Fitur platform** — Dashboard, Map Explorer, Deep Analysis, Opportunities, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Reports, Data Manager\n- **Metodologi** — Composite Scoring (6 faktor), Huff Gravity Model, prediksi revenue GBR\n- **Geografi Bali** — hierarki kabupaten/kecamatan/kelurahan\n- **Pemilihan lokasi retail** konsep\n\nApa yang ingin Anda ketahui? Anda juga bisa bertanya seperti \"Bagaimana composite score dihitung?\" atau \"Kabupaten mana yang punya opportunity tertinggi?\"",
   },
   // Composite score
   {
     patterns: [/composite\s*score|how.*score.*calculat|skor.*komposit|skor.*gabungan|bagaimana.*skor/i],
-    en: "**Composite Score** is LocInsight's main ranking metric for retail site attractiveness. It's calculated from **6 weighted factors**:\n\n1. **Population** (20%) — total population + density of the kelurahan/kecamatan\n2. **Income** (15%) — income index from BPS Bali 2024\n3. **Competition** (20%) — number + density of competitor stores in the area (lower competition = higher score)\n4. **Tourism** (15%) — tourist index from nearby attractions, beaches, temples, hotels\n5. **Accessibility** (15%) — transport index from transit hubs, roads, airports\n6. **Density** (15%) — POI density index (commercial activity proxy)\n\nEach factor is normalized 0–100, then combined with weights to produce a composite score from 0 to 100. Scores ≥70 are **High Priority**, 55–69 **Priority**, 40–54 **Monitor**, <40 **Avoid**.\n\nSee the **Methodology** tab for the full formula and data sources.",
-    id: "**Composite Score** adalah metrik peringkat utama LocInsight untuk daya tarak lokasi retail. Dihitung dari **6 faktor terbobot**:\n\n1. **Populasi** (20%) — total populasi + kepadatan kelurahan/kecamatan\n2. **Pendapatan** (15%) — income index dari BPS Bali 2024\n3. **Kompetisi** (20%) — jumlah + kepadatan toko kompetitor di area (kompetisi rendah = skor tinggi)\n4. **Pariwisata** (15%) — tourist index dari atraksi, pantai, pura, hotel terdekat\n5. **Aksesibilitas** (15%) — transport index dari transit hub, jalan, bandara\n6. **Kepadatan** (15%) — POI density index (proxy aktivitas komersial)\n\nSetiap faktor dinormalisasi 0–100, lalu digabung dengan bobot menghasilkan composite score 0–100. Skor ≥70 = **High Priority**, 55–69 = **Priority**, 40–54 = **Monitor**, <40 = **Avoid**.\n\nLihat tab **Methodology** untuk formula lengkap dan sumber data.",
+    en: "**Composite Score** is LocInsights's main ranking metric for retail site attractiveness. It's calculated from **6 weighted factors**:\n\n1. **Population** (20%) — total population + density of the kelurahan/kecamatan\n2. **Income** (15%) — income index from BPS Bali 2024\n3. **Competition** (20%) — number + density of competitor stores in the area (lower competition = higher score)\n4. **Tourism** (15%) — tourist index from nearby attractions, beaches, temples, hotels\n5. **Accessibility** (15%) — transport index from transit hubs, roads, airports\n6. **Density** (15%) — POI density index (commercial activity proxy)\n\nEach factor is normalized 0–100, then combined with weights to produce a composite score from 0 to 100. Scores ≥70 are **High Priority**, 55–69 **Priority**, 40–54 **Monitor**, <40 **Avoid**.\n\nSee the **Methodology** tab for the full formula and data sources.",
+    id: "**Composite Score** adalah metrik peringkat utama LocInsights untuk daya tarak lokasi retail. Dihitung dari **6 faktor terbobot**:\n\n1. **Populasi** (20%) — total populasi + kepadatan kelurahan/kecamatan\n2. **Pendapatan** (15%) — income index dari BPS Bali 2024\n3. **Kompetisi** (20%) — jumlah + kepadatan toko kompetitor di area (kompetisi rendah = skor tinggi)\n4. **Pariwisata** (15%) — tourist index dari atraksi, pantai, pura, hotel terdekat\n5. **Aksesibilitas** (15%) — transport index dari transit hub, jalan, bandara\n6. **Kepadatan** (15%) — POI density index (proxy aktivitas komersial)\n\nSetiap faktor dinormalisasi 0–100, lalu digabung dengan bobot menghasilkan composite score 0–100. Skor ≥70 = **High Priority**, 55–69 = **Priority**, 40–54 = **Monitor**, <40 = **Avoid**.\n\nLihat tab **Methodology** untuk formula lengkap dan sumber data.",
   },
   // Map Explorer
   {
     patterns: [/map\s*explorer|peta|how.*use.*map|cara.*peta|map.*click/i],
-    en: "**Map Explorer** is the interactive map where you can visualize all LocInsight data on a Bali map.\n\n**Layers you can toggle:**\n- Opportunity (choropleth or points) — color-coded by recommendation tier\n- Demographics (income, urban, tourist, transport, POI density, population)\n- MAP Stores + MAA Stores + Malls\n- Competitor Stores (filterable by brand)\n- Tourist POIs + Civic POIs\n- Crowd Density heatmap\n\n**Region levels:** kabupaten (9), kecamatan (59), kelurahan (716)\n\n**Click behavior:**\n- Click an **opportunity marker** → opens the Opportunities detail panel (top-right)\n- Click a **choropleth region** → jumps to Deep Analysis for that region\n\n**Use the \"Use My Location\" button** (top-right of map) to center the map on your current GPS position.",
-    id: "**Map Explorer** adalah peta interaktif tempat Anda memvisualisasikan semua data LocInsight di peta Bali.\n\n**Layer yang bisa di-toggle:**\n- Opportunity (choropleth atau titik) — diwarnai berdasarkan tier rekomendasi\n- Demographics (income, urban, tourist, transport, POI density, population)\n- MAP Stores + MAA Stores + Malls\n- Competitor Stores (filterable per brand)\n- Tourist POIs + Civic POIs\n- Crowd Density heatmap\n\n**Level region:** kabupaten (9), kecamatan (59), kelurahan (716)\n\n**Perilaku klik:**\n- Klik **opportunity marker** → membuka panel detail Opportunities (kanan-atas)\n- Klik **region choropleth** → melompat ke Deep Analysis untuk region tersebut\n\n**Gunakan tombol \"Use My Location\"** (kanan-atas peta) untuk men-center peta ke posisi GPS Anda saat ini.",
+    en: "**Map Explorer** is the interactive map where you can visualize all LocInsights data on a Bali map.\n\n**Layers you can toggle:**\n- Opportunity (choropleth or points) — color-coded by recommendation tier\n- Demographics (income, urban, tourist, transport, POI density, population)\n- MAP Stores + MAA Stores + Malls\n- Competitor Stores (filterable by brand)\n- Tourist POIs + Civic POIs\n- Crowd Density heatmap\n\n**Region levels:** kabupaten (9), kecamatan (59), kelurahan (716)\n\n**Click behavior:**\n- Click an **opportunity marker** → opens the Opportunities detail panel (top-right)\n- Click a **choropleth region** → jumps to Deep Analysis for that region\n\n**Use the \"Use My Location\" button** (top-right of map) to center the map on your current GPS position.",
+    id: "**Map Explorer** adalah peta interaktif tempat Anda memvisualisasikan semua data LocInsights di peta Bali.\n\n**Layer yang bisa di-toggle:**\n- Opportunity (choropleth atau titik) — diwarnai berdasarkan tier rekomendasi\n- Demographics (income, urban, tourist, transport, POI density, population)\n- MAP Stores + MAA Stores + Malls\n- Competitor Stores (filterable per brand)\n- Tourist POIs + Civic POIs\n- Crowd Density heatmap\n\n**Level region:** kabupaten (9), kecamatan (59), kelurahan (716)\n\n**Perilaku klik:**\n- Klik **opportunity marker** → membuka panel detail Opportunities (kanan-atas)\n- Klik **region choropleth** → melompat ke Deep Analysis untuk region tersebut\n\n**Gunakan tombol \"Use My Location\"** (kanan-atas peta) untuk men-center peta ke posisi GPS Anda saat ini.",
   },
   // Deep Analysis
   {
@@ -235,7 +235,7 @@ const RULES: Rule[] = [
   // Opportunities
   {
     patterns: [/opportunit|peluang|high\s*priority|prioritas.*tinggi/i],
-    en: "**Opportunities** is LocInsight's ranked list of attractive retail locations across Bali's 716 kelurahan.\n\n**Recommendation tiers:**\n- 🔴 **High Priority** (score ≥70) — strong fundamentals, low competition, high traffic potential → PROCEED\n- 🟠 **Priority** (55–69) — good but with some caveats → PRIORITY\n- 🟤 **Monitor** (40–54) — neutral, watch for changes → MONITOR\n- ⚪ **Avoid** (<40) — weak market or oversaturated → AVOID\n\n**Filterable by:** kabupaten, kecamatan, kelurahan, tier, recommendation, score range.\n\nClick any opportunity to drill into **Deep Analysis** for that location.\n\nThe top high-priority opportunities are typically in fast-growing kecamatan like Kuta Utara, Kuta Selatan, Kuta, Denpasar Selatan, and Mengwi.",
+    en: "**Opportunities** is LocInsights's ranked list of attractive retail locations across Bali's 716 kelurahan.\n\n**Recommendation tiers:**\n- 🔴 **High Priority** (score ≥70) — strong fundamentals, low competition, high traffic potential → PROCEED\n- 🟠 **Priority** (55–69) — good but with some caveats → PRIORITY\n- 🟤 **Monitor** (40–54) — neutral, watch for changes → MONITOR\n- ⚪ **Avoid** (<40) — weak market or oversaturated → AVOID\n\n**Filterable by:** kabupaten, kecamatan, kelurahan, tier, recommendation, score range.\n\nClick any opportunity to drill into **Deep Analysis** for that location.\n\nThe top high-priority opportunities are typically in fast-growing kecamatan like Kuta Utara, Kuta Selatan, Kuta, Denpasar Selatan, and Mengwi.",
     id: "**Opportunities** adalah daftar peringkat lokasi retail menarik di 716 kelurahan Bali.\n\n**Tier rekomendasi:**\n- 🔴 **High Priority** (skor ≥70) — fundamental kuat, kompetisi rendah, potensi traffic tinggi → PROCEED\n- 🟠 **Priority** (55–69) — baik tapi dengan beberapa catatan → PRIORITY\n- 🟤 **Monitor** (40–54) — netral, pantau perubahan → MONITOR\n- ⚪ **Avoid** (<40) — pasar lemah atau oversaturated → AVOID\n\n**Dapat difilter berdasarkan:** kabupaten, kecamatan, kelurahan, tier, rekomendasi, rentang skor.\n\nKlik opportunity mana pun untuk masuk ke **Deep Analysis** untuk lokasi tersebut.\n\nOpportunity high-priority teratas biasanya di kecamatan yang berkembang cepat seperti Kuta Utara, Kuta Selatan, Kuta, Denpasar Selatan, dan Mengwi.",
   },
   // Competitor Intel
@@ -271,8 +271,8 @@ const RULES: Rule[] = [
   // Data Manager
   {
     patterns: [/data\s*manager|master\s*data|kelola.*data|tambah.*data|edit.*data|delete.*data|crud/i],
-    en: "**Data Manager** is the CRUD interface for LocInsight's master data: countries, provinces, kabupaten, kecamatan, kelurahan, brands, stores, malls, competitors, POIs.\n\n**Two views:**\n- **Table view** — paginated, sortable, filterable per column\n- **Spreadsheet view** — inline cell editing, bulk save, insert new rows\n\n**Export:** full CSV/XLSX, filtered view, or custom column selection.\n\n**Import:** CSV with column-mapping (auto-detects brand/kecamatan/kabupaten by name).\n\nAll edits go through Supabase with RLS — only authorized users can write.",
-    id: "**Data Manager** adalah antarmuka CRUD untuk data master LocInsight: countries, provinces, kabupaten, kecamatan, kelurahan, brands, stores, malls, competitors, POIs.\n\n**Dua view:**\n- **Table view** — paginated, sortable, filterable per kolom\n- **Spreadsheet view** — edit cell inline, bulk save, insert row baru\n\n**Export:** full CSV/XLSX, view terfilter, atau seleksi kolom custom.\n\n**Import:** CSV dengan column-mapping (auto-detect brand/kecamatan/kabupaten by name).\n\nSemua edit melalui Supabase dengan RLS — hanya user yang berwenang yang bisa menulis.",
+    en: "**Data Manager** is the CRUD interface for LocInsights's master data: countries, provinces, kabupaten, kecamatan, kelurahan, brands, stores, malls, competitors, POIs.\n\n**Two views:**\n- **Table view** — paginated, sortable, filterable per column\n- **Spreadsheet view** — inline cell editing, bulk save, insert new rows\n\n**Export:** full CSV/XLSX, filtered view, or custom column selection.\n\n**Import:** CSV with column-mapping (auto-detects brand/kecamatan/kabupaten by name).\n\nAll edits go through Supabase with RLS — only authorized users can write.",
+    id: "**Data Manager** adalah antarmuka CRUD untuk data master LocInsights: countries, provinces, kabupaten, kecamatan, kelurahan, brands, stores, malls, competitors, POIs.\n\n**Dua view:**\n- **Table view** — paginated, sortable, filterable per kolom\n- **Spreadsheet view** — edit cell inline, bulk save, insert row baru\n\n**Export:** full CSV/XLSX, view terfilter, atau seleksi kolom custom.\n\n**Import:** CSV dengan column-mapping (auto-detect brand/kecamatan/kabupaten by name).\n\nSemua edit melalui Supabase dengan RLS — hanya user yang berwenang yang bisa menulis.",
   },
   // Scraper
   {
@@ -283,20 +283,20 @@ const RULES: Rule[] = [
   // Methodology
   {
     patterns: [/methodolog|metodolog|formula|huff|gravity|gbr.*model/i],
-    en: "**Methodology** documents LocInsight's full analytical pipeline:\n\n1. **Data Collection** — BPS Bali 2024 (demographics), OSM POI (commercial activity), GADM (boundaries), Bali Mall Catalog\n2. **Feature Engineering** — normalize raw data to 0–100 indices per factor\n3. **Composite Scoring** — weighted sum of 6 factors (Pop 20%, Income 15%, Competition 20%, Tourism 15%, Accessibility 15%, Density 15%)\n4. **Huff Gravity Model** — estimate market share based on store attractiveness × distance decay\n5. **GBR Revenue Prediction** — scikit-learn GradientBoostingRegressor trained on 138 MAP stores\n6. **Recommendation Tier** — map composite score to PROCEED/PRIORITY/MONITOR/AVOID\n\nSee the **Methodology** tab in-app for the full writeup with formulas and validation results.",
-    id: "**Methodology** mendokumentasikan pipeline analitik lengkap LocInsight:\n\n1. **Data Collection** — BPS Bali 2024 (demografi), OSM POI (aktivitas komersial), GADM (batas), Bali Mall Catalog\n2. **Feature Engineering** — normalisasi data mentah ke indeks 0–100 per faktor\n3. **Composite Scoring** — jumlah terbobot 6 faktor (Pop 20%, Income 15%, Competition 20%, Tourism 15%, Accessibility 15%, Density 15%)\n4. **Huff Gravity Model** — estimasi market share berdasarkan daya tarik toko × distance decay\n5. **GBR Revenue Prediction** — scikit-learn GradientBoostingRegressor dilatih di 138 toko MAP\n6. **Recommendation Tier** — petakan composite score ke PROCEED/PRIORITY/MONITOR/AVOID\n\nLihat tab **Methodology** in-app untuk writeup lengkap dengan formula dan hasil validasi.",
+    en: "**Methodology** documents LocInsights's full analytical pipeline:\n\n1. **Data Collection** — BPS Bali 2024 (demographics), OSM POI (commercial activity), GADM (boundaries), Bali Mall Catalog\n2. **Feature Engineering** — normalize raw data to 0–100 indices per factor\n3. **Composite Scoring** — weighted sum of 6 factors (Pop 20%, Income 15%, Competition 20%, Tourism 15%, Accessibility 15%, Density 15%)\n4. **Huff Gravity Model** — estimate market share based on store attractiveness × distance decay\n5. **GBR Revenue Prediction** — scikit-learn GradientBoostingRegressor trained on 138 MAP stores\n6. **Recommendation Tier** — map composite score to PROCEED/PRIORITY/MONITOR/AVOID\n\nSee the **Methodology** tab in-app for the full writeup with formulas and validation results.",
+    id: "**Methodology** mendokumentasikan pipeline analitik lengkap LocInsights:\n\n1. **Data Collection** — BPS Bali 2024 (demografi), OSM POI (aktivitas komersial), GADM (batas), Bali Mall Catalog\n2. **Feature Engineering** — normalisasi data mentah ke indeks 0–100 per faktor\n3. **Composite Scoring** — jumlah terbobot 6 faktor (Pop 20%, Income 15%, Competition 20%, Tourism 15%, Accessibility 15%, Density 15%)\n4. **Huff Gravity Model** — estimasi market share berdasarkan daya tarik toko × distance decay\n5. **GBR Revenue Prediction** — scikit-learn GradientBoostingRegressor dilatih di 138 toko MAP\n6. **Recommendation Tier** — petakan composite score ke PROCEED/PRIORITY/MONITOR/AVOID\n\nLihat tab **Methodology** in-app untuk writeup lengkap dengan formula dan hasil validasi.",
   },
   // Bali geography
   {
     patterns: [/bali|kabupaten|kecamatan|kelurahan|denpasar|badung|kuta|ubud|gianyar/i],
-    en: "**Bali administrative hierarchy** in LocInsight:\n\n- **9 Kabupaten/Kota:** Badung, Bangli, Buleleng, Denpasar (kota), Gianyar, Jembrana, Karangasem, Klungkung, Tabanan\n- **59 Kecamatan** (districts) — e.g. Kuta, Kuta Utara, Kuta Selatan, Denpasar Selatan, Mengwi, Ubud\n- **716 Kelurahan/Desa** (villages) — the finest granularity for opportunity scoring\n\n**Tier classification:**\n- **Tier 1 (mature):** Badung, Denpasar — high density, established retail\n- **Tier 2 (growth):** Tabanan, Gianyar, Buleleng — developing, growing middle class\n- **Tier 3 (untapped):** Jembrana, Klungkung, Bangli, Karangasem — emerging, lower density\n\nMost opportunities concentrate in Tier 1 + Tier 2 regions, but Tier 3 has first-mover potential for specific categories.",
-    id: "**Hierarki administratif Bali** di LocInsight:\n\n- **9 Kabupaten/Kota:** Badung, Bangli, Buleleng, Denpasar (kota), Gianyar, Jembrana, Karangasem, Klungkung, Tabanan\n- **59 Kecamatan** — mis. Kuta, Kuta Utara, Kuta Selatan, Denpasar Selatan, Mengwi, Ubud\n- **716 Kelurahan/Desa** — granularitas terhalus untuk opportunity scoring\n\n**Klasifikasi tier:**\n- **Tier 1 (mature):** Badung, Denpasar — kepadatan tinggi, retail established\n- **Tier 2 (growth):** Tabanan, Gianyar, Buleleng — berkembang, middle class tumbuh\n- **Tier 3 (untapped):** Jembrana, Klungkung, Bangli, Karangasem — emerging, kepadatan rendah\n\nSebagian besar opportunity terkonsentrasi di Tier 1 + Tier 2, tapi Tier 3 punya potensi first-mover untuk kategori spesifik.",
+    en: "**Bali administrative hierarchy** in LocInsights:\n\n- **9 Kabupaten/Kota:** Badung, Bangli, Buleleng, Denpasar (kota), Gianyar, Jembrana, Karangasem, Klungkung, Tabanan\n- **59 Kecamatan** (districts) — e.g. Kuta, Kuta Utara, Kuta Selatan, Denpasar Selatan, Mengwi, Ubud\n- **716 Kelurahan/Desa** (villages) — the finest granularity for opportunity scoring\n\n**Tier classification:**\n- **Tier 1 (mature):** Badung, Denpasar — high density, established retail\n- **Tier 2 (growth):** Tabanan, Gianyar, Buleleng — developing, growing middle class\n- **Tier 3 (untapped):** Jembrana, Klungkung, Bangli, Karangasem — emerging, lower density\n\nMost opportunities concentrate in Tier 1 + Tier 2 regions, but Tier 3 has first-mover potential for specific categories.",
+    id: "**Hierarki administratif Bali** di LocInsights:\n\n- **9 Kabupaten/Kota:** Badung, Bangli, Buleleng, Denpasar (kota), Gianyar, Jembrana, Karangasem, Klungkung, Tabanan\n- **59 Kecamatan** — mis. Kuta, Kuta Utara, Kuta Selatan, Denpasar Selatan, Mengwi, Ubud\n- **716 Kelurahan/Desa** — granularitas terhalus untuk opportunity scoring\n\n**Klasifikasi tier:**\n- **Tier 1 (mature):** Badung, Denpasar — kepadatan tinggi, retail established\n- **Tier 2 (growth):** Tabanan, Gianyar, Buleleng — berkembang, middle class tumbuh\n- **Tier 3 (untapped):** Jembrana, Klungkung, Bangli, Karangasem — emerging, kepadatan rendah\n\nSebagian besar opportunity terkonsentrasi di Tier 1 + Tier 2, tapi Tier 3 punya potensi first-mover untuk kategori spesifik.",
   },
   // Help / what can you do
   {
     patterns: [/what.*can.*you|help|bantu|apa.*bisa|fitur.*apa|feature/i],
-    en: "I can answer questions about the **LocInsight** platform — try asking about:\n\n- **Features:** Dashboard, Map Explorer, Opportunities, Deep Analysis, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Mall Tenants, Reports, Data Manager, Data Scraper, Methodology\n- **Scoring:** How the composite score is calculated, what factors matter\n- **Geography:** Bali's kabupaten/kecamatan/kelurahan structure, which areas are high-priority\n- **Methodology:** Huff Gravity Model, GBR revenue prediction, data sources\n- **Brands:** MAP Active's portfolio, where each brand is positioned\n\nJust type your question — I'm guardrailed to LocInsight topics only, so I'll let you know politely if you ask something off-topic.",
-    id: "Saya bisa menjawab pertanyaan tentang platform **LocInsight** — coba tanya tentang:\n\n- **Fitur:** Dashboard, Map Explorer, Opportunities, Deep Analysis, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Mall Tenants, Reports, Data Manager, Data Scraper, Methodology\n- **Scoring:** Bagaimana composite score dihitung, faktor apa yang penting\n- **Geografi:** Struktur kabupaten/kecamatan/kelurahan Bali, area mana yang high-priority\n- **Metodologi:** Huff Gravity Model, prediksi revenue GBR, sumber data\n- **Brand:** Portofolio MAP Active, di mana setiap brand diposisikan\n\nKetik saja pertanyaan Anda — saya di-guardrail ke topik LocInsight saja, jadi saya akan menolak dengan sopan jika Anda bertanya di luar topik.",
+    en: "I can answer questions about the **LocInsights** platform — try asking about:\n\n- **Features:** Dashboard, Map Explorer, Opportunities, Deep Analysis, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Mall Tenants, Reports, Data Manager, Data Scraper, Methodology\n- **Scoring:** How the composite score is calculated, what factors matter\n- **Geography:** Bali's kabupaten/kecamatan/kelurahan structure, which areas are high-priority\n- **Methodology:** Huff Gravity Model, GBR revenue prediction, data sources\n- **Brands:** MAP Active's portfolio, where each brand is positioned\n\nJust type your question — I'm guardrailed to LocInsights topics only, so I'll let you know politely if you ask something off-topic.",
+    id: "Saya bisa menjawab pertanyaan tentang platform **LocInsights** — coba tanya tentang:\n\n- **Fitur:** Dashboard, Map Explorer, Opportunities, Deep Analysis, Brand Coverage, Mall Network, Competitor Intel, A/B Simulator, ML/AI Engine, Mall Tenants, Reports, Data Manager, Data Scraper, Methodology\n- **Scoring:** Bagaimana composite score dihitung, faktor apa yang penting\n- **Geografi:** Struktur kabupaten/kecamatan/kelurahan Bali, area mana yang high-priority\n- **Metodologi:** Huff Gravity Model, prediksi revenue GBR, sumber data\n- **Brand:** Portofolio MAP Active, di mana setiap brand diposisikan\n\nKetik saja pertanyaan Anda — saya di-guardrail ke topik LocInsights saja, jadi saya akan menolak dengan sopan jika Anda bertanya di luar topik.",
   },
   // Offline / PWA
   {
@@ -319,8 +319,8 @@ function buildFallbackReply(userMessage: string, lang: 'en' | 'id'): string {
   }
   // No rule matched → guardrail refusal
   return lang === 'id'
-    ? "Saya adalah Asisten AI LocInsight dan hanya bisa membantu seputar LocInsight, inteligensi lokasi, pemilihan lokasi retail, dan analisis ekspansi Bali.\n\nCoba tanyakan tentang:\n- **Fitur platform** (Dashboard, Map Explorer, Opportunities, Deep Analysis, dll.)\n- **Cara composite score dihitung**\n- **Geografi Bali** (kabupaten/kecamatan/kelurahan)\n- **Metodologi** (Huff Gravity, GBR, sumber data)\n\nAtau ketik **\"help\"** untuk melihat topik yang bisa saya bantu."
-    : "I'm the LocInsight AI Assistant and can only help with LocInsight, location intelligence, retail site selection, and Bali expansion analysis.\n\nTry asking about:\n- **Platform features** (Dashboard, Map Explorer, Opportunities, Deep Analysis, etc.)\n- **How the composite score is calculated**\n- **Bali geography** (kabupaten/kecamatan/kelurahan)\n- **Methodology** (Huff Gravity, GBR, data sources)\n\nOr type **\"help\"** to see what topics I can help with."
+    ? "Saya adalah Asisten AI LocInsights dan hanya bisa membantu seputar LocInsights, inteligensi lokasi, pemilihan lokasi retail, dan analisis ekspansi Bali.\n\nCoba tanyakan tentang:\n- **Fitur platform** (Dashboard, Map Explorer, Opportunities, Deep Analysis, dll.)\n- **Cara composite score dihitung**\n- **Geografi Bali** (kabupaten/kecamatan/kelurahan)\n- **Metodologi** (Huff Gravity, GBR, sumber data)\n\nAtau ketik **\"help\"** untuk melihat topik yang bisa saya bantu."
+    : "I'm the LocInsights AI Assistant and can only help with LocInsights, location intelligence, retail site selection, and Bali expansion analysis.\n\nTry asking about:\n- **Platform features** (Dashboard, Map Explorer, Opportunities, Deep Analysis, etc.)\n- **How the composite score is calculated**\n- **Bali geography** (kabupaten/kecamatan/kelurahan)\n- **Methodology** (Huff Gravity, GBR, data sources)\n\nOr type **\"help\"** to see what topics I can help with."
 }
 
 export async function POST(req: NextRequest) {
@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
     const config = loadConfig(clientConfig || null)
 
     // === FALLBACK PATH ===
-    // If no Z.AI config, use the rule-based LocInsight Help Bot.
+    // If no Z.AI config, use the rule-based LocInsights Help Bot.
     // This ensures chat ALWAYS works on Vercel — even before env vars are set
     // and before the user configures Settings.
     if (!config) {

@@ -1,6 +1,6 @@
 # Unified Scraper
 
-> How LocInsight's scraper works — modes, location filter, brand classifier,
+> How LocInsights's scraper works — modes, location filter, brand classifier,
 > review workflow, and data routing.
 
 ## TL;DR

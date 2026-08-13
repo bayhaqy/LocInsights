@@ -1,6 +1,6 @@
 # Architecture
 
-> System design for LocInsight v4.0 (Aug 2026).
+> System design for LocInsights v4.0 (Aug 2026).
 
 ## High-level diagram
 

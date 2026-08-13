@@ -141,10 +141,10 @@ function LoginInner() {
         {/* Brand header */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-lg">
-            <img src="/logo-white.png" alt="LocInsight" className="w-7 h-7 object-contain" />
+            <img src="/logo-white.png" alt="LocInsights" className="w-7 h-7 object-contain" />
           </div>
           <div>
-            <div className="font-display text-[20px] font-bold text-white leading-tight">LocInsight</div>
+            <div className="font-display text-[20px] font-bold text-white leading-tight">LocInsights</div>
             <div className="text-[10px] text-white/55 uppercase tracking-[0.18em]">Location Intelligence Platform</div>
           </div>
         </div>
@@ -205,9 +205,9 @@ function LoginInner() {
           {/* Mobile brand header (hidden on lg+) */}
           <div className="lg:hidden text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 mb-3 shadow-lg">
-              <img src="/logo-white.png" alt="LocInsight" className="w-9 h-9 object-contain" />
+              <img src="/logo-white.png" alt="LocInsights" className="w-9 h-9 object-contain" />
             </div>
-            <h1 className="font-display text-[22px] font-bold text-white leading-tight">LocInsight</h1>
+            <h1 className="font-display text-[22px] font-bold text-white leading-tight">LocInsights</h1>
             <p className="text-[11px] text-white/50 uppercase tracking-wider mt-1">Location Intelligence</p>
           </div>
 
@@ -310,7 +310,7 @@ function LoginInner() {
 
           {/* Copyright footer */}
           <p className="text-[10.5px] text-white/40 text-center mt-6 leading-relaxed">
-            © 2026 LocInsight · Built by{' '}
+            © 2026 LocInsights · Built by{' '}
             <a
               href="https://bayhaqy.my.id"
               target="_blank"

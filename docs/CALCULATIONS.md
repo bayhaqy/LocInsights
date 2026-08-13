@@ -8,13 +8,13 @@ owner: Data Team
 
 # Calculations & Formulas
 
-> **Tujuan**: Menjelaskan setiap formula dan perhitungan yang digunakan di LocInsight agar manajemen dapat memvalidasi metodologi.
+> **Tujuan**: Menjelaskan setiap formula dan perhitungan yang digunakan di LocInsights agar manajemen dapat memvalidasi metodologi.
 >
 > **Purpose**: Document every formula and calculation so management can validate the methodology.
 
 ## Overview
 
-LocInsight menggunakan 4 lapis perhitungan:
+LocInsights menggunakan 4 lapis perhitungan:
 
 1. **Factor scoring** — konversi raw data ke skor 0-100
 2. **Composite score** — weighted sum dari 6 faktor
@@ -151,7 +151,7 @@ Where:
 - `β` = Distance decay parameter (default: 2.0)
 - `Σ` = Sum over all competing stores k
 
-### LocInsight Implementation
+### LocInsights Implementation
 
 ```
 potential_market_share = Σ_j [ A_j / D_ij^β ] / Σ_k [ A_k / D_ik^β ]

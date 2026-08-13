@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to LocInsight are documented here. Dates are in
+All notable changes to LocInsights are documented here. Dates are in
 `YYYY-MM-DD` format. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [4.0.0] — 2026-08-09

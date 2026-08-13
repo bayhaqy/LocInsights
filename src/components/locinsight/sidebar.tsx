@@ -55,14 +55,14 @@ export function Sidebar({ items, activeId, onSelect, stats, collapsed = false, o
         {/* New logo: full PNG with transparent background, white-version for dark sidebar */}
         <img
           src="/logo-white.png"
-          alt="LocInsight"
+          alt="LocInsights"
           className="flex-shrink-0 object-contain"
           style={{ width: collapsed ? '32px' : '36px', height: collapsed ? '32px' : '36px' }}
           draggable={false}
         />
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <div className="font-display font-bold text-[17px] leading-tight">LocInsight</div>
+            <div className="font-display font-bold text-[17px] leading-tight">LocInsights</div>
             <div className="text-[10px] text-white/50 uppercase tracking-wider">{t('common.location_intelligence')}</div>
           </div>
         )}

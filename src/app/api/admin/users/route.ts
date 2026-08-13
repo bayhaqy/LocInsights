@@ -22,9 +22,9 @@ import { db as prisma } from '@/lib/db'
 import { requireSuperadmin } from '@/lib/auth-server'
 import { Prisma } from '@prisma/client'
 
-type Role = 'superadmin' | 'analyst' | 'viewer'
+type Role = 'superadmin' | 'admin' | 'data' | 'analyst' | 'viewer'
 
-const VALID_ROLES: Role[] = ['superadmin', 'analyst', 'viewer']
+const VALID_ROLES: Role[] = ['superadmin', 'admin', 'data', 'analyst', 'viewer']
 
 function sanitizeUser(u: any) {
   const { password_hash, ...rest } = u

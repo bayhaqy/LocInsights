@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 import { db as prisma } from './db'
 
 /**
- * NextAuth configuration for LocInsight (Aug 2026 best-practice overhaul).
+ * NextAuth configuration for LocInsights (Aug 2026 best-practice overhaul).
  *
  * Authentication strategy:
  *   - Credentials provider (username + password)
@@ -190,11 +190,22 @@ export const authOptions: NextAuthOptions = {
 
         clearAttempts(ip)
 
+        // Load per-role permissions from the `roles` table so the JWT carries
+        // the full permission matrix (no DB round-trip per request).
+        let permissions: any = null
+        try {
+          const roleRow = await prisma.role.findUnique({ where: { id: user.role } })
+          permissions = roleRow?.permissions as any
+        } catch {
+          // Role table not yet seeded — fall back to defaults at session-time
+        }
+
         return {
           id: user.id,
           name: user.username,
           email: user.email || `${user.username}@locinsight.local`,
           role: user.role,
+          permissions,
         } as any
       },
     }),
@@ -240,6 +251,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role || 'viewer'
         token.username = (user as any).name || ''
         token.user_id = (user as any).id || ''
+        token.permissions = (user as any).permissions || null
       }
       return token
     },
@@ -248,6 +260,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).role = token.role
         ;(session.user as any).username = token.username
         ;(session.user as any).id = token.user_id
+        ;(session.user as any).permissions = token.permissions
       }
       return session
     },

@@ -8,13 +8,13 @@ owner: Data Team
 
 # Data Dictionary
 
-> **Tujuan**: Menjelaskan setiap tabel, kolom, dan tipe data di LocInsight agar pengguna dan manajemen dapat memahami persis apa yang dimaksud setiap field.
+> **Tujuan**: Menjelaskan setiap tabel, kolom, dan tipe data di LocInsights agar pengguna dan manajemen dapat memahami persis apa yang dimaksud setiap field.
 >
 > **Purpose**: Document every table, column, and data type so users and management can understand exactly what each field means.
 
 ## Database Overview
 
-LocInsight menggunakan PostgreSQL (Supabase) dengan PostGIS extension. Schema lengkap ada di `prisma/schema.prisma`.
+LocInsights menggunakan PostgreSQL (Supabase) dengan PostGIS extension. Schema lengkap ada di `prisma/schema.prisma`.
 
 ### Tabel Utama / Main Tables
 

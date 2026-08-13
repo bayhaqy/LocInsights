@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, handleError } from '@/lib/api-helpers'
+import { db, handleError, filterModelFields } from '@/lib/api-helpers'
 
 import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params
-    const body = await req.json()
+        const body = filterModelFields('Kabupaten', await req.json())
     delete body.code
     const k = await db.kabupaten.update({ where: { code: id }, data: body })
     return NextResponse.json({ success: true, data: k })

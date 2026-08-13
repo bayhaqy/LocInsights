@@ -1,5 +1,5 @@
 /**
- * LocInsight Scoring Engine v3 — Phase 2+3 enhanced
+ * LocInsights Scoring Engine v3 — Phase 2+3 enhanced
  *
  * Improvements over v2:
  *   - Accepts injected data (DB-backed or static) — no more hard coupling to BALI_* arrays

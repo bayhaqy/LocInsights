@@ -1,6 +1,6 @@
 # Deployment
 
-> How to deploy LocInsight from scratch. Assumes you have Vercel, Supabase, and
+> How to deploy LocInsights from scratch. Assumes you have Vercel, Supabase, and
 > Hugging Face accounts.
 
 ## Architecture recap
@@ -133,7 +133,7 @@ HF auto-rebuilds on every push. The Space is served at:
 
 ### 3.3 Verify
 
-Open the Space URL — should show the LocInsight ML Engine UI with:
+Open the Space URL — should show the LocInsights ML Engine UI with:
 - Health Check tab (Supabase connection status)
 - Predict Site Score tab
 - Find Blank Spots tab

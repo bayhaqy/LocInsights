@@ -22,11 +22,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LocInsight — Location Intelligence for MAP Active",
+  title: "LocInsights — Location Intelligence for MAP Active",
   description:
-    "LocInsight (Location Insight) — data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali using composite ML scoring, Huff gravity modeling, competitor intel, GBR revenue prediction, and field-surveyor PWA.",
+    "LocInsights (Location Insight) — data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali using composite ML scoring, Huff gravity modeling, competitor intel, GBR revenue prediction, and field-surveyor PWA.",
   keywords: [
-    "LocInsight",
+    "LocInsights",
     "Location Intelligence",
     "MAP Active",
     "Adiperkasa",
@@ -49,14 +49,14 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "LocInsight",
+    title: "LocInsights",
     statusBarStyle: "black-translucent",
   },
-  applicationName: "LocInsight",
+  applicationName: "LocInsights",
   openGraph: {
-    title: "LocInsight — Location Intelligence",
+    title: "LocInsights — Location Intelligence",
     description: "Data-driven retail expansion decisioning for MAP Active",
-    siteName: "LocInsight",
+    siteName: "LocInsights",
     type: "website",
   },
 };

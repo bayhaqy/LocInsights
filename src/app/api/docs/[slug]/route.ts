@@ -122,46 +122,72 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const { slug } = await params;
-  const body = await req.json().catch(() => ({}));
-  const newContent: string = body.content;
-  if (typeof newContent !== 'string' || !newContent.trim()) {
+  try {
+    const { slug } = await params;
+    const body = await req.json().catch(() => ({}));
+    const newContent: string = body.content;
+    if (typeof newContent !== 'string' || !newContent.trim()) {
+      return NextResponse.json(
+        { success: false, data: null, error: 'Missing content' },
+        { status: 400 },
+      );
+    }
+
+    const found = await readDoc(slug);
+    if (!found) {
+      return NextResponse.json(
+        { success: false, data: null, error: `Doc '${slug}' not found` },
+        { status: 404 },
+      );
+    }
+
+    // Preserve front-matter, only replace body content
+    const { meta } = parseFrontMatter(found.raw);
+    const updatedLast = new Date().toISOString().slice(0, 10);
+    meta.last_updated = updatedLast;
+
+    const fmLines = ['---'];
+    for (const [k, v] of Object.entries(meta)) {
+      fmLines.push(`${k}: ${v}`);
+    }
+    fmLines.push('---', '');
+
+    const newRaw = fmLines.join('\n') + newContent.trimStart() + '\n';
+    const fullPath = path.join(DOCS_DIR, found.filename);
+
+    // ⚠️ Vercel's serverless filesystem is READ-ONLY (except /tmp).
+    // fs.writeFile will throw EACCES/EROFS in production. We catch this
+    // and return a clear error to the client (which previously caused
+    // "Failed to execute 'json' on 'Response': Unexpected end of JSON input"
+    // because the uncaught error produced an empty 500 body).
+    try {
+      await fs.writeFile(fullPath, newRaw, 'utf8');
+    } catch (writeErr: any) {
+      const isReadOnly = writeErr?.code === 'EACCES' || writeErr?.code === 'EROFS' || writeErr?.code === 'EPERM';
+      return NextResponse.json({
+        success: false,
+        data: null,
+        error: isReadOnly
+          ? 'Documentation editing is not available in the deployed environment (filesystem is read-only on Vercel). Edit the file locally and push to Git, or run the app in dev mode.'
+          : `Failed to write file: ${writeErr?.message || 'unknown error'}`,
+        code: writeErr?.code,
+      }, { status: isReadOnly ? 403 : 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        slug,
+        filename: found.filename,
+        last_updated: updatedLast,
+        bytes: newRaw.length,
+      },
+    });
+  } catch (e: any) {
+    console.error('[docs PUT] error:', e);
     return NextResponse.json(
-      { success: false, data: null, error: 'Missing content' },
-      { status: 400 },
+      { success: false, data: null, error: e?.message || 'Internal server error' },
+      { status: 500 },
     );
   }
-
-  const found = await readDoc(slug);
-  if (!found) {
-    return NextResponse.json(
-      { success: false, data: null, error: `Doc '${slug}' not found` },
-      { status: 404 },
-    );
-  }
-
-  // Preserve front-matter, only replace body content
-  const { meta } = parseFrontMatter(found.raw);
-  const updatedLast = new Date().toISOString().slice(0, 10);
-  meta.last_updated = updatedLast;
-
-  const fmLines = ['---'];
-  for (const [k, v] of Object.entries(meta)) {
-    fmLines.push(`${k}: ${v}`);
-  }
-  fmLines.push('---', '');
-
-  const newRaw = fmLines.join('\n') + newContent.trimStart() + '\n';
-  const fullPath = path.join(DOCS_DIR, found.filename);
-  await fs.writeFile(fullPath, newRaw, 'utf8');
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      slug,
-      filename: found.filename,
-      last_updated: updatedLast,
-      bytes: newRaw.length,
-    },
-  });
 }

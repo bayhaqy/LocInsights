@@ -1,5 +1,5 @@
 /**
- * Bulk import/export helpers for all LocInsight master data entities.
+ * Bulk import/export helpers for all LocInsights master data entities.
  *
  * Each entity has:
  *   - list of fields (key, label, type) — used for both import templates and the spreadsheet UI

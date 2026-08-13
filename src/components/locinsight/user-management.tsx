@@ -3,13 +3,18 @@
 /**
  * UserManagement — Superadmin panel for managing users and roles.
  *
+ * Two tabs:
+ *   1. Users  — CRUD on application users (username, password, role, active)
+ *   2. Roles  — per-menu CRUD+export permission matrix per role
+ *
  * Features:
  *   - List all users with role badges, status, last login, failed login count
  *   - Create new user (username, email, display_name, password, role, is_active)
  *   - Edit user (display_name, email, role, is_active, reset password, reset lockout)
  *   - Delete user (with confirmation; prevents self-delete & last-superadmin-delete)
  *   - Audit log viewer per user (last 20 actions)
- *   - Role descriptions sidebar (explains superadmin/analyst/viewer permissions)
+ *   - Role descriptions sidebar (explains superadmin/admin/data/analyst/viewer permissions)
+ *   - Per-role, per-menu CRUD+export permission matrix editor (Roles tab)
  *
  * Security:
  *   - All mutations go through /api/admin/users which enforces requireSuperadmin()
@@ -28,15 +33,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Users, Plus, Edit, Trash2, Search, RefreshCw, Shield, ShieldCheck, ShieldAlert,
   Lock, Unlock, Key, Activity, AlertTriangle, UserCheck, UserX, Eye, EyeOff,
+  Save, RotateCcw, Loader2, CheckCircle2, XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/lib/i18n/language-provider'
 import { useSession } from 'next-auth/react'
+import {
+  MENU_LIST, DEFAULT_PERMISSIONS, ROLE_DESCRIPTIONS,
+  type Permissions, type MenuPermission, type RoleId,
+} from '@/lib/permissions'
 
-type Role = 'superadmin' | 'analyst' | 'viewer'
+type Role = 'superadmin' | 'admin' | 'data' | 'analyst' | 'viewer'
 
 interface User {
   id: string
@@ -59,6 +70,18 @@ const ROLE_INFO: Record<Role, { label: string; desc: string; color: string; icon
     color: 'var(--brand-red)',
     icon: ShieldCheck,
   },
+  admin: {
+    label: 'Admin',
+    desc: 'All features except Users Management. Can CRUD on master data, run scrapers, ML training, and bulk imports.',
+    color: '#2563eb',
+    icon: Shield,
+  },
+  data: {
+    label: 'Data Operator',
+    desc: 'Full CRUD ONLY on Reports, Data Manager, and Data Scraper. Read-only on dashboards/maps/analysis.',
+    color: '#059669',
+    icon: Shield,
+  },
   analyst: {
     label: 'Analyst',
     desc: 'Read-only on master data + can run ML/AI forecasts, A/B tests, and reports. Cannot edit master data or manage users.',
@@ -67,7 +90,7 @@ const ROLE_INFO: Record<Role, { label: string; desc: string; color: string; icon
   },
   viewer: {
     label: 'Viewer',
-    desc: 'Read-only on dashboards and maps. Cannot access Data Manager, Scraper, Settings, or User Management.',
+    desc: 'Read-only on dashboards and maps. Cannot access Data Manager, Scraper, Settings, or User Management. No exports.',
     color: '#5C5C5C',
     icon: Eye,
   },
@@ -77,6 +100,7 @@ export function UserManagement() {
   const { t } = useLanguage()
   const { data: session } = useSession()
   const currentUserId = (session?.user as any)?.id
+  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users')
 
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
@@ -251,7 +275,23 @@ export function UserManagement() {
             Manage user accounts, assign roles, reset passwords, and audit login activity.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+      </div>
+
+      {/* Tabs: Users + Roles */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'users' | 'roles')}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="users" className="text-[12px]">
+            <Users className="w-3.5 h-3.5 mr-1.5" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="text-[12px]">
+            <Shield className="w-3.5 h-3.5 mr-1.5" />
+            Roles
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-4">
+      <div className="flex items-center gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading} className="h-8">
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -260,7 +300,6 @@ export function UserManagement() {
             <Plus className="w-3.5 h-3.5 mr-1" /> New User
           </Button>
         </div>
-      </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -614,6 +653,253 @@ export function UserManagement() {
           </DialogContent>
         </Dialog>
       )}
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-4">
+          <RolesTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+// =====================================================
+// Roles tab — per-menu CRUD+export permission matrix
+// =====================================================
+function RolesTab() {
+  const { t } = useLanguage()
+  const [roles, setRoles] = useState<Array<{ id: string; name: string; description: string; permissions: Permissions; is_system: boolean; updated_at: string }>>([])
+  const [selectedRole, setSelectedRole] = useState<RoleId>('admin')
+  const [loading, setLoading] = useState(true)
+  const [draft, setDraft] = useState<Permissions | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const fetchRoles = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/roles')
+      let json: any = null
+      try { json = await res.json() } catch {}
+      if (json?.success) {
+        setRoles(json.data)
+        const sel = json.data.find((r: any) => r.id === selectedRole)
+        if (sel) setDraft(sel.permissions as Permissions)
+      } else {
+        toast.error(json?.error || `HTTP ${res.status}`)
+      }
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedRole])
+
+  useEffect(() => { fetchRoles() }, [fetchRoles])
+
+  useEffect(() => {
+    const sel = roles.find(r => r.id === selectedRole)
+    if (sel) setDraft(JSON.parse(JSON.stringify(sel.permissions)) as Permissions)
+  }, [selectedRole, roles])
+
+  function togglePerm(menuId: string, action: keyof MenuPermission, value: boolean) {
+    if (!draft) return
+    if (selectedRole === 'superadmin') return // locked
+    setDraft({
+      ...draft,
+      [menuId]: {
+        ...(draft[menuId] || { read: false, create: false, update: false, delete: false, export: false }),
+        [action]: value,
+      },
+    })
+  }
+
+  async function savePermissions() {
+    if (!draft || selectedRole === 'superadmin') return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/roles/${selectedRole}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissions: draft }),
+      })
+      let json: any = null
+      try { json = await res.json() } catch {}
+      if (json?.success) {
+        toast.success(`Permissions saved for role ${selectedRole}`)
+        fetchRoles()
+      } else {
+        toast.error(json?.error || `HTTP ${res.status}`)
+      }
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function resetPermissions() {
+    if (!confirm(`Reset permissions for ${selectedRole} to system defaults?`)) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/roles/${selectedRole}`, { method: 'POST' })
+      let json: any = null
+      try { json = await res.json() } catch {}
+      if (json?.success) {
+        toast.success(`Permissions reset to defaults for role ${selectedRole}`)
+        fetchRoles()
+      } else {
+        toast.error(json?.error || `HTTP ${res.status}`)
+      }
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isLocked = selectedRole === 'superadmin'
+  const fullAccessCount = draft ? Object.values(draft).filter(p => p.read && p.create && p.update && p.delete && p.export).length : 0
+  const readOnlyCount = draft ? Object.values(draft).filter(p => p.read && !p.create && !p.update && !p.delete && !p.export).length : 0
+
+  return (
+    <div className="space-y-4">
+      {/* Role selector */}
+      <Card className="card-premium">
+        <CardContent className="p-4">
+          <Label className="text-[11px] uppercase tracking-wider text-[var(--brand-ink)]/60 block mb-2">
+            Select role to edit
+          </Label>
+          <div className="flex flex-wrap items-center gap-2">
+            {(['superadmin', 'admin', 'data', 'analyst', 'viewer'] as RoleId[]).map(rid => (
+              <button
+                key={rid}
+                onClick={() => setSelectedRole(rid)}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${
+                  selectedRole === rid
+                    ? 'bg-[var(--brand-red)] text-white border-[var(--brand-red)]'
+                    : 'bg-white text-[var(--brand-ink)]/70 border-[var(--brand-border)] hover:border-[var(--brand-red)]/40'
+                }`}
+              >
+                {rid}
+              </button>
+            ))}
+          </div>
+          {roles.find(r => r.id === selectedRole)?.description && (
+            <div className="mt-3 text-[12px] text-[var(--brand-ink)]/70 bg-[var(--brand-cream)] rounded-md px-3 py-2">
+              {roles.find(r => r.id === selectedRole)?.description}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lock notice for superadmin */}
+      {isLocked && (
+        <Card className="card-premium border-amber-300/50 bg-amber-50/50">
+          <CardContent className="p-3 flex items-center gap-2 text-[12px] text-amber-900">
+            <Lock className="w-4 h-4 flex-shrink-0" />
+            Super Admin permissions are locked (full access).
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="card-premium">
+          <CardContent className="p-3 flex items-center gap-3">
+            <Shield className="w-5 h-5 text-[var(--brand-red)]" />
+            <div>
+              <div className="text-[20px] font-bold text-[var(--brand-ink)] leading-none">{MENU_LIST.length}</div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55 mt-0.5">{MENU_LIST.length} menus configured</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="card-premium">
+          <CardContent className="p-3 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-700" />
+            <div>
+              <div className="text-[20px] font-bold text-[var(--brand-ink)] leading-none">{fullAccessCount}</div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55 mt-0.5">{fullAccessCount} menus with full CRUD+export</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="card-premium">
+          <CardContent className="p-3 flex items-center gap-3">
+            <Lock className="w-5 h-5 text-amber-700" />
+            <div>
+              <div className="text-[20px] font-bold text-[var(--brand-ink)] leading-none">{readOnlyCount}</div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--brand-ink)]/55 mt-0.5">{readOnlyCount} menus read-only</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Permission matrix */}
+      <Card className="card-premium">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[var(--brand-red)]" />
+              Role Permissions
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={resetPermissions} disabled={saving || isLocked} className="h-7 text-[11px]">
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Reset to Defaults
+              </Button>
+              <Button size="sm" onClick={savePermissions} disabled={saving || isLocked} className="h-7 text-[11px] bg-[var(--brand-red)] hover:bg-[var(--brand-red-dark)]">
+                {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                Save Permissions
+              </Button>
+            </div>
+          </div>
+          <p className="text-[11px] text-[var(--brand-ink)]/60 mt-1">
+            Define per-menu CRUD + export permissions for the {selectedRole} role. Changes take effect for new sessions.
+          </p>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {loading || !draft ? (
+            <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-[var(--brand-red)]" /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead className="bg-[var(--brand-cream)] text-[var(--brand-ink)]/60 uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="text-left px-3 py-2 sticky left-0 bg-[var(--brand-cream)]">Menu</th>
+                    <th className="text-left px-3 py-2 hidden md:table-cell">Description</th>
+                    <th className="text-center px-2 py-2">Read</th>
+                    <th className="text-center px-2 py-2">Create</th>
+                    <th className="text-center px-2 py-2">Update</th>
+                    <th className="text-center px-2 py-2">Delete</th>
+                    <th className="text-center px-2 py-2">Export</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {MENU_LIST.map(menu => {
+                    const p = draft[menu.id] || { read: false, create: false, update: false, delete: false, export: false }
+                    const isUsersMenu = menu.id === 'users' && selectedRole !== 'superadmin'
+                    return (
+                      <tr key={menu.id} className="border-b border-[var(--brand-border)]/50 hover:bg-[var(--brand-cream)]/30">
+                        <td className="px-3 py-2 font-medium text-[var(--brand-ink)] sticky left-0 bg-white">{menu.label}</td>
+                        <td className="px-3 py-2 text-[var(--brand-ink)]/60 text-[11px] hidden md:table-cell">{menu.description}</td>
+                        {(['read', 'create', 'update', 'delete', 'export'] as (keyof MenuPermission)[]).map(action => (
+                          <td key={action} className="text-center px-2 py-2">
+                            <Switch
+                              checked={p[action]}
+                              disabled={isLocked || isUsersMenu}
+                              onCheckedChange={(v) => togglePerm(menu.id, action, v)}
+                              className="scale-90"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

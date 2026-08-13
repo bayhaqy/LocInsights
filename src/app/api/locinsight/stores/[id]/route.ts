@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, handleError } from '@/lib/api-helpers'
+import { db, handleError, filterModelFields } from '@/lib/api-helpers'
 
 import { requireAuth, requireSuperadmin } from '@/lib/auth-server'
 export const dynamic = 'force-dynamic'
@@ -35,7 +35,7 @@ export async function PUT(
 
   try {
     const { id } = await params
-    const body = await req.json()
+        const body = filterModelFields('Store', await req.json())
     delete body.id
     const store = await db.store.update({
       where: { id },

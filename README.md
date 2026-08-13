@@ -1,4 +1,4 @@
-# LocInsight
+# LocInsights
 
 > Enterprise-grade location intelligence platform for retail store expansion decisions.
 > Built for **MAP Active Adiperkasa (MAA)** to identify high-potential store sites in
@@ -11,9 +11,9 @@
 
 ---
 
-## What is LocInsight?
+## What is LocInsights?
 
-LocInsight is an end-to-end site-selection tool that combines **authoritative government
+LocInsights is an end-to-end site-selection tool that combines **authoritative government
 data** (BPS Bali), **live web data** (OpenStreetMap), and **ML-driven scoring** to surface
 the best kelurahan (urban village) for the next store opening of any brand in the MAA /
 MAP portfolio.
@@ -39,6 +39,35 @@ historical store performance and competitive landscape.
 | **Data Scraper** | Unified OSM scraper with hierarchical location filter (Bali → Kab → Kec → Kel) and smart brand classification |
 | **Methodology** | Transparent scoring rubric + math explanation |
 | **About** | Project context, data sources, FAQ |
+| **Users Management** ⭐ | **(superadmin only)** Full CRUD on users + per-role per-menu CRUD+export permission matrix |
+
+### Authentication & Role-Based Access Control (RBAC) ⭐
+
+LocInsights v5.0 ships with a complete authentication system (NextAuth v4 + bcrypt) with
+5 built-in roles and per-menu, per-action permission matrix:
+
+| Role | Default permissions |
+|---|---|
+| **superadmin** | Full CRUD + export on all 17 menus, including Users Management |
+| **admin** | Full CRUD + export on all features **except** Users Management |
+| **data** | Full CRUD + export ONLY on Reports, Data Manager, Data Scraper; read-only on others |
+| **analyst** | Read + run ML/AI forecasts (no master data mutations) |
+| **viewer** | Read-only across the app, **no exports anywhere** |
+
+The superadmin can customize any role's permissions from **Users Management → Roles tab**
+using a 17-row × 5-column (read/create/update/delete/export) matrix editor. Changes take
+effect immediately for new sessions.
+
+Default seeded accounts (run `bun run seed:users` to seed):
+
+| Username | Password | Role |
+|---|---|---|
+| `bayhaqy` | `LocInsights@01!!` | superadmin |
+| `admin` | `admin` | admin |
+| `data` | `data` | data |
+| `demo` | `demo` | viewer |
+
+The seeder is idempotent and supports `--reset-password <username> <newPassword>`.
 
 ---
 
@@ -87,7 +116,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
 ## Repository layout
 
 ```
-LocInsight/
+LocInsights/
 ├── src/
 │   ├── app/                          # Next.js App Router
 │   │   ├── api/locinsight/           # 32 REST endpoints
@@ -143,6 +172,8 @@ LocInsight/
   ```env
   DATABASE_URL="postgresql://postgres.[ref]:[pwd]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true"
   DIRECT_URL="postgresql://postgres.[ref]:[pwd]@aws-0-[region].pooler.supabase.com:5432/postgres"
+  NEXTAUTH_SECRET="generate with: openssl rand -base64 32"
+  NEXTAUTH_URL="http://localhost:3000"  # public URL on Vercel, auto-set
   ```
 
 ### Quick start
@@ -151,7 +182,7 @@ LocInsight/
 # 1. Install dependencies (bun preferred)
 bun install
 
-# 2. Generate Prisma client
+# 2. Generate Prisma client (also runs automatically via postinstall hook)
 bun run db:generate
 
 # 3. Push schema to your Supabase project
@@ -160,7 +191,10 @@ bun run db:push
 # 4. Seed Bali admin + brands + malls + POIs
 bun run seed
 
-# 5. Start dev server
+# 5. Seed default users + roles (superadmin/admin/data/viewer)
+bun run seed:users
+
+# 6. Start dev server
 bun run dev
 # → http://localhost:3000
 ```
