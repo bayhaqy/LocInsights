@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, handleError } from '@/lib/api-helpers'
+import { requireSuperadmin } from '@/lib/auth-server'
 
 export const dynamic = 'force-dynamic'
 
+// GET is public (no auth) — countries are shared reference data.
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,6 +22,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireSuperadmin()
+    if (!auth.ok) return auth.response
+
     const { id } = await params
     const body = await req.json()
     delete body.id
@@ -33,6 +38,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireSuperadmin()
+    if (!auth.ok) return auth.response
+
     const { id } = await params
     await db.country.delete({ where: { id } })
     return NextResponse.json({ success: true })

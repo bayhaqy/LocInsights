@@ -1,4 +1,4 @@
-// Shared types for LocInsight client-side components
+// Shared types for LocInsights client-side components
 
 export type Tier = 1 | 2 | 3
 

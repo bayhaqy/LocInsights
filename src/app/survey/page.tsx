@@ -212,7 +212,7 @@ export default function SurveyPage() {
       <header className="bg-[#7A0A1A] text-white px-4 py-3 sticky top-0 z-10">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-white/60">LocInsight</div>
+            <div className="text-[10px] uppercase tracking-wider text-white/60">LocInsights</div>
             <div className="text-[16px] font-bold">Field Surveyor</div>
           </div>
           <div className="flex items-center gap-2 text-[11px]">
@@ -435,7 +435,7 @@ export default function SurveyPage() {
         </div>
 
         <div className="text-center text-[10px] text-[#1a1a1a]/40 py-4">
-          LocInsight Field Surveyor · Phase 3 PWA · v3.0
+          LocInsights Field Surveyor · Phase 3 PWA · v3.0
         </div>
       </main>
     </div>

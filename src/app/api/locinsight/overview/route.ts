@@ -7,6 +7,8 @@ import { BRANDS } from '@/lib/data/brands'
 import { BALI_POIS } from '@/lib/data/bali-poi'
 import { loadCompetitorStores, loadStoresFromDB, loadKelurahanFromDB } from '@/lib/scoring/db-engine'
 import { prisma } from '@/lib/db'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,11 +24,21 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('dashboard', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const searchParams = req.nextUrl.searchParams
     const brandId = searchParams.get('brand_id') || undefined
     const tierFilter = searchParams.get('tier') ? Number(searchParams.get('tier')) as 1 | 2 | 3 : undefined
 
-    // Phase 2 + 5: load competitor + kelurahan + stores from DB in parallel
+    // Phase 2 + 5: load competitor + kelurahan + stores from DB in parallel.
+    // NOTE: loadCompetitorStores / loadStoresFromDB use a process-wide cache
+    // (60s TTL). The RLS context set above will protect DB queries when the
+    // cache misses, but cached results from another tenant could bleed
+    // through within the TTL window. Acceptable for v1 (single-tenant
+    // deployment is the common case); for true multi-tenant isolation, the
+    // cache should be keyed by tenant_id in a future iteration.
     const [competitors, dbStores, dbKelurahan] = await Promise.all([
       loadCompetitorStores(),
       loadStoresFromDB().catch((e) => {
@@ -55,11 +67,27 @@ export async function GET(req: NextRequest) {
       useTravelTime: true,
     }, tierFilter)
 
-    // Phase 3: count of field surveys + training runs
+    // Phase 3: count of field surveys + training runs (tenant-scoped).
+    // Include NULL tenant_id (system) rows alongside the current tenant's.
+    const tf = tenantFilter(auth.session)
+    const tenantClause = Object.keys(tf).length > 0
+      ? { OR: [{ tenant_id: null }, tf] }
+      : {}
+
     const [pendingSurveys, latestTrainingRun, competitorBrands] = await Promise.all([
-      prisma.fieldSurvey.count({ where: { review_status: 'pending' } }).catch(() => 0),
-      prisma.trainingRun.findFirst({ orderBy: { started_at: 'desc' } }).catch(() => null),
-      prisma.competitorStore.groupBy({ by: ['brand_name'], _count: true, orderBy: { _count: { brand_name: 'desc' } } }).catch(() => []),
+      prisma.fieldSurvey.count({
+        where: { review_status: 'pending', ...tenantClause },
+      }).catch(() => 0),
+      prisma.trainingRun.findFirst({
+        where: tenantClause,
+        orderBy: { started_at: 'desc' },
+      }).catch(() => null),
+      prisma.competitorStore.groupBy({
+        by: ['brand_name'],
+        _count: true,
+        orderBy: { _count: { brand_name: 'desc' } },
+        where: tf,
+      }).catch(() => []),
     ])
 
     return NextResponse.json({

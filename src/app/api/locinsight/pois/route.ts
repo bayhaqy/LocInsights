@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, paginate, handleError } from '@/lib/api-helpers'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('data', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const term = sp.get('search')
     const type = sp.get('type')
     const kab = sp.get('kab')
 
-    const where: any = {}
+    const where: any = { ...tenantFilter(auth.session) }
     if (type) where.type = type
     if (kab) where.kab = kab
 
@@ -24,8 +30,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requirePermission('data', 'create')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const body = await req.json()
-    const p = await db.poi.create({ data: body })
+    delete body.tenant_id
+    const p = await db.poi.create({ data: withTenantId(auth.session, body) })
     return NextResponse.json({ success: true, data: p }, { status: 201 })
   } catch (e) { return handleError(e) }
 }

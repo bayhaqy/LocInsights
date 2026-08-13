@@ -7,6 +7,13 @@
  *   POST /api/locinsight/bulk  { entity, rows }                  → bulk upsert (JSON)
  *   PUT  /api/locinsight/bulk  { entity, rows }                  → bulk update only
  *
+ * Tenant isolation:
+ *   - Tenant-scoped entities (stores/malls/brands/competitors/pois): require
+ *     'data' permission + tenant_id injected on create + tenant_id in update WHERE.
+ *     Exports are filtered to the current tenant.
+ *   - Reference-data entities (kelurahan/kabupaten/kecamatan): writes require
+ *     superadmin; reads (export) require any authenticated user.
+ *
  * Best practices (Aug 2026):
  *   - Always validate entity name against whitelist
  *   - Row limit: 5000 per request
@@ -21,8 +28,13 @@ import {
   rowsToCsv,
   rowsToXlsx,
   buildTemplate,
+  TENANT_SCOPED_ENTITIES,
+  REFERENCE_DATA_ENTITIES,
   type EntityType,
 } from '@/lib/bulk-helpers'
+import { requireAuth, requirePermission, requireSuperadmin } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter } from '@/lib/tenant-context'
+import { getCurrentTenantId } from '@/lib/auth-server'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -49,6 +61,16 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // Auth + tenant context. Reference-data exports only require auth; tenant-
+    // scoped exports require 'data' read permission.
+    const auth = TENANT_SCOPED_ENTITIES.has(entity as EntityType)
+      ? await requirePermission('data', 'read')
+      : await requireAuth()
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
+    const tid = getCurrentTenantId(auth.session)
+
     if (isTemplate) {
       const tpl = buildTemplate(entity)
       const filename = `template_${entity}_${new Date().toISOString().slice(0,10)}.${format}`
@@ -69,8 +91,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Export all rows
-    const rows = await exportRows(entity)
+    // Export all rows (tenant-filtered for tenant-scoped entities)
+    const rows = await exportRows(entity, { tenantId: tid })
     const fields = ENTITY_CONFIG[entity].fields
     const filename = `${entity}_${new Date().toISOString().slice(0,10)}.${format}`
     if (format === 'csv') {
@@ -119,7 +141,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const result = await bulkUpsert(entity, rows)
+    // Permission gate: reference data writes require superadmin; tenant-scoped
+    // writes require 'data' create permission.
+    const auth = REFERENCE_DATA_ENTITIES.has(entity)
+      ? await requireSuperadmin()
+      : await requirePermission('data', 'create')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
+    const tid = getCurrentTenantId(auth.session)
+    const result = await bulkUpsert(entity, rows, { tenantId: tid })
 
     return NextResponse.json({
       success: true,
@@ -153,6 +184,17 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'rows is empty' }, { status: 400 })
     }
 
+    // Permission gate: same as POST.
+    const auth = REFERENCE_DATA_ENTITIES.has(entity)
+      ? await requireSuperadmin()
+      : await requirePermission('data', 'update')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
+    const tid = getCurrentTenantId(auth.session)
+    const isTenantScoped = TENANT_SCOPED_ENTITIES.has(entity)
+    const tf = tenantFilter(auth.session)
+
     const cfg = ENTITY_CONFIG[entity]
     let updated = 0
     let skipped = 0
@@ -166,10 +208,23 @@ export async function PUT(req: NextRequest) {
           skipped++
           continue
         }
-        const existing = await cfg.model.findUnique({ where: { [cfg.idField]: idVal } })
-        if (!existing) {
-          skipped++
-          continue
+
+        // For tenant-scoped entities, verify ownership before updating
+        if (isTenantScoped && tid) {
+          const existing = await cfg.model.findFirst({
+            where: { [cfg.idField]: idVal, ...tf },
+          })
+          if (!existing) {
+            skipped++
+            continue
+          }
+        } else {
+          // Reference data — superadmin-only (already enforced above)
+          const existing = await cfg.model.findUnique({ where: { [cfg.idField]: idVal } })
+          if (!existing) {
+            skipped++
+            continue
+          }
         }
         // Coerce types — only update fields that are present and not the PK
         const coerced: Record<string, any> = {}
@@ -186,7 +241,18 @@ export async function PUT(req: NextRequest) {
             coerced[f.key] = String(v)
           }
         }
-        await cfg.model.update({ where: { [cfg.idField]: idVal }, data: coerced })
+        // Never allow tenant_id to be changed via PUT
+        delete coerced.tenant_id
+
+        if (isTenantScoped && tid) {
+          // updateMany with tenant_id in WHERE — prevents cross-tenant mutation
+          await cfg.model.updateMany({
+            where: { [cfg.idField]: idVal, ...tf },
+            data: coerced,
+          })
+        } else {
+          await cfg.model.update({ where: { [cfg.idField]: idVal }, data: coerced })
+        }
         updated++
       } catch (e: any) {
         errors.push({ row: i + 2, error: e.message })

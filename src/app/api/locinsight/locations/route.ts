@@ -14,6 +14,11 @@
  *
  * NOTE: Default DB only has Indonesia → Bali, but the API supports the full
  * hierarchy so users can add more countries/provinces via the Data Manager.
+ *
+ * TENANT ISOLATION: This endpoint serves SHARED reference data (admin
+ * boundaries have no tenant_id column). The route is public (no auth required
+ * — the middleware matcher excludes /api/locinsight/locations). No tenant
+ * filter is applied.
  */
 
 import { NextRequest, NextResponse } from 'next/server'

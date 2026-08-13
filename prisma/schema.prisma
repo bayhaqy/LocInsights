@@ -20,6 +20,10 @@ model ABTest {
   winner     String?
   created_by String?  @default("system")
   created_at DateTime @default(now()) @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -45,9 +49,12 @@ model Brand {
   created_at          DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime                  @default(now()) @db.Timestamptz(6)
   stores              Store[]
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([category])
   @@index([parent])
+  @@index([tenant_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -75,11 +82,14 @@ model CompetitorStore {
   created_at      DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at      DateTime                  @default(now()) @db.Timestamptz(6)
   malls           Mall?                    @relation(fields: [mall_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([brand_name], map: "competitor_brand_idx")
   @@index([brand_category], map: "competitor_category_idx")
   @@index([geom], map: "competitor_geom_idx", type: Gist)
   @@index([kab], map: "competitor_kab_idx")
+  @@index([tenant_id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -122,10 +132,13 @@ model FieldSurvey {
   reviewer_notes           String?                   @default("")
   submitted_at             DateTime                  @default(now()) @db.Timestamptz(6)
   reviewed_at              DateTime?                 @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([geom], type: Gist)
   @@index([review_status], map: "field_surveys_status_idx")
   @@index([surveyor_name], map: "field_surveys_surveyor_idx")
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -245,10 +258,13 @@ model MallTenant {
   created_at      DateTime             @default(now()) @db.Timestamptz(6)
   updated_at      DateTime             @default(now()) @db.Timestamptz(6)
   malls           Mall?               @relation(fields: [mall_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([brand_name], map: "mall_tenants_brand_idx")
   @@index([mall_id], map: "mall_tenants_mall_idx")
   @@index([is_map_brand], map: "mall_tenants_map_brand_idx")
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -278,9 +294,12 @@ model Mall {
   competitor_stores      CompetitorStore[]
   mall_tenants           MallTenant[]
   stores                 Store[]
+  tenant_id              String?
+  tenant                 Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([geom], type: Gist)
   @@index([kab])
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -301,6 +320,10 @@ model MLModel {
   updated_at      DateTime              @default(now()) @db.Timestamptz(6)
   predictions     Prediction[]
   training_runs   TrainingRun[]
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -322,10 +345,13 @@ model Poi {
   source     String?                   @default("Google Maps POI")
   created_at DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at DateTime                  @default(now()) @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([geom], type: Gist)
   @@index([kab])
   @@index([type])
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -346,10 +372,13 @@ model Prediction {
   is_blank_spot Boolean?                  @default(false)
   created_at    DateTime                  @default(now()) @db.Timestamptz(6)
   ml_models     MLModel                 @relation(fields: [model_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([geom], type: Gist)
   @@index([model_id], map: "predictions_model_idx")
   @@index([target_type, target_id], map: "predictions_target_idx")
+  @@index([tenant_id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -385,6 +414,10 @@ model Report {
   file_size_kb Int?
   generated_by String?             @default("system")
   created_at   DateTime            @default(now()) @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -400,9 +433,12 @@ model ScraperRun {
   result_json Json?               @default("[]")
   started_at  DateTime            @default(now()) @db.Timestamptz(6)
   finished_at DateTime?           @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([source])
   @@index([status])
+  @@index([tenant_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -436,9 +472,12 @@ model StagingCompetitor {
   quality_issues  String?              @default(dbgenerated("('[]'::jsonb)::text"))
   is_duplicate    Boolean?             @default(false)
   created_at      DateTime             @default(now()) @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([batch_id], map: "staging_comp_batch_idx")
   @@index([review_status], map: "staging_comp_status_idx")
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -467,9 +506,12 @@ model StagingMall {
   quality_issues  String?              @default(dbgenerated("('[]'::jsonb)::text"))
   is_duplicate    Boolean?             @default(false)
   created_at      DateTime             @default(now()) @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([batch_id], map: "staging_malls_batch_idx")
   @@index([review_status], map: "staging_malls_status_idx")
+  @@index([tenant_id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -503,10 +545,13 @@ model StagingStore {
   quality_issues    String?              @default(dbgenerated("('[]'::jsonb)::text"))
   is_duplicate      Boolean?             @default(false)
   created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([batch_id], map: "staging_stores_batch_idx")
   @@index([lat, lng])
   @@index([review_status], map: "staging_stores_status_idx")
+  @@index([tenant_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -538,11 +583,14 @@ model Store {
   updated_at        DateTime                  @default(now()) @db.Timestamptz(6)
   brands            Brand                    @relation(fields: [brand_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   malls             Mall?                    @relation(fields: [mall_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([brand_id], map: "stores_brand_idx")
   @@index([geom], type: Gist)
   @@index([kab])
   @@index([mall_id], map: "stores_mall_idx")
+  @@index([tenant_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -564,9 +612,12 @@ model TrainingRun {
   started_at         DateTime              @default(now()) @db.Timestamptz(6)
   finished_at        DateTime?             @db.Timestamptz(6)
   ml_models          MLModel             @relation(fields: [model_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant_id           String?
+  tenant              Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([model_id], map: "training_runs_model_idx")
   @@index([status])
+  @@index([tenant_id])
 }
 
 enum admin_tier_enum {
@@ -752,4 +803,203 @@ enum training_status_enum {
   running
   completed
   failed
+}
+
+// =====================================================
+// SaaS MULTI-TENANT MODELS (added in v5.0.0)
+// Migration: 0009_saas_multi_tenant_auth.sql
+// =====================================================
+
+enum user_role_enum {
+  superadmin
+  admin
+  tenant_admin
+  data
+  analyst
+  viewer
+}
+
+enum tenant_plan_enum {
+  saas_monthly
+  saas_yearly
+  enterprise_onprem
+  trial
+  internal
+}
+
+enum tenant_status_enum {
+  active
+  suspended
+  terminated
+  provisioning
+}
+
+enum addon_type_enum {
+  region_expansion
+  custom_scraper
+  api_connector
+  ui_customization
+}
+
+/// SaaS customer registry. Each row = one company subscribed to LocInsights.
+model Tenant {
+  @@map("tenants")
+  id                  String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                String
+  slug                String            @unique
+  plan                tenant_plan_enum  @default(saas_monthly)
+  status              tenant_status_enum @default(active)
+  region_scope        String[]          @default([])
+  data_residency      String?
+  // White-labeling
+  app_name            String            @default("LocInsights")
+  logo_url            String?
+  primary_color       String            @default("#7A0A1A")
+  accent_color        String            @default("#C8102E")
+  // Contact
+  contact_name        String?
+  contact_email       String?
+  contact_phone       String?
+  notes               String            @default("")
+  // Limits
+  max_users           Int               @default(10)
+  max_api_calls_per_day Int             @default(10000)
+  // Lifecycle
+  trial_ends_at       DateTime?         @db.Timestamptz(6)
+  suspended_at        DateTime?         @db.Timestamptz(6)
+  terminated_at       DateTime?         @db.Timestamptz(6)
+  // Audit
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime          @default(now()) @db.Timestamptz(6)
+  created_by          String?
+
+  users               User[]
+  default_users       User[]   @relation("UserDefaultTenant")
+  addons              TenantAddon[]
+  brands              Brand[]
+  stores              Store[]
+  malls               Mall[]
+  mall_tenants        MallTenant[]
+  competitor_stores   CompetitorStore[]
+  pois                Poi[]
+  reports             Report[]
+  scraper_runs        ScraperRun[]
+  field_surveys       FieldSurvey[]
+  ab_tests            ABTest[]
+  ml_models           MLModel[]
+  training_runs       TrainingRun[]
+  predictions         Prediction[]
+  staging_stores      StagingStore[]
+  staging_competitors StagingCompetitor[]
+  staging_malls       StagingMall[]
+  docs                Doc[]
+  roles               Role[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([plan])
+}
+
+/// Per-tenant add-ons (Skema C in SaaS pricing).
+model TenantAddon {
+  @@map("tenant_addons")
+  id            String          @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id     String
+  addon_type    addon_type_enum
+  addon_config  Json            @default("{}")
+  expires_at    DateTime?       @db.Timestamptz(6)
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  created_by    String?
+  tenant        Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([addon_type])
+}
+
+/// DB-backed documentation storage (replaces filesystem on Vercel).
+model Doc {
+  @@map("docs")
+  id            String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  slug          String    @unique
+  title         String
+  category      String    @default("General")
+  order         Int       @default(100)
+  content       String    @default("")
+  last_updated  DateTime  @default(now()) @db.Date
+  owner         String    @default("Data Team")
+  tenant_id     String?
+  is_published  Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  tenant        Tenant?   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+  @@index([category])
+  @@index([tenant_id])
+}
+
+/// Auth — User table. tenant_id NULL = platform superadmin.
+model User {
+  @@map("users")
+  id                 String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  username           String         @unique
+  email              String?        @unique
+  display_name       String?
+  password_hash      String
+  role               user_role_enum @default(viewer)
+  is_active          Boolean        @default(true)
+  failed_login_count Int            @default(0)
+  locked_until       DateTime?      @db.Timestamp(6)
+  last_login_at      DateTime?      @db.Timestamptz(6)
+  created_at         DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime       @default(now()) @db.Timestamptz(6)
+  created_by         String?
+  // Multi-tenant
+  tenant_id          String?
+  default_tenant_id  String?
+  tenant             Tenant?        @relation(fields: [tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  default_tenant     Tenant?        @relation("UserDefaultTenant", fields: [default_tenant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  audit_logs         UserAuditLog[]
+
+  @@index([role])
+  @@index([is_active])
+  @@index([tenant_id])
+  @@index([default_tenant_id])
+}
+
+/// Auth — Role table. permissions stored as JSON.
+model Role {
+  @@map("roles")
+  id               String   @id
+  name             String   @unique
+  description      String?  @default("")
+  permissions      Json     @default("{}")
+  is_system        Boolean  @default(true)
+  // Multi-tenant
+  tenant_id        String?
+  is_tenant_scoped Boolean  @default(false)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  tenant           Tenant?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+}
+
+/// Auth — Audit log for user actions (login, CRUD, lockout).
+model UserAuditLog {
+  @@map("user_audit_logs")
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_id    String
+  actor_id   String?
+  action     String
+  details    Json?
+  ip_address String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([action])
+  @@index([created_at])
 }

@@ -1,5 +1,5 @@
 /**
- * LocInsight API route handlers — shared helpers
+ * LocInsights API route handlers — shared helpers
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'

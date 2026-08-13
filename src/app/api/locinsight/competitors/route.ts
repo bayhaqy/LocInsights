@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, paginate, handleError } from '@/lib/api-helpers'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +55,10 @@ function dedupeCompetitors(rows: any[]): any[] {
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('competitors', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const term = sp.get('search')
     const kab = sp.get('kab')
@@ -61,7 +67,7 @@ export async function GET(req: NextRequest) {
     const all = sp.get('all') === 'true'
     const dedupe = sp.get('dedupe') !== 'false' // default: dedupe ON
 
-    const where: any = {}
+    const where: any = { ...tenantFilter(auth.session) }
     if (kab) where.kab = kab
     if (brand) where.brand_name = brand
     if (category) where.brand_category = category
@@ -106,8 +112,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requirePermission('competitors', 'create')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const body = await req.json()
-    const competitor = await db.competitorStore.create({ data: body })
+    delete body.tenant_id
+    const competitor = await db.competitorStore.create({ data: withTenantId(auth.session, body) })
     return NextResponse.json({ success: true, data: competitor }, { status: 201 })
   } catch (e) {
     return handleError(e)

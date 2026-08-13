@@ -12,6 +12,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db, handleError } from '@/lib/api-helpers'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, withTenantId } from '@/lib/tenant-context'
 import { scoreAllKelurahan, getTopOpportunities, getDashboardStats } from '@/lib/scoring/engine'
 import { BALI_STORES } from '@/lib/data/bali-stores'
 import { BALI_MALLS } from '@/lib/data/bali-malls'
@@ -78,7 +80,7 @@ function generateExecutiveSummary(filters: ReportFilters) {
   })
 
   return {
-    title: 'LocInsight Executive Summary',
+    title: 'LocInsights Executive Summary',
     generated_at: new Date().toISOString(),
     filters,
     summary: {
@@ -113,7 +115,7 @@ function generateSiteAnalysis(filters: ReportFilters) {
   const filtered = filters.min_score ? opps.filter(o => o.composite_score >= filters.min_score!) : opps
 
   return {
-    title: 'LocInsight Site Analysis',
+    title: 'LocInsights Site Analysis',
     generated_at: new Date().toISOString(),
     filters,
     sites: filtered.map((o, i) => ({
@@ -175,7 +177,7 @@ function generateBrandExpansion(filters: ReportFilters) {
   })
 
   return {
-    title: 'LocInsight Brand Expansion Matrix',
+    title: 'LocInsights Brand Expansion Matrix',
     generated_at: new Date().toISOString(),
     filters,
     brands_analyzed: brands.length,
@@ -215,7 +217,7 @@ function generateRegionalComparison(filters: ReportFilters) {
   })
 
   return {
-    title: 'LocInsight Regional Comparison',
+    title: 'LocInsights Regional Comparison',
     generated_at: new Date().toISOString(),
     filters,
     kabupaten_count: KABUPATEN_LIST.length,
@@ -267,6 +269,10 @@ function toCSV(data: any[]): string {
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('reports', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const type = sp.get('type') || 'executive_summary'
     const format = sp.get('format') || 'json'
@@ -314,7 +320,7 @@ export async function GET(req: NextRequest) {
       let reportId: string | undefined
       try {
         const report = await db.report.create({
-          data: {
+          data: withTenantId(auth.session, {
             title: content.title,
             type,
             format: 'csv',
@@ -322,8 +328,8 @@ export async function GET(req: NextRequest) {
             status: 'generated',
             file_path: null, // inline download — no on-disk file
             file_size_kb: Math.ceil(csv.length / 1024),
-            generated_by: 'system',
-          },
+            generated_by: auth.session?.user?.user_id || auth.session?.user?.id || 'system',
+          }),
         })
         reportId = report.id
       } catch (dbErr) {
@@ -360,7 +366,7 @@ export async function GET(req: NextRequest) {
 // ============================================================
 
 function renderHTML(content: any, type: string): string {
-  const title = content.title || 'LocInsight Report'
+  const title = content.title || 'LocInsights Report'
   const generated = content.generated_at || new Date().toISOString()
 
   const tierTable = content.tier_breakdown ? `
@@ -562,7 +568,7 @@ function renderHTML(content: any, type: string): string {
   ${regTable}
 
   <div class="footer">
-    LocInsight · Powered by MAP Active Data Team · Generated on ${new Date(generated).toLocaleString('en-GB')}
+    LocInsights · Powered by MAP Active Data Team · Generated on ${new Date(generated).toLocaleString('en-GB')}
     <br/>Best-practice methodology: Huff Gravity Model · XGBoost · Random Forest · K-Means · Validated against Aug 2026 industry benchmarks (Placer.ai, GrowthFactor.ai, Felt.com)
   </div>
 </body>

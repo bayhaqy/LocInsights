@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 /**
- * Next.js configuration for LocInsight.
+ * Next.js configuration for LocInsights.
  *
  * - `output: 'standalone'` produces a self-contained .next/standalone build
  *   (smaller container image, faster cold starts on Vercel).

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Lightweight i18n provider for LocInsight.
+ * Lightweight i18n provider for LocInsights.
  *
  * - Default language: English (en)
  * - User can switch to Indonesian (id) via the language toggle in the header

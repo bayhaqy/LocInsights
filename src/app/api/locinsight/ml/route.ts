@@ -19,6 +19,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db, handleError } from '@/lib/api-helpers'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter } from '@/lib/tenant-context'
 import { scoreAllKelurahan, getTopOpportunities } from '@/lib/scoring/engine'
 import { predictGBR, computeFeatureImportance, type GBRModel } from '@/lib/ml/gbr'
 import { buildFeatureVector } from '@/lib/ml/dataset'
@@ -83,6 +85,10 @@ const HEURISTIC_MODELS = [
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('ml', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const action = sp.get('action') || 'models'
 
@@ -119,9 +125,14 @@ export async function GET(req: NextRequest) {
         })
       }
 
-      // Get the latest training run's metrics for the GBR model (if exists)
+      // Get the latest training run's metrics for the GBR model (if exists).
+      // Scoped to current tenant + system (NULL tenant_id) runs.
       const latestRun = await db.trainingRun.findFirst({
-        where: { model_id: 'mdl_gbr_revenue_v1', status: 'completed' },
+        where: {
+          model_id: 'mdl_gbr_revenue_v1',
+          status: 'completed',
+          OR: [{ tenant_id: null }, tenantFilter(auth.session)],
+        },
         orderBy: { started_at: 'desc' },
       })
 
@@ -153,7 +164,10 @@ export async function GET(req: NextRequest) {
         })
       }
 
-      const models = await db.mLModel.findMany({ orderBy: { trained_at: 'desc' } })
+      const models = await db.mLModel.findMany({
+        where: { OR: [{ tenant_id: null }, tenantFilter(auth.session)] },
+        orderBy: { trained_at: 'desc' },
+      })
       return NextResponse.json({ success: true, data: models })
     }
 
@@ -194,9 +208,9 @@ export async function GET(req: NextRequest) {
     if (action === 'feature_importance') {
       const model = await loadModel()
       if (!model) {
-        // Fallback: get from latest training run in DB
+        // Fallback: get from latest training run in DB (tenant-scoped)
         const latestRun = await db.trainingRun.findFirst({
-          where: { status: 'completed' },
+          where: { status: 'completed', OR: [{ tenant_id: null }, tenantFilter(auth.session)] },
           orderBy: { started_at: 'desc' },
         })
         if (latestRun) {
@@ -327,6 +341,7 @@ export async function GET(req: NextRequest) {
     if (action === 'training_runs') {
       const limit = Math.min(50, Number(sp.get('limit') || 20))
       const runs = await db.trainingRun.findMany({
+        where: { OR: [{ tenant_id: null }, tenantFilter(auth.session)] },
         orderBy: { started_at: 'desc' },
         take: limit,
       })

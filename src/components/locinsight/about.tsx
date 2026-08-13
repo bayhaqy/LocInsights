@@ -26,7 +26,7 @@ export function About() {
         </p>
       </div>
 
-      {/* What is LocInsight */}
+      {/* What is LocInsights */}
       <Card className="card-premium">
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
@@ -36,7 +36,7 @@ export function About() {
         </CardHeader>
         <CardContent className="pt-0 space-y-4 text-[13px] leading-relaxed text-[var(--brand-ink)]/85">
           <p>
-            LocInsight is an enterprise-grade location intelligence system designed to help MAP Active Adiperkasa (MAA)
+            LocInsights is an enterprise-grade location intelligence system designed to help MAP Active Adiperkasa (MAA)
             make data-driven retail expansion decisions. It identifies <strong>white-space opportunities</strong> —
             underserved areas where new stores can thrive — and quantifies the revenue potential of each candidate site
             using a combination of composite scoring, the Huff Gravity Model, and Gradient-Boosted Regression (GBR).
@@ -55,7 +55,7 @@ export function About() {
         <CardHeader className="pb-3">
           <CardTitle className="text-[13px] uppercase tracking-wider text-[var(--brand-ink)] flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[var(--brand-red)]" />
-            Why Use LocInsight? — Key Use Cases
+            Why Use LocInsights? — Key Use Cases
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -98,7 +98,7 @@ export function About() {
         </CardHeader>
         <CardContent className="pt-0 space-y-4 text-[13px] leading-relaxed text-[var(--brand-ink)]/85">
           <p>
-            LocInsight follows the <strong>3-stage retail site selection framework</strong> recommended by
+            LocInsights follows the <strong>3-stage retail site selection framework</strong> recommended by
             industry leaders like OnSpot Data (2026), Placer.ai (2024), Felt.com (2026), and GrowthFactor.ai (2025):
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -321,7 +321,7 @@ export function About() {
                 Developer &amp; Data Engineer · MAP Active Adiperkasa (MAA) Data Team
               </div>
               <p className="text-[12.5px] text-[var(--brand-ink)]/80 leading-relaxed mt-2">
-                Designed and built LocInsight end-to-end — from data ingestion and PostGIS schema design through
+                Designed and built LocInsights end-to-end — from data ingestion and PostGIS schema design through
                 composite scoring, Huff gravity modelling, and the GBR revenue predictor. Responsible for the
                 continuous data pipeline that keeps competitor, POI, and demographic layers fresh, and for
                 evolving the platform as new market signals and brand segments are added.

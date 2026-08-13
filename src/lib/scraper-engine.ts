@@ -28,7 +28,7 @@ import { haversineKm } from '@/lib/data/bali-kelurahan'
 import { COMPETITOR_BRANDS, BALI_BBOX } from '@/lib/data/competitor-brands'
 import type { ScraperResultRow, GeocodedResult } from '@/lib/scraper-types'
 
-const USER_AGENT = 'LocInsight/1.0 (MAP Active Adiperkasa Data Team)'
+const USER_AGENT = 'LocInsights/1.0 (MAP Active Adiperkasa Data Team)'
 
 // ============================================================================
 // TYPES

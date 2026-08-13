@@ -10,11 +10,13 @@ import { prisma } from '@/lib/db'
 import { haversineKm } from '@/lib/data/bali-kelurahan'
 import { BRANDS } from '@/lib/data/brands'
 import { COMPETITOR_BRANDS } from '@/lib/data/competitor-brands'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const USER_AGENT = 'LocInsight/1.0 (MAP Active Adiperkasa Data Team)'
+const USER_AGENT = 'LocInsights/1.0 (MAP Active Adiperkasa Data Team)'
 
 interface OverpassElement {
   type: string
@@ -70,12 +72,16 @@ function classifyBrand(name: string): { brand_name: string; brand_category: stri
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('mall_tenants', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const mallId = sp.get('mall_id')
     const mallName = sp.get('mall_name')
     const onlyMap = sp.get('only_map') === 'true'
 
-    const where: any = {}
+    const where: any = { ...tenantFilter(auth.session) }
     if (mallId) where.mall_id = mallId
     if (mallName) where.mall_name = mallName
     if (onlyMap) where.is_map_brand = true
@@ -98,6 +104,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requirePermission('mall_tenants', 'create')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const body = await req.json()
     const { mall_id, mall_name, lat, lng, radius_km = 0.8 } = body
 
@@ -194,17 +204,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Persist to DB (replace existing tenants for this mall) — only AFTER we
-    // know we have at least one valid new tenant.
+    // know we have at least one valid new tenant. Scoped to current tenant
+    // so we don't wipe another tenant's mall_tenants.
     if (mall_id) {
-      await prisma.mallTenant.deleteMany({ where: { mall_id } })
+      await prisma.mallTenant.deleteMany({ where: { mall_id, ...tenantFilter(auth.session) } })
     } else {
-      await prisma.mallTenant.deleteMany({ where: { mall_name } })
+      await prisma.mallTenant.deleteMany({ where: { mall_name, ...tenantFilter(auth.session) } })
     }
 
     for (const t of deduped) {
       try {
         await prisma.mallTenant.create({
-          data: {
+          data: withTenantId(auth.session, {
             mall_id: mall_id || null,
             mall_name,
             brand_name: t.brand_name,
@@ -213,7 +224,7 @@ export async function POST(req: NextRequest) {
             is_competitor: t.is_competitor,
             category: t.category,
             source: 'osm' as any,
-          },
+          }),
         })
       } catch (createErr) {
         // Log per-row errors but continue — partial persistence is better than

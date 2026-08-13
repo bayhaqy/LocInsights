@@ -23,6 +23,8 @@ import { prisma } from '@/lib/db'
 import { trainGBR, computeFeatureImportance, type GBRModel } from '@/lib/ml/gbr'
 import { buildTrainingDataset, FEATURE_NAMES } from '@/lib/ml/dataset'
 import { setTrainedModel } from '@/lib/ml/model-cache'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -32,8 +34,14 @@ export async function POST(req: NextRequest) {
   let trainDuration = 0
   let datasetSize = 0
   let algoForFailure = 'gbr_regressor'
+  let authSession: any = null
 
   try {
+    const auth = await requirePermission('ml', 'create')
+    if (!auth.ok) return auth.response
+    authSession = auth.session
+    await setTenantContext(authSession)
+
     const body = await req.json().catch(() => ({}))
     const config = {
       n_estimators: body.n_estimators ?? 80,
@@ -99,8 +107,9 @@ export async function POST(req: NextRequest) {
     })
 
     // STEP 2: Now safe to create the TrainingRun child row (FK satisfied).
+    // Inject tenant_id so each tenant's training history is isolated.
     const trainingRun = await prisma.trainingRun.create({
-      data: {
+      data: withTenantId(authSession, {
         model_id,
         model_name: 'GBR Revenue Predictor v1',
         algorithm: 'gbr_regressor',
@@ -121,7 +130,7 @@ export async function POST(req: NextRequest) {
         model_artifact_url: 'in-memory://gbr-revenue-bali-v1',
         train_duration_ms: trainDuration,
         finished_at: new Date(),
-      },
+      }),
     })
 
     // Update MLModel version stamp with the run id (cosmetic)
@@ -146,7 +155,7 @@ export async function POST(req: NextRequest) {
     // parent MLModel row already exists; otherwise just return the error.
     try {
       await prisma.trainingRun.create({
-        data: {
+        data: withTenantId(authSession, {
           model_id,
           model_name: 'GBR Revenue Predictor v1',
           algorithm: algoForFailure as any,
@@ -159,7 +168,7 @@ export async function POST(req: NextRequest) {
           error: (e?.message || String(e)).slice(0, 500),
           train_duration_ms: trainDuration,
           finished_at: new Date(),
-        },
+        }),
       })
     } catch { /* parent MLModel may not exist yet; ignore */ }
 
@@ -175,9 +184,14 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('ml', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const limit = Math.min(50, Number(sp.get('limit') || 20))
     const runs = await prisma.trainingRun.findMany({
+      where: { OR: [{ tenant_id: null }, tenantFilter(auth.session)] },
       orderBy: { started_at: 'desc' },
       take: limit,
     })

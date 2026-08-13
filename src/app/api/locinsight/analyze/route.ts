@@ -7,6 +7,8 @@ import { BALI_MALLS } from '@/lib/data/bali-malls'
 import { BALI_POIS } from '@/lib/data/bali-poi'
 import { prisma } from '@/lib/db'
 import { getKelurahanFromDB, loadStoresFromDB } from '@/lib/scoring/db-engine'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +22,10 @@ export const dynamic = 'force-dynamic'
  * the Map Explorer.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requirePermission('analysis', 'read')
+  if (!auth.ok) return auth.response
+  await setTenantContext(auth.session)
+
   const sp = req.nextUrl.searchParams
   const kelurahanId = sp.get('kelurahan_id')
   const brandId = sp.get('brand_id') || undefined
@@ -37,8 +43,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: `kelurahan not found (id=${kelurahanId})` }, { status: 404 })
   }
 
-  // Load competitor stores from DB (Phase 2)
+  // Load competitor stores from DB (Phase 2) — tenant-scoped
   const competitorRows = await prisma.competitorStore.findMany({
+    where: tenantFilter(auth.session),
     select: { brand_name: true, brand_category: true, lat: true, lng: true, name: true, mall_name: true },
   })
   const competitorStores: CompetitorStoreLite[] = competitorRows.map(r => ({

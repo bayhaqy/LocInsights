@@ -1,5 +1,5 @@
 /**
- * Bulk import/export helpers for all LocInsight master data entities.
+ * Bulk import/export helpers for all LocInsights master data entities.
  *
  * Each entity has:
  *   - list of fields (key, label, type) — used for both import templates and the spreadsheet UI
@@ -23,6 +23,23 @@ import { db } from './api-helpers'
 export type EntityType =
   | 'stores' | 'malls' | 'brands' | 'competitors'
   | 'kelurahan' | 'pois' | 'kabupaten' | 'kecamatan'
+
+/**
+ * Entities that have a tenant_id column (tenant-scoped data).
+ * Bulk operations on these entities inject tenant_id on create and filter
+ * reads/updates by tenant_id.
+ */
+export const TENANT_SCOPED_ENTITIES = new Set<EntityType>([
+  'stores', 'malls', 'brands', 'competitors', 'pois',
+])
+
+/**
+ * Entities that are SHARED reference data (no tenant_id column).
+ * Bulk write operations on these entities require superadmin.
+ */
+export const REFERENCE_DATA_ENTITIES = new Set<EntityType>([
+  'kelurahan', 'kabupaten', 'kecamatan',
+])
 
 export type FieldType = 'text' | 'number' | 'boolean' | 'select'
 
@@ -267,13 +284,26 @@ function coerceRow(row: Record<string, any>, fields: FieldDef[]): Record<string,
 
 /**
  * Bulk upsert rows for an entity. Returns counts.
+ *
+ * Tenant isolation:
+ *   - For tenant-scoped entities (TENANT_SCOPED_ENTITIES), if options.tenantId is
+ *     provided, it's injected into create payloads and used as an additional
+ *     WHERE filter on updateMany (so a row belonging to another tenant cannot
+ *     be mutated). If an existing row's tenant_id doesn't match, the row is
+ *     rejected with an "access denied" error.
+ *   - For reference-data entities (REFERENCE_DATA_ENTITIES), tenant_id is
+ *     never injected (those tables have no tenant_id column).
  */
 export async function bulkUpsert(
   entity: EntityType,
   rows: Record<string, any>[],
+  options?: { tenantId?: string | null },
 ): Promise<{ created: number; updated: number; errors: Array<{ row: number; error: string }> }> {
   const cfg = ENTITY_CONFIG[entity]
   if (!cfg) throw new Error(`Unknown entity: ${entity}`)
+
+  const tid = options?.tenantId ?? null
+  const isTenantScoped = TENANT_SCOPED_ENTITIES.has(entity)
 
   let created = 0
   let updated = 0
@@ -301,14 +331,40 @@ export async function bulkUpsert(
       delete data.mall
       delete data.predictions
       delete data.Kecamatan
+      // Never allow tenant_id to be set via the row body — always derive from session
+      delete data.tenant_id
 
       // Check existence — count is more efficient than findUnique for paranoid schemas
       const existing = await cfg.model.findUnique({ where: { [cfg.idField]: idVal } })
+
+      // Tenant-scoped defense-in-depth: if the existing row belongs to a
+      // different tenant, reject the upsert. (NULL tenant_id = system row,
+      // which is editable by any tenant admin — rare but allowed.)
+      if (isTenantScoped && tid && existing) {
+        const existingTid = (existing as any).tenant_id
+        if (existingTid !== null && existingTid !== undefined && existingTid !== tid) {
+          throw new Error('Access denied: record belongs to another tenant')
+        }
+      }
+
       if (existing) {
-        await cfg.model.update({ where: { [cfg.idField]: idVal }, data })
-        updated++
+        if (isTenantScoped && tid) {
+          // updateMany with tenant_id in WHERE — prevents cross-tenant mutation
+          const res = await cfg.model.updateMany({
+            where: { [cfg.idField]: idVal, tenant_id: tid },
+            data,
+          })
+          if (res.count > 0) updated++
+          else throw new Error('Access denied: record belongs to another tenant')
+        } else {
+          // Reference data — superadmin-only (route enforces)
+          await cfg.model.update({ where: { [cfg.idField]: idVal }, data })
+          updated++
+        }
       } else {
-        await cfg.model.create({ data })
+        // Inject tenant_id on create for tenant-scoped entities
+        const createData = isTenantScoped && tid ? { ...data, tenant_id: tid } : data
+        await cfg.model.create({ data: createData })
         created++
       }
     } catch (e: any) {
@@ -321,12 +377,24 @@ export async function bulkUpsert(
 
 /**
  * Export all rows for an entity as JSON. Caller decides CSV vs XLSX.
+ *
+ * Tenant isolation: for tenant-scoped entities, if options.tenantId is set,
+ * rows are filtered to that tenant. For reference-data entities, no filter
+ * is applied (shared across all tenants).
  */
-export async function exportRows(entity: EntityType): Promise<Record<string, any>[]> {
+export async function exportRows(
+  entity: EntityType,
+  options?: { tenantId?: string | null },
+): Promise<Record<string, any>[]> {
   const cfg = ENTITY_CONFIG[entity]
   if (!cfg) throw new Error(`Unknown entity: ${entity}`)
+
+  const tid = options?.tenantId ?? null
+  const where = TENANT_SCOPED_ENTITIES.has(entity) && tid ? { tenant_id: tid } : {}
+
   // Exclude relation fields
   const rows = await cfg.model.findMany({
+    where,
     orderBy: { [cfg.idField]: 'asc' },
   })
   // Strip relation objects (Prisma returns them only if `include` is set)

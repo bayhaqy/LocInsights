@@ -25,12 +25,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, handleError } from '@/lib/api-helpers'
 import { runScrape } from '@/lib/scraper-engine'
 import type { ScrapeRequest, ScrapeMode, ItemKind } from '@/lib/scraper-engine'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requirePermission('scraper', 'create')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const body = await req.json()
     const mode: ScrapeMode = body.mode === 'brand' ? 'brand' : 'keyword'
     const kinds: ItemKind[] | undefined = Array.isArray(body.kinds)
@@ -51,9 +57,9 @@ export async function POST(req: NextRequest) {
 
     const result = await runScrape(scrapeReq)
 
-    // Log scraper run for audit
+    // Log scraper run for audit (tenant-scoped)
     const run = await db.scraperRun.create({
-      data: {
+      data: withTenantId(auth.session, {
         query: mode === 'keyword' ? (scrapeReq.query || '') : `brand sweep: ${(result.meta.brands_scraped || []).join(', ')}`,
         source: result.source as any,
         status: 'success',
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
         saved_count: 0,
         result_json: JSON.stringify(result.results.slice(0, 500)),
         finished_at: new Date(),
-      },
+      }),
     }).catch(() => null)
 
     return NextResponse.json({
@@ -86,9 +92,14 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requirePermission('scraper', 'read')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const sp = req.nextUrl.searchParams
     const limit = Math.min(100, Number(sp.get('limit') || 50))
     const runs = await db.scraperRun.findMany({
+      where: tenantFilter(auth.session),
       orderBy: { started_at: 'desc' },
       take: limit,
     })

@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { OfflineBanner } from "@/components/locinsight/offline-banner";
+import { AuthProvider } from "@/lib/auth-provider";
+import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -20,22 +22,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LocInsight — Location Intelligence for MAP Active",
+  title: "LocInsights — Location Intelligence for Retail Expansion",
   description:
-    "LocInsight (Location Insight) — data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali using composite ML scoring, Huff gravity modeling, competitor intel, GBR revenue prediction, and field-surveyor PWA.",
+    "LocInsights — SaaS location intelligence platform for retail store expansion. Identifies optimal store opportunities using composite ML scoring, competitor intel, and GBR revenue prediction. Multi-tenant architecture with role-based access control.",
   keywords: [
-    "LocInsight",
+    "LocInsights",
     "Location Intelligence",
-    "MAP Active",
-    "Adiperkasa",
     "Retail Site Selection",
     "Geomarketing",
     "Huff Model",
     "Gradient Boosting",
-    "Bali",
+    "Multi-tenant SaaS",
     "Expansion Strategy",
   ],
-  authors: [{ name: "MAP Active Data Team" }],
+  authors: [{ name: "Achmad Bayhaqy" }],
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -47,14 +47,14 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "LocInsight",
+    title: "LocInsights",
     statusBarStyle: "black-translucent",
   },
-  applicationName: "LocInsight",
+  applicationName: "LocInsights",
   openGraph: {
-    title: "LocInsight — Location Intelligence",
-    description: "Data-driven retail expansion decisioning for MAP Active",
-    siteName: "LocInsight",
+    title: "LocInsights — Location Intelligence",
+    description: "SaaS location intelligence platform for retail expansion",
+    siteName: "LocInsights",
     type: "website",
   },
 };
@@ -81,13 +81,17 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <LanguageProvider>
-          {children}
-          <Toaster />
-          <SonnerToaster position="top-right" richColors closeButton />
-          {/* Offline banner — shows full-screen message when no internet connection */}
-          <OfflineBanner />
-        </LanguageProvider>
+        <AuthProvider>
+          <LanguageProvider>
+            {children}
+            <Toaster />
+            <SonnerToaster position="top-right" richColors closeButton />
+            {/* Offline banner — shows full-screen message when no internet connection */}
+            <OfflineBanner />
+          </LanguageProvider>
+        </AuthProvider>
+        {/* Vercel Analytics */}
+        <Analytics />
         {/* PWA service worker — registers after page load, defers to avoid blocking */}
         <script
           dangerouslySetInnerHTML={{

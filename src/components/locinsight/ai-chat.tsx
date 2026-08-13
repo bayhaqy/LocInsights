@@ -11,7 +11,7 @@
  *   • Each conversation persisted to localStorage (key: locinsight.chat.history)
  *   • Send/receive messages via POST /api/locinsight/chat
  *   • Markdown-style rendering for code blocks and bullet lists
- *   • Guardrailed responses (server-side) — only LocInsight topics
+ *   • Guardrailed responses (server-side) — only LocInsights topics
  *   • Online/offline detection (disables send when offline)
  *   • Mobile-responsive (full-screen on small viewports)
  *
@@ -691,7 +691,7 @@ export function AIChat() {
                 <div className="text-[10px] text-[var(--brand-ink)]/40 mt-1.5 text-center">
                   {fallbackMode
                     ? (lang === 'id' ? 'Mode bantuan · Aktifkan AI penuh di Vercel' : 'Help mode · Set ZAI env vars for full AI')
-                    : 'LocInsight AI · Guardrailed to location intelligence topics'}
+                    : 'LocInsights AI · Guardrailed to location intelligence topics'}
                 </div>
               </div>
             </>

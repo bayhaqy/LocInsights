@@ -1,6 +1,6 @@
 {
-  "name": "LocInsight — Location Intelligence for MAP Active",
-  "short_name": "LocInsight",
+  "name": "LocInsights — Location Intelligence for MAP Active",
+  "short_name": "LocInsights",
   "description": "Data-driven retail expansion decisioning system for PT MAP Aktif Adiperkasa Tbk. Identifies optimal store expansion opportunities across Bali using composite ML scoring, Huff gravity modeling, competitor intel, and GBR revenue prediction.",
   "start_url": "/",
   "scope": "/",
@@ -42,7 +42,7 @@
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
-      "description": "Open the LocInsight Dashboard",
+      "description": "Open the LocInsights Dashboard",
       "url": "/?view=dashboard"
     },
     {

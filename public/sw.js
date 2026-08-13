@@ -1,5 +1,5 @@
 /**
- * LocInsight Service Worker — PWA with offline shell caching.
+ * LocInsights Service Worker — PWA with offline shell caching.
  *
  * Strategy:
  *   • Pre-cache the app shell on install (logo, manifest, key CSS)

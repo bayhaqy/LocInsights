@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTopOpportunities, type ScoringConfig, type ScoringWeights, DEFAULT_WEIGHTS } from '@/lib/scoring/engine'
 import { buildScoringConfig, loadKelurahanFromDB } from '@/lib/scoring/db-engine'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +15,10 @@ export const dynamic = 'force-dynamic'
  * instead of static BALI_KELURAHAN (~161 fake villages).
  */
 export async function GET(req: NextRequest) {
+  const auth = await requirePermission('opportunities', 'read')
+  if (!auth.ok) return auth.response
+  await setTenantContext(auth.session)
+
   const sp = req.nextUrl.searchParams
   const brandId = sp.get('brand_id') || undefined
   const tier = sp.get('tier') ? Number(sp.get('tier')) as 1 | 2 | 3 : undefined

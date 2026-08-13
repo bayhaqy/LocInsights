@@ -1,8 +1,8 @@
 ============================================================
-LocInsight Android APK — Build Instructions (v4.2 — Aug 2026)
+LocInsights Android APK — Build Instructions (v4.2 — Aug 2026)
 ============================================================
 
-LocInsight is shipped as a PWA (Progressive Web App). To distribute
+LocInsights is shipped as a PWA (Progressive Web App). To distribute
 it as a native .apk file for Android, we use Google's official
 Bubblewrap CLI (Trusted Web Activity wrapper).
 
@@ -59,8 +59,8 @@ STEP-BY-STEP BUILD:
 
   3. (Optional) Edit twa-manifest.json to set:
        - packageId: id.my.bayhaqy.locinsight
-       - name: LocInsight
-       - launcherName: LocInsight
+       - name: LocInsights
+       - launcherName: LocInsights
        - themeColor: #7A0A1A
        - navigationColor: #1A1815
        - backgroundColor: #FAF7F2
@@ -92,12 +92,12 @@ INSTALL ON DEVICE (sideload):
   - Transfer app-release-signed.apk to your Android phone
   - Enable "Install from unknown sources" in Settings
   - Tap the .apk file to install
-  - Open LocInsight from your app drawer
+  - Open LocInsights from your app drawer
 
 ALTERNATIVE: PWA INSTALL (no APK needed)
   - Open https://locinsights.bayhaqy.my.id in Chrome on Android
   - Tap the menu (⋮) → "Install app"
-  - LocInsight appears in your app drawer, runs full-screen
+  - LocInsights appears in your app drawer, runs full-screen
   - Same features, same offline capability, no .apk needed
 
 DEVELOPER CONTACT:

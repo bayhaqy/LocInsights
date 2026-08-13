@@ -7,7 +7,7 @@
  *   - Tier inherited from parent kecamatan
  *   - Demographic proxies derived from urban_score, parent kabupaten GDRP, and POI proximity
  *
- * Bali has ~709 kelurahan/desa total — for LocInsight demo we include ~220 representative
+ * Bali has ~709 kelurahan/desa total — for LocInsights demo we include ~220 representative
  * ones covering all kabupaten/kota. Production should integrate full BPS shapefile.
  */
 

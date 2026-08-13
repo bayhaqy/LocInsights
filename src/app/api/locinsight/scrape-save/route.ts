@@ -30,6 +30,8 @@ import { isOnBaliLand } from '@/lib/data/bali-land'
 import { haversineKm } from '@/lib/data/bali-kelurahan'
 import { classifyScrapedBrand } from '@/lib/brand-classifier'
 import type { ScraperResultRow } from '@/lib/scraper-types'
+import { requirePermission } from '@/lib/auth-server'
+import { setTenantContext, tenantFilter, withTenantId } from '@/lib/tenant-context'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -38,6 +40,10 @@ interface SaveItem extends ScraperResultRow {}
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requirePermission('scraper', 'create')
+    if (!auth.ok) return auth.response
+    await setTenantContext(auth.session)
+
     const body = await req.json()
     const { run_id, items } = body as {
       run_id?: string
@@ -55,23 +61,29 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Load existing competitor stores once for dedup (50m rule)
+    const tf = tenantFilter(auth.session)
+
+    // Load existing competitor stores once for dedup (50m rule) — tenant-scoped
     const existingCompetitors = await prisma.competitorStore.findMany({
+      where: tf,
       select: { id: true, lat: true, lng: true, brand_name: true },
     })
 
-    // Load existing malls once for dedup
+    // Load existing malls once for dedup — tenant-scoped
     const existingMalls = await prisma.mall.findMany({
+      where: tf,
       select: { id: true, lat: true, lng: true },
     })
 
-    // Load existing POIs once for dedup
+    // Load existing POIs once for dedup — tenant-scoped
     const existingPois = await prisma.poi.findMany({
+      where: tf,
       select: { id: true, lat: true, lng: true },
     })
 
-    // Load existing MAA/MAP stores once for dedup
+    // Load existing MAA/MAP stores once for dedup — tenant-scoped
     const existingStores = await prisma.store.findMany({
+      where: tf,
       select: { id: true, lat: true, lng: true, brand_id: true },
     })
 
@@ -109,7 +121,7 @@ export async function POST(req: NextRequest) {
             }
             const id = `SCR_S_${now}_${savedStores.length}`
             await prisma.store.create({
-              data: {
+              data: withTenantId(auth.session, {
                 id,
                 brand_id: cls.brand_id,
                 brand_name: cls.brand_name,
@@ -128,7 +140,7 @@ export async function POST(req: NextRequest) {
                 opened_year: new Date().getFullYear(),
                 confirmed: false,
                 source: item.source,
-              },
+              }),
             })
             savedStores.push(id)
           } else {
@@ -156,7 +168,7 @@ export async function POST(req: NextRequest) {
               savedCompetitors.push(nearbyComp.id)
             } else {
               const created = await prisma.competitorStore.create({
-                data: {
+                data: withTenantId(auth.session, {
                   brand_name: targetBrand,
                   brand_category: (cls.brand_category as any) || 'other',
                   name: item.name,
@@ -170,7 +182,7 @@ export async function POST(req: NextRequest) {
                   is_in_mall: item.tags?._is_in_mall === 'true',
                   mall_name: item.tags?._mall_name || null,
                   source: 'osm' as any,
-                },
+                }),
               })
               existingCompetitors.push({
                 id: created.id,
@@ -195,7 +207,7 @@ export async function POST(req: NextRequest) {
           }
           const id = `SCR_M_${now}_${savedMalls.length}`
           await prisma.mall.create({
-            data: {
+            data: withTenantId(auth.session, {
               id,
               name: item.name,
               lat: item.lat,
@@ -214,7 +226,7 @@ export async function POST(req: NextRequest) {
               visitor_estimate_daily: 5000,
               notes: 'Scraped from OSM',
               source: item.source,
-            },
+            }),
           })
           savedMalls.push(id)
           continue
@@ -231,7 +243,7 @@ export async function POST(req: NextRequest) {
           }
           const id = `SCR_P_${now}_${savedPois.length}`
           await prisma.poi.create({
-            data: {
+            data: withTenantId(auth.session, {
               id,
               name: item.name,
               type: (item.poi_type || 'tourist_attraction') as any,
@@ -244,7 +256,7 @@ export async function POST(req: NextRequest) {
               magnitude: item.poi_magnitude || 1000,
               notes: item.poi_notes || '',
               source: item.source,
-            },
+            }),
           })
           savedPois.push(id)
           continue
@@ -254,11 +266,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update ScraperRun if run_id was provided
+    // Update ScraperRun if run_id was provided (tenant-scoped update)
     if (run_id) {
       const totalSaved = savedStores.length + savedCompetitors.length + savedMalls.length + savedPois.length
-      await prisma.scraperRun.update({
-        where: { id: run_id },
+      await prisma.scraperRun.updateMany({
+        where: { id: run_id, ...tf },
         data: { saved_count: totalSaved },
       }).catch(() => {/* run might not exist if from old session */})
     }
