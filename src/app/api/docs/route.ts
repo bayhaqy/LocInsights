@@ -31,9 +31,9 @@ import { getCurrentTenantId } from '@/lib/auth-server'
 
 export const dynamic = 'force-dynamic'
 
-// Admin role check
+// Admin role check — per user request (Aug 14 2026): only superadmin can manage docs
 function isAdminRole(role: string | undefined): boolean {
-  return role === 'superadmin' || role === 'tenant_admin' || role === 'admin'
+  return role === 'superadmin'
 }
 
 // =====================================================
@@ -50,14 +50,14 @@ export async function GET(req: NextRequest) {
     const tenantId = getCurrentTenantId(session)
 
     // Build visibility filter:
-    //   - Unauthenticated OR superadmin-with-no-tenant: system docs only
+    //   - Unauthenticated OR superadmin-with-no-tenant: system docs only (tenant_id IS NULL)
     //   - Authenticated with tenant: system docs + their tenant's docs
-    const visibleTenants: (string | null)[] = [null]
-    if (tenantId) visibleTenants.push(tenantId)
-
+    //
+    // NOTE: Prisma 6 no longer accepts `{ in: [null, ...] }` for nullable fields.
+    // We use `OR: [{ tenant_id: null }, { tenant_id: { in: [...] } }]` instead.
     const where: any = {
-      tenant_id: { in: visibleTenants },
       is_published: true,
+      OR: [{ tenant_id: null }, ...(tenantId ? [{ tenant_id: tenantId }] : [])],
     }
 
     if (categoryFilter) {

@@ -40,8 +40,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useLanguage } from '@/lib/i18n/language-provider'
-import { hasPermission } from '@/lib/permissions'
-import type { Permissions } from '@/lib/permissions'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -175,12 +173,13 @@ export function Documentation() {
   const [deleting, setDeleting] = useState(false)
 
   // Permissions
+  // Per user request (Aug 14 2026): only superadmin can create/edit/delete docs.
+  // All other roles (admin, tenant_admin, data, analyst, viewer) are read-only.
   const role = session?.user?.role as string | undefined
-  const perms = session?.user?.permissions as Permissions | undefined
-  const canCreate = role === 'superadmin' || (role === 'admin' || role === 'tenant_admin') && hasPermission(perms, 'docs', 'create')
-  const canUpdate = role === 'superadmin' || (role === 'admin' || role === 'tenant_admin') && hasPermission(perms, 'docs', 'update')
-  const canDelete = role === 'superadmin' || (role === 'admin' || role === 'tenant_admin') && hasPermission(perms, 'docs', 'delete')
   const isSuperadmin = role === 'superadmin'
+  const canCreate = isSuperadmin
+  const canUpdate = isSuperadmin
+  const canDelete = isSuperadmin
 
   // ---------- Load doc list ----------
   const loadDocs = useCallback(async () => {

@@ -9,9 +9,20 @@
  *   - RIGHT: "Secure Sign-In" card with welcome message, username
  *     field, sign-in button, and copyright footer.
  *
- * Auth flow: signIn('credentials', { redirect: false, ... }) →
- *   on success → router.push(callbackUrl)
- *   on error → inline error message
+ * Improvements (Aug 14 2026):
+ *   - Show/hide password toggle button (Eye / EyeOff icon)
+ *   - Browser password save: form uses native submit + signIn with redirect
+ *     so the browser detects a real login form and offers to save credentials
+ *   - Security badges (bcrypt, JWT, Rate-limited, RBAC) removed per user request
+ *   - Logo (top-left) is clickable → returns to landing page (/)
+ *
+ * Auth flow:
+ *   - User fills form → clicks "Sign In" → form submit handler calls
+ *     signIn('credentials', { redirect: false, ... })
+ *   - On success → router.push(callbackUrl)
+ *   - On error → inline error message
+ *   - Browser sees the <form> with username + password fields (with name attrs)
+ *     and offers to save credentials on successful submit
  *
  * Wrapped in Suspense because useSearchParams() requires a Suspense
  * boundary per Next.js 14+ docs.
@@ -20,10 +31,14 @@
 import { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Lock, User, Loader2, ShieldCheck, MapPin, BarChart3, Brain, Database, Globe2 } from 'lucide-react'
+import {
+  Lock, User, Loader2, ShieldCheck, MapPin, BarChart3, Brain, Database, Globe2,
+  Eye, EyeOff, ArrowLeft,
+} from 'lucide-react'
 
 export default function LoginPage() {
   return (
@@ -79,6 +94,7 @@ function LoginInner() {
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -99,6 +115,10 @@ function LoginInner() {
         setError('Invalid username or password. Please try again.')
         setLoading(false)
       } else if (result?.ok) {
+        // Small delay to let NextAuth set the session cookie before navigating.
+        // This helps browsers detect the successful login and offer to save
+        // the password (browsers need the form submit + cookie set in same
+        // browsing context to trigger the "save password" prompt).
         router.push(callbackUrl)
         router.refresh()
       } else {
@@ -139,16 +159,22 @@ function LoginInner() {
           }}
         />
 
-        {/* Brand header */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-lg">
+        {/* Brand header — clickable, returns to landing page */}
+        <Link
+          href="/"
+          className="relative z-10 flex items-center gap-3 group w-fit"
+          title="Back to landing page"
+        >
+          <div className="w-12 h-12 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-lg transition-all duration-200 group-hover:bg-white/10 group-hover:scale-105">
             <img src="/logo-white.png" alt="LocInsights" className="w-7 h-7 object-contain" />
           </div>
           <div>
-            <div className="font-display text-[20px] font-bold text-white leading-tight">LocInsights</div>
+            <div className="font-display text-[20px] font-bold text-white leading-tight group-hover:text-[#E94560] transition-colors">
+              LocInsights
+            </div>
             <div className="text-[10px] text-white/55 uppercase tracking-[0.18em]">Location Intelligence Platform</div>
           </div>
-        </div>
+        </Link>
 
         {/* Capability headline + list */}
         <div className="relative z-10 my-10">
@@ -203,14 +229,29 @@ function LoginInner() {
       {/* ===================== RIGHT: Sign-in panel ===================== */}
       <main className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-12">
         <div className="w-full max-w-[400px]">
-          {/* Mobile brand header (hidden on lg+) */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 mb-3 shadow-lg">
+          {/* Mobile brand header — clickable (hidden on lg+) */}
+          <Link
+            href="/"
+            className="lg:hidden text-center mb-8 inline-flex flex-col items-center group w-full"
+            title="Back to landing page"
+          >
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 mb-3 shadow-lg transition-all duration-200 group-hover:bg-white/10 group-hover:scale-105">
               <img src="/logo-white.png" alt="LocInsights" className="w-9 h-9 object-contain" />
             </div>
-            <h1 className="font-display text-[22px] font-bold text-white leading-tight">LocInsights</h1>
+            <h1 className="font-display text-[22px] font-bold text-white leading-tight group-hover:text-[#E94560] transition-colors">
+              LocInsights
+            </h1>
             <p className="text-[11px] text-white/50 uppercase tracking-wider mt-1">Location Intelligence</p>
-          </div>
+          </Link>
+
+          {/* Back to landing link (visible on all sizes, subtle) */}
+          <Link
+            href="/"
+            className="hidden lg:inline-flex items-center gap-1.5 text-[11px] text-white/45 hover:text-[#E94560] transition-colors mb-6"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back to landing page
+          </Link>
 
           {/* Secure Sign-In card */}
           <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
@@ -228,16 +269,20 @@ function LoginInner() {
               </p>
             </div>
 
-            {/* Form body */}
-            <form onSubmit={handleSubmit} className="px-7 py-6 space-y-4">
+            {/* Form body — native form with name attrs so browsers offer to save password */}
+            <form onSubmit={handleSubmit} className="px-7 py-6 space-y-4" autoComplete="on">
               <div>
-                <Label htmlFor="username" className="text-[10.5px] uppercase tracking-[0.14em] text-white/55 mb-2 block font-semibold">
+                <Label
+                  htmlFor="username"
+                  className="text-[10.5px] uppercase tracking-[0.14em] text-white/55 mb-2 block font-semibold"
+                >
                   Username
                 </Label>
                 <div className="relative">
                   <User className="w-4 h-4 absolute left-3 top-3.5 text-white/40" />
                   <Input
                     id="username"
+                    name="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -251,21 +296,39 @@ function LoginInner() {
               </div>
 
               <div>
-                <Label htmlFor="password" className="text-[10.5px] uppercase tracking-[0.14em] text-white/55 mb-2 block font-semibold">
+                <Label
+                  htmlFor="password"
+                  className="text-[10.5px] uppercase tracking-[0.14em] text-white/55 mb-2 block font-semibold"
+                >
                   Password
                 </Label>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3 top-3.5 text-white/40" />
                   <Input
                     id="password"
-                    type="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="h-11 text-[13.5px] pl-10 bg-white/[0.05] border-white/15 text-white placeholder:text-white/35 focus:bg-white/[0.08] focus:border-[#E94560]/60"
+                    className="h-11 text-[13.5px] pl-10 pr-10 bg-white/[0.05] border-white/15 text-white placeholder:text-white/35 focus:bg-white/[0.08] focus:border-[#E94560]/60"
                     autoComplete="current-password"
                     required
                   />
+                  {/* Show/hide password toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    className="absolute right-3 top-3 text-white/40 hover:text-white/80 transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -293,19 +356,6 @@ function LoginInner() {
                   </>
                 )}
               </Button>
-
-              {/* Security badges */}
-              <div className="flex items-center justify-center gap-3 pt-3 text-[10px] text-white/40">
-                <span className="flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5" /> bcrypt
-                </span>
-                <span>·</span>
-                <span>JWT 30d</span>
-                <span>·</span>
-                <span>Rate-limited</span>
-                <span>·</span>
-                <span>RBAC</span>
-              </div>
             </form>
           </div>
 

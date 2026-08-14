@@ -28,8 +28,9 @@ import { getCurrentTenantId } from '@/lib/auth-server'
 
 export const dynamic = 'force-dynamic'
 
+// Admin role check — per user request (Aug 14 2026): only superadmin can manage docs
 function isAdminRole(role: string | undefined): boolean {
-  return role === 'superadmin' || role === 'tenant_admin' || role === 'admin'
+  return role === 'superadmin'
 }
 
 // =====================================================
