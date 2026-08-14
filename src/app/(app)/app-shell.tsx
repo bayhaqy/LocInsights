@@ -46,6 +46,16 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { loading, error } = useApp()
 
+  // Track last visited URL (client-side) — keeps the `last_visited_url` cookie
+  // in sync with client-side navigations (next/link, router.push). The middleware
+  // also sets this cookie on server-side page loads; this effect covers the gaps.
+  useEffect(() => {
+    if (!pathname) return
+    // Skip API/internal paths (shouldn't happen in app shell, but be safe)
+    if (pathname.startsWith('/api/') || pathname.startsWith('/_next')) return
+    document.cookie = `last_visited_url=${encodeURIComponent(pathname)}; path=/; max-age=${30 * 24 * 60 * 60}; samesite=lax`
+  }, [pathname])
+
   // Breadcrumb label (current page name).
   // NOTE: no manual useMemo — React Compiler auto-memoizes this expression.
   const currentPageLabel = (() => {
